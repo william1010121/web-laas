@@ -14,6 +14,22 @@ describe("LivePreview layout", () => {
   });
 });
 
+describe("LivePreview placement", () => {
+  it("keeps the top of a card taller than the window on screen", () => {
+    const p = new LivePreview(document);
+    const card = (p as unknown as { card: HTMLElement }).card;
+    Object.defineProperty(card, "offsetHeight", { configurable: true, get: () => 900 });
+    Object.defineProperty(card, "offsetWidth", { configurable: true, get: () => 300 });
+    for (const mode of ["above", "below", "corner"] as const) {
+      p.setMode(mode);
+      p.update({ latex: "x", caret: 1, display: true, rect: { left: 100, top: 400, bottom: 420 }, id: mode });
+      const root = (p as unknown as { root: HTMLElement }).root;
+      const top = Number(/translate\([-\d.]+px, ([-\d.]+)px\)/.exec(root.style.transform)?.[1]);
+      expect(top, mode).toBeGreaterThanOrEqual(8);
+    }
+  });
+});
+
 describe("LivePreview dismissal", () => {
   it("Esc lasts until the caret leaves the formula", () => {
     const p = new LivePreview(document);

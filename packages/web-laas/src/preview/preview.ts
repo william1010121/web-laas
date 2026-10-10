@@ -73,6 +73,7 @@ ${themeCss(".lw-preview")}
   position: relative;
   box-sizing: border-box;
   max-width: min(620px, calc(100vw - 24px));
+  max-height: calc(100vh - 16px);
   padding: 10px 16px;
   border-radius: 12px;
   background: var(--lw-surface);
@@ -189,12 +190,17 @@ export class LivePreview {
     this.root.classList.add("on");
   }
 
-  /** Shrink a formula wider than the card instead of cutting it off. */
+  /** Shrink a formula wider than the card, or taller than the window, instead of cutting it off. */
   private fit() {
     this.math.style.zoom = "1";
-    const max = this.card.clientWidth - 32;
+    const maxW = this.card.clientWidth - 32;
+    const maxH = this.doc.defaultView!.innerHeight - 2 * MARGIN - 24; // the card's padding and border
     const w = this.math.scrollWidth;
-    if (w > max && max > 0) this.math.style.zoom = String(Math.max(0.55, max / w));
+    const h = this.math.scrollHeight;
+    let zoom = 1;
+    if (w > maxW && maxW > 0) zoom = Math.max(0.55, maxW / w);
+    if (h * zoom > maxH && maxH > 0) zoom = Math.max(0.4, maxH / h);
+    if (zoom < 1) this.math.style.zoom = String(zoom);
   }
 
   private place(f: PreviewFormula) {
@@ -207,8 +213,8 @@ export class LivePreview {
     let top: number;
     const r = f.rect;
     if (this.mode === "corner" || !r) {
-      left = vw - w - 16;
-      top = vh - h - 16;
+      left = Math.max(MARGIN, vw - w - 16);
+      top = Math.max(MARGIN, vh - h - 16);
     } else {
       left = Math.min(Math.max(MARGIN, r.left - 18), vw - w - MARGIN);
       const above = r.top - h - GAP;
@@ -217,7 +223,8 @@ export class LivePreview {
       const fitsBelow = below + h <= vh - MARGIN;
       if (this.mode === "above") top = fitsAbove || !fitsBelow ? above : below;
       else top = fitsBelow || !fitsAbove ? below : above;
-      top = Math.min(Math.max(MARGIN, top), vh - h - MARGIN);
+      // a card taller than the window keeps its top row on screen
+      top = Math.max(MARGIN, Math.min(top, vh - h - MARGIN));
     }
     this.root.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
   }

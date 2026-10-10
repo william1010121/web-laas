@@ -58,7 +58,8 @@ async function main() {
     await chrome.runtime.sendMessage({ type: "open-cheatsheet", tabId: tab?.id });
     window.close();
   };
-  if (host && /\./.test(host)) setupDelims(host, state.siteMath[host] ?? {});
+  // any web host, localhost and intranet names included (file: pages have no host to key on)
+  if (host && host !== "file:") setupDelims(host, state.siteMath[host] ?? {});
   $("options").onclick = () => chrome.runtime.openOptionsPage();
 }
 
