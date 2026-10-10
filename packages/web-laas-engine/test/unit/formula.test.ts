@@ -57,6 +57,11 @@ describe("formulaAt", () => {
     expect(at("\\begin {align} a &= |b \\end {align} trailing")?.tex).toBe(" a &= |b ");
   });
 
+  it("no formula while the caret sits in a % comment (Overleaf)", () => {
+    expect(at("$x + % note | $ ignored\n + y$", { comments: true })).toBeNull();
+    expect(at("$x + 50\\% |y$", { comments: true })?.tex).toBe("x + 50\\% |y"); // \% is a percent sign
+  });
+
   it("xalignat and xxalignat are math", () => {
     expect(at("\\begin{xalignat}{2} a&=|b \\end{xalignat}")?.env).toBe("xalignat");
     expect(at("\\begin{xxalignat}{2} a&=|b \\end{xxalignat}")?.env).toBe("xxalignat");

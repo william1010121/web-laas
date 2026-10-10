@@ -68,5 +68,7 @@ export function formulaAt(before: string, after: string, opts: { comments?: bool
   const end = blank >= 0 && (found < 0 || blank < found) ? blank : found >= 0 ? found : after.length;
   const head = before.slice(ctx.start);
   if (/\n[ \t]*\n/.test(head)) return null; // an opener left open in an earlier paragraph
+  // the caret inside a % comment: what follows on this line isn't math either
+  if (opts.comments && /(^|[^\\])(\\\\)*%/.test(head.slice(head.lastIndexOf("\n") + 1))) return null;
   return { latex: head + after.slice(0, end), caret: head.length, display: ctx.display, env };
 }

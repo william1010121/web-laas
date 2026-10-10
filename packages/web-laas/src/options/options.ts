@@ -1,4 +1,4 @@
-import { cheatsheetEntries, compileConfig, groupCheatsheet, snippetsForHost, type CompiledConfig } from "web-laas-engine";
+import { cheatsheetEntries, compileConfig, groupCheatsheet, snippetsForHost, withMathDelimiters, resolveMathDelimiters, type CompiledConfig } from "web-laas-engine";
 import { LaasController } from "web-laas-engine/dom";
 import { buildCheatsheet, SHEET_CSS } from "../cheatsheet/sheet";
 import { loadState, savePrefs, saveState, type ExtensionPrefs, type PreviewPref, type StoredState } from "../shared/storage";
@@ -73,7 +73,9 @@ function renderSheet() {
   const { config } = compileCurrent();
   const cfg = config ?? compileConfig(null, { extras: state.prefs.extras, cdlatex: state.prefs.cdlatex }).config;
   const select = $<HTMLSelectElement>("sheetSite");
-  const groups = groupCheatsheet(cheatsheetEntries(snippetsForHost(cfg, select.value)));
+  const groups = groupCheatsheet(cheatsheetEntries(
+    withMathDelimiters(snippetsForHost(cfg, select.value), resolveMathDelimiters(state.siteMath, select.value)),
+  ));
   const label = select.selectedOptions[0]?.textContent ?? "";
   $("sheetHost").replaceChildren(buildCheatsheet(document, groups, { host: label }));
 }
@@ -201,6 +203,12 @@ async function main() {
     if (changes.disabledHosts) {
       state.disabledHosts = Array.isArray(changes.disabledHosts.newValue) ? changes.disabledHosts.newValue : [];
       renderSites();
+    }
+    if (changes.siteMath) {
+      // the popup changed what mk / dm insert somewhere: the cheat sheet shows it
+      state.siteMath = (changes.siteMath.newValue ?? {}) as StoredState["siteMath"];
+      sheetDirty = true;
+      if ($("page-cheatsheet").classList.contains("active")) renderSheet();
     }
   });
   renderMaster();
