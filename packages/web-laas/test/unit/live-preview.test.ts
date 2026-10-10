@@ -30,6 +30,23 @@ describe("LivePreview placement", () => {
   });
 });
 
+describe("LivePreview resize", () => {
+  it("re-places the card when the window changes size", () => {
+    const p = new LivePreview(document);
+    const card = (p as unknown as { card: HTMLElement }).card;
+    const root = (p as unknown as { root: HTMLElement }).root;
+    Object.defineProperty(card, "offsetHeight", { configurable: true, get: () => 50 });
+    Object.defineProperty(card, "offsetWidth", { configurable: true, get: () => 100 });
+    p.setMode("corner");
+    p.update({ latex: "x", caret: 1, display: false, rect: null, id: "r" });
+    const before = root.style.transform;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: window.innerWidth - 300 });
+    window.dispatchEvent(new Event("resize"));
+    expect(root.style.transform).not.toBe(before);
+    p.destroy();
+  });
+});
+
 describe("LivePreview dismissal", () => {
   it("Esc lasts until the caret leaves the formula", () => {
     const p = new LivePreview(document);

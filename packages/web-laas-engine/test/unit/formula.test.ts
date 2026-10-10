@@ -57,6 +57,11 @@ describe("formulaAt", () => {
     expect(at("\\begin {align} a &= |b \\end {align} trailing")?.tex).toBe(" a &= |b ");
   });
 
+  it("xalignat and xxalignat are math", () => {
+    expect(at("\\begin{xalignat}{2} a&=|b \\end{xalignat}")?.env).toBe("xalignat");
+    expect(at("\\begin{xxalignat}{2} a&=|b \\end{xxalignat}")?.env).toBe("xxalignat");
+  });
+
   it("ignores an opener left open in an earlier paragraph", () => {
     expect(at("$x\n\nplain |text")).toBeNull();
   });

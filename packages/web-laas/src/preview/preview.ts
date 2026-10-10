@@ -130,7 +130,16 @@ export class LivePreview {
     this.card.append(this.math, badge);
     this.root.append(this.card);
     shadow.append(style, this.root);
+    doc.defaultView?.addEventListener("resize", this.onResize);
   }
+
+  // the formula may not change on resize, but where it fits does
+  private readonly onResize = () => {
+    if (this.visible && this.last) {
+      this.fit();
+      this.place(this.last);
+    }
+  };
 
   setMode(mode: PreviewMode) {
     this.mode = mode;
@@ -231,6 +240,7 @@ export class LivePreview {
   }
 
   destroy() {
+    this.doc.defaultView?.removeEventListener("resize", this.onResize);
     this.host.remove();
   }
 }
