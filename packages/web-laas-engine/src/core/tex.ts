@@ -17,7 +17,7 @@ const MATH_ENVS = new Set([
 ]);
 
 // Commands whose brace argument is text, not math.
-const TEXT_ARG_CMDS = new Set([
+export const TEXT_ARG_CMDS = new Set([
   "text", "textrm", "textit", "textbf", "textsf", "texttt", "textup", "textnormal",
   "mbox", "hbox", "intertext", "shortintertext", "operatorname", "label", "ref",
   "eqref", "cite", "tag", "begin", "end",
@@ -114,6 +114,21 @@ export function mathContext(text: string, opts: { comments?: boolean } = {}): Ma
 }
 
 const CLOSE_TO_OPEN: Record<string, string> = { ")": "(", "]": "[", "}": "{" };
+
+/** Index of the "}" matching the "{" at `open` (escaped braces skipped), or -1. */
+export function matchClose(text: string, open: number): number {
+  let depth = 0;
+  for (let k = open; k < text.length; k++) {
+    const ch = text[k];
+    if (ch === "\\") {
+      k++;
+      continue;
+    }
+    if (ch === "{") depth++;
+    else if (ch === "}" && --depth === 0) return k;
+  }
+  return -1;
+}
 
 export function matchOpen(text: string, close: number): number {
   const stackChars: string[] = [];

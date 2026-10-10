@@ -12,6 +12,8 @@ declare global {
 
 if (!window.__webLaasPreviewAlive?.()) {
   window.__webLaasPreviewAlive = alive;
+  // an extension update leaves the previous build's card in the page: take it down
+  document.querySelectorAll("[data-web-laas-preview]").forEach((el) => el.remove());
   const preview = new LivePreview(document);
   let mode: PreviewMode | "off" = "above";
 

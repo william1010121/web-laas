@@ -1,6 +1,6 @@
 // The formula the caret is in: its LaTeX source (opener and closer excluded),
 // where the caret sits inside it, and how it should be rendered.
-import { mathContext } from "./tex";
+import { matchClose, mathContext, TEXT_ARG_CMDS } from "./tex";
 
 export interface Formula {
   /** LaTeX between the delimiters */
@@ -32,6 +32,14 @@ function findCloser(text: string, closer: string, comments: boolean): number {
       const nl = text.indexOf("\n", i);
       if (nl < 0) return -1;
       i = nl; // a comment runs to the end of the line
+      continue;
+    }
+    // \text{… $x$ …}: delimiters inside a text argument belong to nested math, skip the group
+    const cmd = unescaped && text[i] === "\\" ? /^\\([A-Za-z]+\*?)\s*\{/.exec(text.slice(i, i + 40)) : null;
+    if (cmd && cmd[1] !== "begin" && cmd[1] !== "end" && TEXT_ARG_CMDS.has(cmd[1].replace(/\*$/, ""))) {
+      const close = matchClose(text, i + cmd[0].length - 1);
+      if (close < 0) return -1;
+      i = close;
       continue;
     }
     if (!text.startsWith(closer, i)) continue;

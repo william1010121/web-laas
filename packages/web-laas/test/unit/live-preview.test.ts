@@ -2,6 +2,18 @@
 import { describe, expect, it } from "vitest";
 import { LivePreview } from "../../src/preview/preview";
 
+describe("LivePreview layout", () => {
+  it("counts padding and border inside the viewport width (border-box)", () => {
+    const p = new LivePreview(document);
+    p.update({ latex: "x", caret: 1, display: false, rect: { left: 0, top: 50, bottom: 70 } });
+    const host = document.querySelector("[data-web-laas-preview]")!;
+    expect(host).not.toBeNull();
+    const root = (p as unknown as { card: HTMLElement }).card.getRootNode() as ShadowRoot;
+    const css = [...root.querySelectorAll("style")].map((st) => st.textContent).join("");
+    expect(css).toMatch(/\.card\s*\{[^}]*box-sizing:\s*border-box/);
+  });
+});
+
 describe("LivePreview fallback", () => {
   it("keeps the last good render only for the formula being edited", () => {
     window.matchMedia ??= (() => ({ matches: false })) as unknown as typeof window.matchMedia;

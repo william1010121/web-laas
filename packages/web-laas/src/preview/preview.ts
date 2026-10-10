@@ -49,6 +49,7 @@ ${themeCss(".lw-preview")}
 .lw-preview.on { opacity: 1; }
 .card {
   position: relative;
+  box-sizing: border-box;
   max-width: min(620px, calc(100vw - 24px));
   padding: 10px 16px;
   border-radius: 12px;

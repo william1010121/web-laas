@@ -39,6 +39,10 @@ describe("formulaAt", () => {
     expect(formulaAt("$a + ", "\\% b$")?.latex).toBe("a + \\% b"); // \% is not a comment
   });
 
+  it("skips nested math inside \\text{} after the caret", () => {
+    expect(at("$a + |\\text{if $x>0$} + b$ end")?.tex).toBe("a + |\\text{if $x>0$} + b");
+  });
+
   it("stops an unclosed formula at a blank line", () => {
     expect(at("$x + |y\n\nnext paragraph")?.tex).toBe("x + |y");
   });
