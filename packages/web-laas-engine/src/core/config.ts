@@ -249,3 +249,32 @@ export function snippetsForHost(config: CompiledConfig, host: string): Snippet[]
       !(s.excludeSites && s.excludeSites.some((p) => hostMatches(host, p))),
   );
 }
+
+export type InlineMathStyle = "auto" | "dollar" | "paren";
+export type DisplayMathStyle = "auto" | "ddollar" | "bracket" | "equation";
+
+/** Which delimiters mk / dm insert ("auto": the built-in choice for the site). */
+export interface MathDelimiters {
+  inline?: InlineMathStyle;
+  display?: DisplayMathStyle;
+}
+
+const MATH_DELIMITERS: Record<string, [replacement: string, description: string]> = {
+  dollar: ["$$1$$0", "行內數學 $…$"],
+  paren: ["\\($1\\)$0", "行內數學 \\(…\\)"],
+  ddollar: ["$$\n$1\n$$$0", "區塊數學 $$…$$"],
+  bracket: ["\\[\n\t$1\n\\]$0", "區塊數學 \\[…\\]"],
+  equation: ["\\begin{equation*}\n\t$1\n\\end{equation*}$0", "區塊數學 equation*"],
+};
+
+/** The built-in mk / dm snippets rewritten to insert the chosen delimiters (your own mk / dm are left alone). */
+export function withMathDelimiters(snippets: Snippet[], d: MathDelimiters | undefined): Snippet[] {
+  if (!d) return snippets;
+  return snippets.map((s) => {
+    if (s.source !== "extras") return s;
+    const style = s.key === "mk" ? d.inline : s.key === "dm" ? d.display : undefined;
+    const pick = style && style !== "auto" ? MATH_DELIMITERS[style] : undefined;
+    if (!pick) return s;
+    return { ...s, replacement: pick[0], template: tokenizeTemplate(pick[0]), description: pick[1] };
+  });
+}

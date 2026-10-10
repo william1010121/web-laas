@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { prepareLatex } from "../../src/preview/preview";
-import { renderMath } from "../../src/shared/math";
+import { fixCaretMark, prepareLatex } from "../../src/preview/preview";
+import { alignColumns, renderMath } from "../../src/shared/math";
 
 const A = "#4fb8aa";
-const MARK = `{\\color{${A}}\\rule{0.09em}{1em}}`;
+const MARK = `{\\color{${A}}\\rule{0.0901em}{1em}}`;
 const BOX = `{\\color{${A}}\\square}`;
 const prep = (s: string, env?: string) => {
   const caret = s.indexOf("|");
@@ -44,5 +44,30 @@ describe("prepareLatex", () => {
 
   it("returns null for half-typed LaTeX, so the last render is kept", () => {
     expect(renderMath(prep("\\frac{a}{|").plain)).toBeNull();
+  });
+});
+
+describe("alignment in Chrome's MathML", () => {
+  it("turns columnalign into text-align on each cell", () => {
+    const html = renderMath("\\begin{aligned}&a\\\\&=f\\end{aligned}", true)!;
+    expect(html.match(/<mtd style="text-align:right">/g)).toHaveLength(2);
+    expect(html.match(/<mtd style="text-align:left">/g)).toHaveLength(2);
+  });
+
+  it("restarts the columns on each row and nested table", () => {
+    const out = alignColumns('<mtable columnalign="right left"><mtr><mtd>a</mtd><mtd><mtable columnalign="center"><mtr><mtd>x</mtd></mtr></mtable></mtd></mtr><mtr><mtd>b</mtd></mtr></mtable>');
+    expect(out).toBe('<mtable columnalign="right left"><mtr><mtd style="text-align:right">a</mtd><mtd style="text-align:left"><mtable columnalign="center"><mtr><mtd>x</mtd></mtr></mtable></mtd></mtr><mtr><mtd style="text-align:right">b</mtd></mtr></mtable>');
+  });
+
+  it("keeps alignat's column count in an alignedat wrapper", () => {
+    const p = prepareLatex({ latex: "{2}a&=b&c&=d", caret: 1, env: "alignat" }, A);
+    expect(p.plain).toBe("\\begin{alignedat}{2}a&=b&c&=d\\end{alignedat}");
+    expect(renderMath(p.withCaret!, true)).not.toBeNull();
+  });
+
+  it("drops the caret mark below the baseline", () => {
+    const html = fixCaretMark(renderMath(prep("x+|").withCaret!)!);
+    expect(html).toContain('width="0.09em" height="0.8em" depth="0.25em"');
+    expect(html).not.toContain("<mpadded");
   });
 });

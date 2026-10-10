@@ -14,7 +14,12 @@
   .host { font-family: var(--mono); font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
   .actions .btn { justify-content: center; padding: 10px 12px; }
-  .off .row.site { opacity: .5; }
+  .off .row.site, .off .delims { opacity: .5; }
+  .delims .row { padding: 10px 14px; flex-wrap: wrap; gap: 6px 10px; }
+  .delims .head2 { padding: 10px 14px 0; font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; }
+  .delims .row + .row { border-top: 0; padding-top: 2px; }
+  .delims .title { width: 34px; font-family: var(--mono); font-size: 12.5px; }
+  .delims[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -35,6 +40,11 @@
         </div>
         <span class="switch"><input type="checkbox" id="site"><span></span></span>
       </label>
+    </div>
+    <div class="card delims" id="delims" hidden>
+      <div class="head2"><span>此網站的 mk / dm 要插入哪一種數學環境</span></div>
+      <div class="row"><span class="title">mk</span><div class="seg" id="inline" role="group" aria-label="mk 行內數學"></div></div>
+      <div class="row"><span class="title">dm</span><div class="seg" id="display" role="group" aria-label="dm 區塊數學"></div></div>
     </div>
     <div class="actions">
       <button class="btn" id="cheatsheet">∑ Cheat sheet <kbd id="csKey">Alt+Shift+K</kbd></button>

@@ -43,6 +43,10 @@ describe("formulaAt", () => {
     expect(at("$a + |\\text{if $x>0$} + b$ end")?.tex).toBe("a + |\\text{if $x>0$} + b");
   });
 
+  it("does not close at a \\\\ followed by the closer character", () => {
+    expect(at("\\(a + | \\\\) + b \\) end")?.tex).toBe("a + | \\\\) + b ");
+  });
+
   it("stops an unclosed formula at a blank line", () => {
     expect(at("$x + |y\n\nnext paragraph")?.tex).toBe("x + |y");
   });

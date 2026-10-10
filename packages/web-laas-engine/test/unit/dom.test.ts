@@ -32,6 +32,33 @@ describe("LaasController", () => {
     expect(ta.selectionStart).toBe(" $\\frac{x}{y}".length);
   });
 
+  it("mk / dm insert the delimiters chosen for the site", async () => {
+    document.body.innerHTML = "<textarea></textarea>";
+    const ta = document.querySelector("textarea")!;
+    ta.focus();
+    const c = new LaasController({ host: "chat.example.com" });
+    c.setState({ siteMath: { "example.com": { inline: "paren", display: "equation" }, "other.org": { inline: "dollar" } } });
+    detach = c.attach();
+    for (const ch of " mkx") {
+      type(ta, ch);
+      await tick();
+    }
+    expect(ta.value).toBe(" \\(x\\)");
+    ta.value = "";
+    for (const ch of "dm") {
+      type(ta, ch);
+      await tick();
+    }
+    expect(ta.value).toBe("\\begin{equation*}\n\t\n\\end{equation*}");
+    c.setState({ siteMath: {} }); // back to the built-in $…$
+    ta.value = "";
+    for (const ch of "mk") {
+      type(ta, ch);
+      await tick();
+    }
+    expect(ta.value).toBe("$$");
+  });
+
   it("expands synchronously on the input event", () => {
     document.body.innerHTML = "<textarea></textarea>";
     const ta = document.querySelector("textarea")!;

@@ -13,28 +13,48 @@ export interface PreviewFormula {
   rect: { left: number; top: number; bottom: number } | null;
 }
 
-const ALIGNED = /^(align|alignat|flalign|eqnarray|split)\*?$/;
+const ALIGNED = /^(align|flalign|eqnarray|split)\*?$/;
+const ALIGNAT = /^(x?x?alignat)\*?$/;
 const GATHERED = /^(gather|multline)\*?$/;
 
 /** LaTeX to render: with a caret mark (when it can sit there) and without. */
 export function prepareLatex(f: Pick<PreviewFormula, "latex" | "caret" | "env">, accent: string) {
   const fill = (s: string) => s.replace(/\{\}/g, `{\\color{${accent}}\\square}`);
+  // alignat's {n} column count belongs to the alignedat wrapper, not the body
+  const cols = f.env && ALIGNAT.test(f.env) ? /^\s*\{\s*\d+\s*\}/.exec(f.latex)?.[0] ?? "" : "";
+  if (cols && f.caret < cols.length) f = { ...f, caret: cols.length };
+  const body = f.latex.slice(cols.length);
+  const caret = f.caret - cols.length;
   const wrap = (s: string) =>
-    f.env && ALIGNED.test(f.env)
+    cols
+      ? `\\begin{alignedat}${cols.trim()}${s}\\end{alignedat}`
+      : f.env && ALIGNED.test(f.env)
       ? `\\begin{aligned}${s}\\end{aligned}`
       : f.env && GATHERED.test(f.env)
         ? `\\begin{gathered}${s}\\end{gathered}`
         : s;
-  const before = f.latex.slice(0, f.caret);
-  const after = f.latex.slice(f.caret);
+  const before = body.slice(0, caret);
+  const after = body.slice(caret);
   // not in the middle of a \command name, nor right after a lone backslash
   const midCommand = /\\[A-Za-z]*$/.test(before) && (/^[A-Za-z]/.test(after) || /\\$/.test(before));
   // a solid bar, wider than a \\vert so it reads as the caret at a glance
-  const mark = `{\\color{${accent}}\\rule{0.09em}{1em}}`;
+  // (fixCaretMark moves it down to sit on the text line)
+  const mark = `{\\color{${accent}}\\rule{${MARK_WIDTH}}{1em}}`;
   return {
     withCaret: midCommand ? null : wrap(fill(before) + mark + fill(after)),
-    plain: wrap(fill(f.latex)),
+    plain: wrap(fill(body)),
   };
+}
+
+// an odd width singles the caret rule out in the MathML
+const MARK_WIDTH = "0.0901em";
+
+/** KaTeX gives \rule a zero-height box above the baseline; make the caret span ascender to descender. */
+export function fixCaretMark(mathml: string): string {
+  return mathml.replace(
+    new RegExp(`<mpadded[^>]*>(<mspace mathbackground="[^"]*") width="${MARK_WIDTH}" height="1em"></mspace></mpadded>`),
+    `$1 width="0.09em" height="0.8em" depth="0.25em"></mspace>`,
+  );
 }
 
 const CSS = `
@@ -137,7 +157,8 @@ export class LivePreview {
       this.dismissed = null;
     }
     const { withCaret, plain } = prepareLatex(f, accentColor());
-    const html = (withCaret && renderMath(withCaret, f.display)) || renderMath(plain, f.display);
+    const marked = withCaret && renderMath(withCaret, f.display);
+    const html = marked ? fixCaretMark(marked) : renderMath(plain, f.display);
     if (html) {
       if (html !== this.shownHtml) {
         this.math.innerHTML = html;

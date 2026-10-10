@@ -42,8 +42,8 @@ function findCloser(text: string, closer: string, comments: boolean): number {
       i = close;
       continue;
     }
-    if (!text.startsWith(closer, i)) continue;
-    if (closer[0] === "$" && !unescaped) continue; // \$
+    // \$ is a dollar sign; in \\) the backslashes pair up, so the ) is plain text
+    if (!text.startsWith(closer, i) || !unescaped) continue;
     return i; // for "$", a "$$" right here also ends this formula (it opens the next one)
   }
   return -1;

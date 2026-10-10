@@ -1,4 +1,5 @@
 import { DEFAULT_PREFS, type LaasPrefs, type RuntimeState } from "web-laas-engine/dom";
+import type { MathDelimiters } from "web-laas-engine";
 
 /** Engine prefs plus extension-only switches. */
 export type PreviewPref = "above" | "below" | "corner" | "off";
@@ -14,9 +15,11 @@ export const DEFAULT_EXTENSION_PREFS: ExtensionPrefs = { ...DEFAULT_PREFS, cheat
 
 export interface StoredState extends RuntimeState {
   prefs: ExtensionPrefs;
+  /** mk / dm delimiters per host, set from the popup */
+  siteMath: Record<string, MathDelimiters>;
 }
 
-export const STORAGE_KEYS = ["configText", "enabled", "disabledHosts", "prefs"] as const;
+export const STORAGE_KEYS = ["configText", "enabled", "disabledHosts", "prefs", "siteMath"] as const;
 
 export async function loadState(): Promise<StoredState> {
   const v = await chrome.storage.local.get([...STORAGE_KEYS]);
@@ -24,6 +27,7 @@ export async function loadState(): Promise<StoredState> {
     configText: typeof v.configText === "string" ? v.configText : null,
     enabled: v.enabled !== false,
     disabledHosts: Array.isArray(v.disabledHosts) ? v.disabledHosts : [],
+    siteMath: v.siteMath && typeof v.siteMath === "object" ? (v.siteMath as Record<string, MathDelimiters>) : {},
     prefs: { ...DEFAULT_EXTENSION_PREFS, ...(v.prefs && typeof v.prefs === "object" ? v.prefs : {}) },
   };
 }

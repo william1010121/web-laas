@@ -1,5 +1,13 @@
 import { adapterFor, deepActiveElement, type AdapterFactory, type EditorAdapter } from "./adapters";
-import { compileConfig, hostMatches, snippetsForHost, type CompiledConfig, type Snippet } from "../core/config";
+import {
+  compileConfig,
+  hostMatches,
+  snippetsForHost,
+  withMathDelimiters,
+  type CompiledConfig,
+  type MathDelimiters,
+  type Snippet,
+} from "../core/config";
 import { findExpansion, type Expansion } from "../core/matcher";
 import type { Range } from "../core/template";
 import { mathContext } from "../core/tex";
@@ -54,6 +62,8 @@ export interface RuntimeState {
   /** extra hosts to disable on top of the config's disabledSites */
   disabledHosts: string[];
   prefs: Partial<LaasPrefs>;
+  /** per-site mk / dm delimiters, keyed by host pattern ("overleaf.com" covers its subdomains) */
+  siteMath?: Record<string, MathDelimiters>;
 }
 
 export interface ControllerOptions {
@@ -214,7 +224,8 @@ export class LaasController {
       this.onConfigError(e as Error);
       this.config = compileConfig(null, opts).config;
     }
-    this.snippets = snippetsForHost(this.config, this.host);
+    const site = Object.entries(this.state.siteMath ?? {}).find(([p]) => hostMatches(this.host, p));
+    this.snippets = withMathDelimiters(snippetsForHost(this.config, this.host), site?.[1]);
     this.sessions = [];
     this.last = null;
     this.scheduleFormula(); // turning web-laas off hides the preview
