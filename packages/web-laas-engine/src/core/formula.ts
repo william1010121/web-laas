@@ -41,7 +41,7 @@ function findCloser(text: string, closer: string, comments: boolean): number {
     // \text{… $x$ …}: delimiters inside a text argument belong to nested math, skip the group
     const cmd = unescaped && text[i] === "\\" ? /^\\([A-Za-z]+\*?)\s*\{/.exec(text.slice(i, i + 40)) : null;
     if (cmd && cmd[1] !== "begin" && cmd[1] !== "end" && TEXT_ARG_CMDS.has(cmd[1].replace(/\*$/, ""))) {
-      const close = matchClose(text, i + cmd[0].length - 1);
+      const close = matchClose(text, i + cmd[0].length - 1, comments);
       if (close < 0) return -1;
       i = close;
       continue;

@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { formulaAt } from "../../src/core/formula";
 
 /** "|" marks the caret; returns the formula with the caret re-inserted */
-const at = (s: string) => {
+const at = (s: string, opts?: { comments?: boolean }) => {
   const i = s.indexOf("|");
-  const f = formulaAt(s.slice(0, i), s.slice(i + 1));
+  const f = formulaAt(s.slice(0, i), s.slice(i + 1), opts);
   return f && { tex: f.latex.slice(0, f.caret) + "|" + f.latex.slice(f.caret), display: f.display, env: f.env };
 };
 
@@ -45,6 +45,12 @@ describe("formulaAt", () => {
 
   it("does not close at a \\\\ followed by the closer character", () => {
     expect(at("\\(a + | \\\\) + b \\) end")?.tex).toBe("a + | \\\\) + b ");
+  });
+
+  it("skips % comments inside a \\text{} group (Overleaf)", () => {
+    expect(at("$a + |\\text{foo % } $ ignored\nbar} + b$ end", { comments: true })?.tex).toBe(
+      "a + |\\text{foo % } $ ignored\nbar} + b",
+    );
   });
 
   it("accepts spaces in \\end {env}", () => {

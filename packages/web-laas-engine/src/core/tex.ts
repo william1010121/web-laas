@@ -115,8 +115,8 @@ export function mathContext(text: string, opts: { comments?: boolean } = {}): Ma
 
 const CLOSE_TO_OPEN: Record<string, string> = { ")": "(", "]": "[", "}": "{" };
 
-/** Index of the "}" matching the "{" at `open` (escaped braces skipped), or -1. */
-export function matchClose(text: string, open: number): number {
+/** Index of the "}" matching the "{" at `open` (escaped braces, and % comments when `comments`, skipped), or -1. */
+export function matchClose(text: string, open: number, comments = false): number {
   let depth = 0;
   for (let k = open; k < text.length; k++) {
     const ch = text[k];
@@ -124,7 +124,11 @@ export function matchClose(text: string, open: number): number {
       k++;
       continue;
     }
-    if (ch === "{") depth++;
+    if (comments && ch === "%") {
+      const nl = text.indexOf("\n", k);
+      if (nl < 0) return -1;
+      k = nl;
+    } else if (ch === "{") depth++;
     else if (ch === "}" && --depth === 0) return k;
   }
   return -1;
