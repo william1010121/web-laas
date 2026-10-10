@@ -23,6 +23,7 @@ await esbuild.build({
   outdir: "dist",
 });
 execFileSync("npx", ["tsc", "-p", "tsconfig.build.json"], { stdio: "inherit" });
+execFileSync("node", ["scripts/fix-dts.mjs", "dist/types"], { stdio: "inherit" });
 
 // Editor test pages (test/editor/*.html).
 await esbuild.build({

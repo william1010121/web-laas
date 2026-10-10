@@ -9,5 +9,6 @@
     "skipLibCheck": true,
     "types": []
   },
-  "include": ["src", "test/unit", "test/editor/src"]
+  "include": ["src", "test/unit", "test/editor/src"],
+  "exclude": ["test/types"]
 }
