@@ -125,7 +125,12 @@ export class LivePreview {
 
   update(f: PreviewFormula | null) {
     this.last = f;
-    if (!f || !f.latex.trim()) return this.hide();
+    if (!f || !f.latex.trim()) {
+      // leaving the formula: its last good render must not stand in for the next one
+      this.shownHtml = "";
+      this.math.innerHTML = "";
+      return this.hide();
+    }
     if (this.dismissed !== null) {
       if (f.latex === this.dismissed) return;
       this.dismissed = null;

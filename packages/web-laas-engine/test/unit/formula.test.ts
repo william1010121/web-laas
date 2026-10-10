@@ -29,6 +29,16 @@ describe("formulaAt", () => {
     });
   });
 
+  it("skips delimiters inside % comments when comments are on (Overleaf)", () => {
+    const src = "$x + | % $ not the end\n + y$ after";
+    const i = src.indexOf("|");
+    const before = src.slice(0, i);
+    const after = src.slice(i + 1);
+    expect(formulaAt(before, after, { comments: true })?.latex).toBe("x +  % $ not the end\n + y");
+    expect(formulaAt(before, after)?.latex).toBe("x +  % "); // elsewhere % is plain text
+    expect(formulaAt("$a + ", "\\% b$")?.latex).toBe("a + \\% b"); // \% is not a comment
+  });
+
   it("stops an unclosed formula at a blank line", () => {
     expect(at("$x + |y\n\nnext paragraph")?.tex).toBe("x + |y");
   });

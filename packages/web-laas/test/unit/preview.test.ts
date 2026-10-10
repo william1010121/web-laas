@@ -46,3 +46,27 @@ describe("prepareLatex", () => {
     expect(renderMath(prep("\\frac{a}{|").plain)).toBeNull();
   });
 });
+
+describe("LivePreview fallback", () => {
+  it("keeps the last good render only for the formula being edited", async () => {
+    const { JSDOM } = await import("jsdom");
+    const dom = new JSDOM("<!doctype html><body></body>", { pretendToBeVisual: true });
+    const g = globalThis as any;
+    g.matchMedia = () => ({ matches: false });
+    const { LivePreview } = await import("../../src/preview/preview");
+    const p = new LivePreview(dom.window.document);
+    const rect = { left: 10, top: 100, bottom: 120 };
+    const html = () => (p as any).math.innerHTML as string;
+    const stale = () => (p as any).card.classList.contains("stale") as boolean;
+
+    p.update({ latex: "a + b", caret: 5, display: false, rect });
+    expect(html()).toContain("<math");
+    p.update({ latex: "a + \\frac{b}{", caret: 13, display: false, rect }); // half-typed: keep, dimmed
+    expect(html()).toContain("<math");
+    expect(stale()).toBe(true);
+    p.update(null); // left the formula
+    p.update({ latex: "\\frac{c}{", caret: 9, display: false, rect }); // another, half-typed formula
+    expect(html()).toBe("");
+    expect(p.visible).toBe(false);
+  });
+});

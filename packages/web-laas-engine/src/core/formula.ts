@@ -24,13 +24,19 @@ function closerFor(opener: string): { closer: string; env?: string } {
   return { closer: env ? `\\end{${env}}` : "", env };
 }
 
-/** Index of the first unescaped `closer` in `text`, or -1. */
-function findCloser(text: string, closer: string): number {
-  for (let i = text.indexOf(closer); i >= 0; i = text.indexOf(closer, i + 1)) {
-    const escaped = closer[0] === "$" && !ESCAPED.test(text.slice(0, i));
-    if (escaped) continue;
-    if (closer === "$" && text[i + 1] === "$") return i; // "$$" opens the next formula: stop here
-    return i;
+/** Index of the first unescaped `closer` in `text` (outside % comments when `comments`), or -1. */
+function findCloser(text: string, closer: string, comments: boolean): number {
+  for (let i = 0; i < text.length; i++) {
+    const unescaped = ESCAPED.test(text.slice(Math.max(0, i - 32), i));
+    if (comments && text[i] === "%" && unescaped) {
+      const nl = text.indexOf("\n", i);
+      if (nl < 0) return -1;
+      i = nl; // a comment runs to the end of the line
+      continue;
+    }
+    if (!text.startsWith(closer, i)) continue;
+    if (closer[0] === "$" && !unescaped) continue; // \$
+    return i; // for "$", a "$$" right here also ends this formula (it opens the next one)
   }
   return -1;
 }
@@ -44,7 +50,7 @@ export function formulaAt(before: string, after: string, opts: { comments?: bool
   if (!ctx.math || ctx.start === undefined) return null;
   const opener = before.slice(ctx.start - (ctx.openLen ?? 0), ctx.start);
   const { closer, env } = closerFor(opener);
-  let end = closer ? findCloser(after, closer) : -1;
+  let end = closer ? findCloser(after, closer, !!opts.comments) : -1;
   if (end < 0) {
     // unclosed: stop at a blank line, like TeX would complain there
     const blank = after.search(/\n\s*\n/);
