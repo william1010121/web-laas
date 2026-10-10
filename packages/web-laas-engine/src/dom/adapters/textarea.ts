@@ -26,7 +26,9 @@ function fieldCaretRect(el: HTMLTextAreaElement | HTMLInputElement, pos: number)
     mirror.style.boxSizing = "border-box";
     mirror.style.width = `${el.clientWidth + parseFloat(cs.borderLeftWidth || "0") + parseFloat(cs.borderRightWidth || "0")}px`;
   }
-  mirror.style.whiteSpace = el instanceof HTMLTextAreaElement ? "pre-wrap" : "pre";
+  // wrap="off" (or white-space: pre) scrolls sideways instead of wrapping
+  const wraps = el instanceof HTMLTextAreaElement && el.getAttribute("wrap") !== "off" && !/^pre$|nowrap/.test(cs.whiteSpace);
+  mirror.style.whiteSpace = wraps ? "pre-wrap" : "pre";
   mirror.textContent = el.value.slice(0, pos);
   const marker = doc.createElement("span");
   marker.textContent = el.value.slice(pos) || ".";

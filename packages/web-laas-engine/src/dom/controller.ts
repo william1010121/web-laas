@@ -154,6 +154,8 @@ export class LaasController {
   private formulaQueued = false;
   /** listening: queued formula work from before a detach must not report */
   private attached = false;
+  /** formula reports wanted (a hidden preview needs none, so no scanning either) */
+  private watching = true;
   private lastFormula = "null";
   private editorIds = new WeakMap<object, number>();
   private nextEditorId = 1;
@@ -281,6 +283,15 @@ export class LaasController {
     this.last = null;
   }
 
+  /** Pause or resume formula reports; while paused nothing is scanned (turning off reports null once). */
+  watchFormula(on: boolean) {
+    if (on === this.watching) return;
+    this.watching = on;
+    if (on) return this.refreshFormula();
+    if (this.onFormula && this.lastFormula !== "null") this.onFormula(null);
+    this.lastFormula = "null";
+  }
+
   /** Report the formula under the caret again (e.g. when a preview just appeared). */
   refreshFormula() {
     this.lastFormula = "";
@@ -288,11 +299,11 @@ export class LaasController {
   }
 
   private scheduleFormula() {
-    if (!this.onFormula || !this.attached || this.formulaQueued) return;
+    if (!this.onFormula || !this.attached || !this.watching || this.formulaQueued) return;
     this.formulaQueued = true;
     this.win.requestAnimationFrame(() => {
       this.formulaQueued = false;
-      if (!this.attached) return;
+      if (!this.attached || !this.watching) return;
       const f = this.currentFormula();
       const key = JSON.stringify(f);
       if (key === this.lastFormula) return;

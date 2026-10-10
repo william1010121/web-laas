@@ -26,10 +26,9 @@ if (current?.build !== __WEB_LAAS_BUILD__) {
 
   // Live preview: the engine reports the formula under the caret; preview.js
   // (isolated world, injected on first use) draws it.
-  let previewOn = true;
   const sendFormula = (f: unknown) =>
     document.dispatchEvent(new CustomEvent(FORMULA_EVENT, { detail: JSON.stringify(f) }));
-  const controller = new LaasController({ onFormula: (f) => previewOn && sendFormula(f) });
+  const controller = new LaasController({ onFormula: sendFormula });
   const detachKeys = controller.attach();
   const onState = (e: Event) => {
     try {
@@ -37,10 +36,8 @@ if (current?.build !== __WEB_LAAS_BUILD__) {
         prefs?: { preview?: string };
       };
       controller.setState(state);
-      const on = (state.prefs?.preview ?? "above") !== "off";
-      if (previewOn && !on) sendFormula(null);
-      previewOn = on;
-      if (on) controller.refreshFormula();
+      // preview off: the controller stops scanning for formulas altogether
+      controller.watchFormula((state.prefs?.preview ?? "above") !== "off");
     } catch (err) {
       console.warn("[web-laas] bad state message", err);
     }

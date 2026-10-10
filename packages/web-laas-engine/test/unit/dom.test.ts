@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { LaasController, type EditorAdapter } from "../../src/dom";
 
 /** Simulate the browser inserting a typed character, then the keydown our controller sees. */
@@ -514,6 +514,29 @@ describe("LaasController", () => {
       document.dispatchEvent(new Event("selectionchange"));
       await frame();
       expect(seen.at(-1)).toBe("b");
+    });
+
+    it("stops scanning while formula reports are paused", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      ta.value = "$a$";
+      ta.focus();
+      ta.setSelectionRange(2, 2);
+      const seen: (string | null)[] = [];
+      const c = new LaasController({ host: "example.com", onFormula: (f) => seen.push(f && f.latex) });
+      detach = c.attach();
+      document.dispatchEvent(new Event("selectionchange"));
+      await frame();
+      expect(seen).toEqual(["a"]);
+      c.watchFormula(false); // hides once
+      const scan = vi.spyOn(c as unknown as { currentFormula: () => unknown }, "currentFormula");
+      document.dispatchEvent(new Event("selectionchange"));
+      await frame();
+      expect(scan).not.toHaveBeenCalled();
+      expect(seen).toEqual(["a", null]);
+      c.watchFormula(true);
+      await frame();
+      expect(seen).toEqual(["a", null, "a"]);
     });
 
     it("drops formula work still queued when it detaches", async () => {
