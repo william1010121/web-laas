@@ -489,6 +489,20 @@ describe("LaasController", () => {
       expect(last!.latex).toBe("x" + long);
     });
 
+    it("finds an opener more than 20,000 characters before the caret", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      const long = "a+".repeat(15000);
+      ta.value = "text $" + long + "x$";
+      ta.focus();
+      ta.setSelectionRange(ta.value.length - 1, ta.value.length - 1);
+      let last: { latex: string } | null = null;
+      detach = new LaasController({ host: "example.com", onFormula: (f) => (last = f) }).attach();
+      ta.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowRight", bubbles: true }));
+      await frame();
+      expect(last!.latex).toBe(long + "x");
+    });
+
     it("drops formula work still queued when it detaches", async () => {
       document.body.innerHTML = "<textarea></textarea>";
       const ta = document.querySelector("textarea")!;

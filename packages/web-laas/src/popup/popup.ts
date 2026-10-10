@@ -65,6 +65,7 @@ async function main() {
 
 /** The mk / dm segmented controls: one choice per kind, saved under this host. */
 function setupDelims(host: string, current: MathDelimiters) {
+  let saving = Promise.resolve();
   $("delims").hidden = false;
   const build = <K extends keyof MathDelimiters>(kind: K, options: [NonNullable<MathDelimiters[K]>, string, string][]) => {
     const seg = $(kind);
@@ -79,9 +80,13 @@ function setupDelims(host: string, current: MathDelimiters) {
       if (value === "auto") b.className = "auto";
       b.onclick = async () => {
         render(value);
-        const { siteMath } = await loadState();
-        // "auto" is stored too: it overrides a parent domain's choice
-        await saveState({ siteMath: { ...siteMath, [host]: { ...siteMath[host], [kind]: value } } });
+        // one read-modify-write at a time, so quick mk + dm clicks both land
+        saving = saving.then(async () => {
+          const { siteMath } = await loadState();
+          // "auto" is stored too: it overrides a parent domain's choice
+          await saveState({ siteMath: { ...siteMath, [host]: { ...siteMath[host], [kind]: value } } });
+        });
+        await saving;
       };
       seg.appendChild(b);
     }

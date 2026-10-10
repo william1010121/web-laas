@@ -305,7 +305,13 @@ export class LaasController {
     const adapter = adapterFor(focused, this.factories);
     const sel = adapter?.getSelection();
     if (!adapter || !sel) return null;
-    const before = adapter.textBefore(sel.to, CONTEXT_CHARS);
+    // back far enough to see the opener: a blank line before the caret is a safe place to start
+    let want = CONTEXT_CHARS;
+    let before = adapter.textBefore(sel.to, want);
+    while (before.length === want && want < 128000 && !/\n[ \t]*\n/.test(before)) {
+      want += 20000;
+      before = adapter.textBefore(sel.to, want);
+    }
     // read on in chunks until a blank line (no formula runs past one) or the end; bounded for huge documents
     const len = adapter.getLength();
     let end = Math.min(len, sel.to + 4000);
