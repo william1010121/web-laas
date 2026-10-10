@@ -11,6 +11,8 @@ export interface PreviewFormula {
   display: boolean;
   env?: string;
   rect: { left: number; top: number; bottom: number } | null;
+  /** identifies the formula (editor + start); a new id starts afresh */
+  id?: string;
 }
 
 const ALIGNED = /^(align|flalign|eqnarray|split)\*?$/;
@@ -103,6 +105,7 @@ export class LivePreview {
   private math: HTMLElement;
   private mode: PreviewMode = "above";
   private shownHtml = "";
+  private formulaId: string | undefined;
   private last: PreviewFormula | null = null;
   private dismissed: string | null = null;
   visible = false;
@@ -151,7 +154,15 @@ export class LivePreview {
       this.shownHtml = "";
       this.math.innerHTML = "";
       this.dismissed = null; // Esc hides this formula, not the next one with the same text
+      this.formulaId = undefined;
       return this.hide();
+    }
+    if (f.id !== this.formulaId) {
+      // another formula: Esc and the last good render belonged to the previous one
+      this.formulaId = f.id;
+      this.dismissed = null;
+      this.shownHtml = "";
+      this.math.innerHTML = "";
     }
     if (this.dismissed !== null) {
       if (f.latex === this.dismissed) return;

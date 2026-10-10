@@ -30,6 +30,29 @@ describe("LivePreview dismissal", () => {
   });
 });
 
+describe("LivePreview formula identity", () => {
+  const visible = (p: LivePreview) => (p as unknown as { visible: boolean }).visible;
+  it("a different formula with the same text is not dismissed", () => {
+    const p = new LivePreview(document);
+    const rect = { left: 10, top: 50, bottom: 70 };
+    p.update({ latex: "x", caret: 1, display: false, rect, id: "1:5" });
+    p.dismiss();
+    p.update({ latex: "x", caret: 1, display: false, rect, id: "1:5" });
+    expect(visible(p)).toBe(false);
+    p.update({ latex: "x", caret: 1, display: false, rect, id: "1:40" }); // clicked straight into another $x$
+    expect(visible(p)).toBe(true);
+  });
+
+  it("a half-typed formula never shows the previous formula's render", () => {
+    const p = new LivePreview(document);
+    const rect = { left: 10, top: 50, bottom: 70 };
+    p.update({ latex: "a+b", caret: 3, display: false, rect, id: "1:5" });
+    expect(visible(p)).toBe(true);
+    p.update({ latex: "\\frac{", caret: 6, display: false, rect, id: "1:40" });
+    expect(visible(p)).toBe(false);
+  });
+});
+
 describe("LivePreview fallback", () => {
   it("keeps the last good render only for the formula being edited", () => {
     window.matchMedia ??= (() => ({ matches: false })) as unknown as typeof window.matchMedia;

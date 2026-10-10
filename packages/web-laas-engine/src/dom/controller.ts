@@ -19,6 +19,8 @@ import type { CaretRect } from "./adapters/types";
 export interface FormulaState extends Formula {
   /** the caret on screen (viewport coordinates), when the editor can tell */
   rect: CaretRect | null;
+  /** which formula this is: the editor plus where the formula starts (stable while you type in it) */
+  id: string;
 }
 
 /** Behaviour switches (the snippet list itself lives in the config text). */
@@ -150,6 +152,8 @@ export class LaasController {
   private readonly onFormula?: (formula: FormulaState | null) => void;
   private formulaQueued = false;
   private lastFormula = "null";
+  private editorIds = new WeakMap<object, number>();
+  private nextEditorId = 1;
   private readonly formulaSoon = () => this.scheduleFormula();
   private readonly formulaGone = () => this.win.setTimeout(() => this.scheduleFormula(), 0);
   private readonly keydown = (e: KeyboardEvent) => this.onKeyDown(e);
@@ -306,7 +310,9 @@ export class LaasController {
     } catch {
       rect = null;
     }
-    return { ...f, rect };
+    let editor = this.editorIds.get(adapter.id);
+    if (editor === undefined) this.editorIds.set(adapter.id, (editor = this.nextEditorId++));
+    return { ...f, rect, id: `${editor}:${sel.to - f.caret}` };
   }
 
   /** The compiled config currently in use. */

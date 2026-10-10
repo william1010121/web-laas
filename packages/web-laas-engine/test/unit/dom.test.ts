@@ -450,6 +450,23 @@ describe("LaasController", () => {
       expect(seen.length).toBe(n);
     });
 
+    it("gives each formula its own id, stable while the caret moves inside it", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      ta.value = "$x$ and $x$";
+      ta.focus();
+      const ids: string[] = [];
+      detach = new LaasController({ host: "example.com", onFormula: (f) => f && ids.push(f.id) }).attach();
+      for (const pos of [1, 2, 9]) {
+        ta.setSelectionRange(pos, pos);
+        ta.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowRight", bubbles: true }));
+        await frame();
+      }
+      expect(ids).toHaveLength(3);
+      expect(ids[0]).toBe(ids[1]);
+      expect(ids[2]).not.toBe(ids[0]);
+    });
+
     it("updates after an expansion", async () => {
       document.body.innerHTML = "<textarea></textarea>";
       const ta = document.querySelector("textarea")!;
