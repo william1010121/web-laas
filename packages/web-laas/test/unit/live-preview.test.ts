@@ -14,6 +14,22 @@ describe("LivePreview layout", () => {
   });
 });
 
+describe("LivePreview dismissal", () => {
+  it("Esc lasts until the caret leaves the formula", () => {
+    const p = new LivePreview(document);
+    const f = { latex: "x", caret: 1, display: false, rect: { left: 10, top: 50, bottom: 70 } };
+    const on = () => document.querySelector("[data-web-laas-preview]") !== null && (p as unknown as { visible: boolean }).visible;
+    p.update(f);
+    expect(on()).toBe(true);
+    p.dismiss();
+    p.update(f);
+    expect(on()).toBe(false);
+    p.update(null); // caret left the formula
+    p.update(f); // another $x$
+    expect(on()).toBe(true);
+  });
+});
+
 describe("LivePreview fallback", () => {
   it("keeps the last good render only for the formula being edited", () => {
     window.matchMedia ??= (() => ({ matches: false })) as unknown as typeof window.matchMedia;

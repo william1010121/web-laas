@@ -150,6 +150,7 @@ export class LivePreview {
       // leaving the formula: its last good render must not stand in for the next one
       this.shownHtml = "";
       this.math.innerHTML = "";
+      this.dismissed = null; // Esc hides this formula, not the next one with the same text
       return this.hide();
     }
     if (this.dismissed !== null) {

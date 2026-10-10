@@ -57,7 +57,8 @@ export class CM6Adapter implements EditorAdapter {
     this.view.dispatch({ selection: { anchor: from, head: to }, scrollIntoView: true });
   }
   caretRect(): CaretRect | null {
-    const c = this.view.coordsAtPos(this.view.state.selection.main.head);
+    // the selection's end, the position the controller reads the formula at
+    const c = this.view.coordsAtPos(this.view.state.selection.main.to);
     return c && { left: c.left, top: c.top, bottom: c.bottom };
   }
   completionActive() {
