@@ -67,6 +67,10 @@ describe("formulaAt", () => {
     expect(at("\\begin{xxalignat}{2} a&=|b \\end{xxalignat}")?.env).toBe("xxalignat");
   });
 
+  it("an earlier paragraph's open $ doesn't hide this paragraph's formula", () => {
+    expect(at("$draft\n\nnow $x|$")?.tex).toBe("x|");
+  });
+
   it("ignores an opener left open in an earlier paragraph", () => {
     expect(at("$x\n\nplain |text")).toBeNull();
   });

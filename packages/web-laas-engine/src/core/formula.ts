@@ -58,6 +58,11 @@ function findCloser(text: string, closer: string, comments: boolean): number {
  * point) and some text after it; null when the caret isn't in math.
  */
 export function formulaAt(before: string, after: string, opts: { comments?: boolean } = {}): Formula | null {
+  // no formula spans a blank line: start the scan in the caret's paragraph, so an
+  // opener left open further up can't swallow this paragraph's delimiters
+  let cut = 0;
+  for (const m of before.matchAll(/\n[ \t]*\n/g)) cut = m.index + m[0].length;
+  if (cut) before = before.slice(cut);
   const ctx = mathContext(before, opts);
   if (!ctx.math || ctx.start === undefined) return null;
   const opener = before.slice(ctx.start - (ctx.openLen ?? 0), ctx.start);
