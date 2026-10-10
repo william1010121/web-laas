@@ -57,6 +57,10 @@ describe("formulaAt", () => {
     expect(at("\\begin {align} a &= |b \\end {align} trailing")?.tex).toBe(" a &= |b ");
   });
 
+  it("ignores an opener left open in an earlier paragraph", () => {
+    expect(at("$x\n\nplain |text")).toBeNull();
+  });
+
   it("does not borrow a closer from the next paragraph", () => {
     expect(at("$x + |y\n\nnext $z$")?.tex).toBe("x + |y");
   });

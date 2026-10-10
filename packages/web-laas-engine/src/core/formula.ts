@@ -67,5 +67,6 @@ export function formulaAt(before: string, after: string, opts: { comments?: bool
   const blank = after.search(/\n[ \t]*\n/);
   const end = blank >= 0 && (found < 0 || blank < found) ? blank : found >= 0 ? found : after.length;
   const head = before.slice(ctx.start);
+  if (/\n[ \t]*\n/.test(head)) return null; // an opener left open in an earlier paragraph
   return { latex: head + after.slice(0, end), caret: head.length, display: ctx.display, env };
 }

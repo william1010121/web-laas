@@ -198,8 +198,8 @@ export class LivePreview {
     const w = this.math.scrollWidth;
     const h = this.math.scrollHeight;
     let zoom = 1;
-    if (w > maxW && maxW > 0) zoom = Math.max(0.55, maxW / w);
-    // no floor here: the card can't scroll, so every row has to fit
+    // no floor: the card can't scroll, so all of the formula has to fit
+    if (w > maxW && maxW > 0) zoom = maxW / w;
     if (h * zoom > maxH && maxH > 0) zoom = maxH / h;
     if (zoom < 1) this.math.style.zoom = String(zoom);
   }
