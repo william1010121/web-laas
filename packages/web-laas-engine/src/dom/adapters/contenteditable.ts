@@ -153,6 +153,25 @@ export class ContentEditableAdapter implements EditorAdapter {
       const b = r2.getBoundingClientRect();
       return { left: b.right, top: b.top, bottom: b.bottom };
     }
+    // at an element boundary (or offset 0): the edge of the node next to the caret
+    const near = (n: Node | null, side: "before" | "after"): CaretRect | null => {
+      if (!n) return null;
+      const r2 = doc.createRange();
+      if (n.nodeType === Node.TEXT_NODE && n.textContent) {
+        const len = n.textContent.length;
+        if (side === "before") r2.setStart(n, len - 1), r2.setEnd(n, len);
+        else r2.setStart(n, 0), r2.setEnd(n, 1);
+      } else r2.selectNode(n);
+      const b = r2.getBoundingClientRect();
+      if (!b.width && !b.height) return null;
+      return { left: side === "before" ? b.right : b.left, top: b.top, bottom: b.bottom };
+    };
+    const at = node.nodeType === Node.ELEMENT_NODE ? range.startOffset : -1;
+    const hit =
+      at >= 0
+        ? near(node.childNodes[at - 1] ?? null, "before") ?? near(node.childNodes[at] ?? null, "after")
+        : near(node.previousSibling, "before") ?? near(node.nextSibling ?? node, "after");
+    if (hit) return hit;
     const el = (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement) as Element | null;
     const b = (el ?? this.root).getBoundingClientRect();
     return { left: b.left, top: b.top, bottom: Math.min(b.bottom, b.top + 24) };
