@@ -467,6 +467,23 @@ describe("LaasController", () => {
       expect(ids[2]).not.toBe(ids[0]);
     });
 
+    it("drops formula work still queued when it detaches", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      ta.value = "$x$";
+      ta.focus();
+      ta.setSelectionRange(2, 2);
+      const seen: unknown[] = [];
+      const c = new LaasController({ host: "example.com", onFormula: (f) => seen.push(f) });
+      c.attach();
+      c.refreshFormula(); // queued for the next frame…
+      c.detach(); // …but the controller is gone by then
+      await frame();
+      ta.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+      await frame();
+      expect(seen.filter((f) => f !== null)).toEqual([]);
+    });
+
     it("updates after an expansion", async () => {
       document.body.innerHTML = "<textarea></textarea>";
       const ta = document.querySelector("textarea")!;

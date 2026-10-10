@@ -151,6 +151,8 @@ export class LaasController {
   private readonly onConfigError: (error: Error) => void;
   private readonly onFormula?: (formula: FormulaState | null) => void;
   private formulaQueued = false;
+  /** listening: queued formula work from before a detach must not report */
+  private attached = false;
   private lastFormula = "null";
   private editorIds = new WeakMap<object, number>();
   private nextEditorId = 1;
@@ -247,6 +249,7 @@ export class LaasController {
   /** Start listening for keystrokes. Returns `detach`. */
   attach(): () => void {
     const w = this.win;
+    this.attached = true;
     w.addEventListener("keydown", this.keydown, true);
     w.addEventListener("compositionstart", this.compStart, true);
     w.addEventListener("compositionend", this.compEnd, true);
@@ -261,6 +264,7 @@ export class LaasController {
 
   detach() {
     const w = this.win;
+    this.attached = false;
     w.removeEventListener("keydown", this.keydown, true);
     w.removeEventListener("compositionstart", this.compStart, true);
     w.removeEventListener("compositionend", this.compEnd, true);
@@ -281,10 +285,11 @@ export class LaasController {
   }
 
   private scheduleFormula() {
-    if (!this.onFormula || this.formulaQueued) return;
+    if (!this.onFormula || !this.attached || this.formulaQueued) return;
     this.formulaQueued = true;
     this.win.requestAnimationFrame(() => {
       this.formulaQueued = false;
+      if (!this.attached) return;
       const f = this.currentFormula();
       const key = JSON.stringify(f);
       if (key === this.lastFormula) return;
