@@ -50,13 +50,21 @@ describe("prepareLatex", () => {
 describe("alignment in Chrome's MathML", () => {
   it("turns columnalign into text-align on each cell", () => {
     const html = renderMath("\\begin{aligned}&a\\\\&=f\\end{aligned}", true)!;
-    expect(html.match(/<mtd style="text-align:right">/g)).toHaveLength(2);
-    expect(html.match(/<mtd style="text-align:left">/g)).toHaveLength(2);
+    // aligned: no gap between the columns (=& a is "=a", like LaTeX), 0.25em between rows
+    const count = (s: string) => html.split(s).length - 1;
+    expect(count('<mtd style="padding:calc(0.125em + 0.15em) 0em calc(0.125em + 0.15em) 0;text-align:right">')).toBe(2);
+    expect(count('<mtd style="padding:calc(0.125em + 0.15em) 0em calc(0.125em + 0.15em) 0em;text-align:left">')).toBe(2);
   });
 
   it("restarts the columns on each row and nested table", () => {
     const out = alignColumns('<mtable columnalign="right left"><mtr><mtd>a</mtd><mtd><mtable columnalign="center"><mtr><mtd>x</mtd></mtr></mtable></mtd></mtr><mtr><mtd>b</mtd></mtr></mtable>');
-    expect(out).toBe('<mtable columnalign="right left"><mtr><mtd style="text-align:right">a</mtd><mtd style="text-align:left"><mtable columnalign="center"><mtr><mtd>x</mtd></mtr></mtable></mtd></mtr><mtr><mtd style="text-align:right">b</mtd></mtr></mtable>');
+    const cells = [...out.matchAll(/<mtd style="([^"]*)">(\w)/g)].map((m) => `${m[2]} ${m[1]}`);
+    expect(cells).toEqual([
+      "a padding:calc(0.5ex + 0.15em) 0.4em calc(0.5ex + 0.15em) 0;text-align:right",
+      "x padding:calc(0.5ex + 0.15em) 0.4em calc(0.5ex + 0.15em) 0",
+      "b padding:calc(0.5ex + 0.15em) 0.4em calc(0.5ex + 0.15em) 0;text-align:right",
+    ]);
+    expect(out).toContain('<mtd style="padding:calc(0.5ex + 0.15em) 0.4em calc(0.5ex + 0.15em) 0.4em;text-align:left"><mtable');
   });
 
   it("keeps alignat's column count in an alignedat wrapper", () => {

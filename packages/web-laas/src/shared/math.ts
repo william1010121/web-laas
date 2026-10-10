@@ -3,12 +3,22 @@
 import katex from "katex";
 import { fixMathvariants } from "../cheatsheet/mathvariant";
 
-/** Chrome ignores MathML columnalign: spell it out as text-align on each cell (aligned, cases, matrices…). */
+/**
+ * Chrome ignores MathML columnalign / columnspacing / rowspacing and pads every
+ * cell instead: spell them out as CSS on each cell (aligned, cases, matrices…).
+ */
 export function alignColumns(mathml: string): string {
-  if (!mathml.includes("columnalign=")) return mathml;
+  if (!mathml.includes("<mtable")) return mathml;
+  const list = (attrs: string, name: string, dflt: string) =>
+    (new RegExp(`${name}="([^"]*)"`).exec(attrs)?.[1] ?? dflt).trim().split(/\s+/);
+  const at = (xs: string[], i: number) => xs[Math.min(i, xs.length - 1)];
+  const half = (len: string) => {
+    const m = /^([\d.]+)([a-z]*)$/.exec(len);
+    return m ? `${+m[1] / 2}${m[2] || "em"}` : "0";
+  };
   let out = "";
-  // one entry per open <mtable>: its column alignments and the current column
-  const tables: { align: string[]; col: number }[] = [];
+  // one entry per open <mtable>: its alignments, gaps, row padding and the current column
+  const tables: { align: string[]; gaps: string[]; row: string; col: number }[] = [];
   const re = /<(\/?)(mtable|mtr|mtd)\b([^>]*)>/g;
   let last = 0;
   for (let m; (m = re.exec(mathml)); ) {
@@ -17,16 +27,24 @@ export function alignColumns(mathml: string): string {
     const [tag, close, name, attrs] = m;
     if (name === "mtable") {
       if (close) tables.pop();
-      else tables.push({ align: (/columnalign="([^"]*)"/.exec(attrs)?.[1] ?? "center").split(/\s+/), col: 0 });
+      else
+        tables.push({
+          align: list(attrs, "columnalign", "center"),
+          gaps: list(attrs, "columnspacing", "0.8em"),
+          // plus a little for the strut TeX puts in every row
+          row: `calc(${half(list(attrs, "rowspacing", "1ex")[0])} + 0.15em)`,
+          col: 0,
+        });
     } else if (name === "mtr" && !close && tables.length) {
       tables[tables.length - 1].col = 0;
-    } else if (name === "mtd" && !close && tables.length) {
+    } else if (name === "mtd" && !close && tables.length && !/style=/.test(attrs)) {
       const t = tables[tables.length - 1];
-      const a = t.align[Math.min(t.col++, t.align.length - 1)];
-      if ((a === "left" || a === "right") && !/style=/.test(attrs)) {
-        out += `<mtd${attrs} style="text-align:${a}">`;
-        continue;
-      }
+      const j = t.col++;
+      const a = at(t.align, j);
+      const left = j === 0 ? "0" : half(at(t.gaps, j - 1));
+      const style = `padding:${t.row} ${half(at(t.gaps, j))} ${t.row} ${left}${a === "left" || a === "right" ? `;text-align:${a}` : ""}`;
+      out += `<mtd${attrs} style="${style}">`;
+      continue;
     }
     out += tag;
   }
