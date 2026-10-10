@@ -13,6 +13,7 @@ export {
 } from "./core/config";
 export { findExpansion, type Expansion, type MatchOptions } from "./core/matcher";
 export { mathContext, objectStart, unwrapObject, type MathContext } from "./core/tex";
+export { formulaAt, type Formula } from "./core/formula";
 export { cdlatexModify, cdlatexTab, type ModifyResult, type ModifySpec, type TabMove } from "./core/cdlatex";
 export {
   cheatsheetEntries,

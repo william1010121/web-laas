@@ -386,6 +386,47 @@ describe("LaasController", () => {
     });
   });
 
+  describe("live preview hook (onFormula)", () => {
+    const frame = () => new Promise((r) => requestAnimationFrame(() => r(null)));
+    it("reports the formula under the caret, and null outside math", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      ta.value = "see $\\frac{a}{b}$ here";
+      ta.focus();
+      ta.setSelectionRange(14, 14); // after "b"
+      const seen: unknown[] = [];
+      detach = new LaasController({ host: "example.com", onFormula: (f) => seen.push(f && { latex: f.latex, caret: f.caret, hasRect: !!f.rect }) }).attach();
+      ta.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowRight", bubbles: true }));
+      await frame();
+      expect(seen.at(-1)).toEqual({ latex: "\\frac{a}{b}", caret: 9, hasRect: true });
+      ta.setSelectionRange(1, 1);
+      ta.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowLeft", bubbles: true }));
+      await frame();
+      expect(seen.at(-1)).toBeNull();
+      // unchanged state: no repeat report
+      const n = seen.length;
+      ta.dispatchEvent(new KeyboardEvent("keyup", { key: "Shift", bubbles: true }));
+      await frame();
+      expect(seen.length).toBe(n);
+    });
+
+    it("updates after an expansion", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      ta.value = "$";
+      ta.focus();
+      ta.setSelectionRange(1, 1);
+      let last: { latex: string; caret: number } | null = null;
+      detach = new LaasController({ host: "example.com", onFormula: (f) => (last = f && { latex: f.latex, caret: f.caret }) }).attach();
+      for (const ch of "x/") {
+        type(ta, ch);
+        await tick();
+      }
+      await frame();
+      expect(last).toEqual({ latex: "\\frac{x}{}", caret: 9 });
+    });
+  });
+
   it("respects filter, setState and detach", async () => {
     document.body.innerHTML = "<textarea id=a></textarea>";
     const ta = document.querySelector("textarea")!;

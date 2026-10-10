@@ -31,7 +31,7 @@ the browser assigned. Pages that can't be scripted (`chrome://`, the Web Store) 
 
 | Page | |
 |---|---|
-| General | Tab fields, cdlatex Tab movement, script simplification, `$ [ {` pairing, Backspace undo, auto space; the laas / cdlatex / web extras sets; the cheat sheet |
+| General | Tab fields, cdlatex Tab movement, script simplification, `$ [ {` pairing, Backspace undo, auto space; the laas / cdlatex / web extras sets; the live LaTeX preview (above / below the caret, corner, off); the cheat sheet |
 | Snippet editor | your config (like an Emacs init file) with live validation and a playground |
 | Cheat sheet | every snippet, searchable, for "any site" or Overleaf |
 | Shortcuts | the browser shortcuts and the in-editor keys |
@@ -44,6 +44,8 @@ src/content/main.ts       MAIN world: LaasController from web-laas-engine (reach
 src/content/isolated.ts   isolated world: chrome.storage → main.ts via CustomEvent; toasts; shortcut fallback
 src/cheatsheet/           cheat sheet (KaTeX → MathML) and the in-page overlay (closed shadow DOM);
                           bundled as cheatsheet.js and injected only when opened, so KaTeX isn't loaded into every frame
+src/preview/              the live LaTeX preview (floating card, closed shadow DOM); bundled as preview.js and
+                          injected into a frame the first time its caret enters math
 src/options/, src/popup/  settings page and popup
 src/background.ts         commands, notifications, re-injection into open tabs after an update
 ```
@@ -56,7 +58,7 @@ Permissions: `storage` (settings), `scripting` + `<all_urls>` (inject into tabs 
 ## Previews
 
 ```sh
-npm run serve:preview   # http://localhost:8766/test/preview/{options,popup,overlay,isolated}-preview.html
+npm run serve:preview   # http://localhost:8766/test/preview/{options,popup,overlay,isolated}-preview.html, live-preview.html
 ```
 
 They run the built pages with an in-memory `chrome.*` stub. Editor behaviour is tested in the engine package.

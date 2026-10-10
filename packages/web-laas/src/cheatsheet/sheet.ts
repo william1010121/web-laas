@@ -1,7 +1,7 @@
 // Searchable snippet cheat sheet, shared by the options page and the in-page overlay.
-import katex from "katex";
 import type { CheatsheetEntry, CheatsheetGroup, SnippetSource } from "web-laas-engine";
-import { fixMathvariants } from "./mathvariant";
+import { renderMath } from "../shared/math";
+import { themeCss } from "../shared/theme";
 
 export interface SheetOptions {
   /** shown as a chip next to the title (e.g. the current site) */
@@ -25,20 +25,7 @@ const FILTERS: [Filter, string][] = [
 
 const ORIGIN: Record<SnippetSource, string> = { laas: "laas", extras: "Web 擴充", cdlatex: "cdlatex", user: "我的" };
 
-const mathCache = new Map<string, string | null>();
-function mathml(latex: string): string | null {
-  if (!mathCache.has(latex)) {
-    try {
-      mathCache.set(
-        latex,
-        fixMathvariants(katex.renderToString(latex, { output: "mathml", throwOnError: true, strict: "ignore" })),
-      );
-    } catch {
-      mathCache.set(latex, null);
-    }
-  }
-  return mathCache.get(latex)!;
-}
+const mathml = (latex: string) => renderMath(latex);
 
 function el<K extends keyof HTMLElementTagNameMap>(
   doc: Document,
@@ -289,31 +276,12 @@ export function buildCheatsheet(doc: Document, groups: CheatsheetGroup[], opts: 
 }
 
 export const SHEET_CSS = `
+${themeCss(".lw-sheet")}
 .lw-sheet {
-  --lw-bg: #fbfbfa; --lw-surface: #ffffff; --lw-sunken: #f3f3f1;
-  --lw-fg: #1d1d1f; --lw-fg-2: #3a3a3e; --lw-muted: #76767c; --lw-faint: #a8a8ad;
-  --lw-line: #ebebe8; --lw-line-2: #dededa;
-  --lw-accent: #0f766e; --lw-accent-fg: #ffffff; --lw-accent-soft: #e3f1ef; --lw-accent-text: #0f6b64;
-  --lw-key-bg: #f1f1ee; --lw-key-fg: #2c2c30; --lw-key-line: #e2e2de;
-  --lw-math: #141416; --lw-hover: #f4f4f1;
-  --lw-extras: #9a5b12; --lw-extras-soft: #f6ecdf; --lw-user: #5a4fcf; --lw-user-soft: #ecebfb;
-  --lw-shadow-seg: 0 1px 2px rgba(0,0,0,.08), 0 0 0 .5px rgba(0,0,0,.06);
   display: flex; flex-direction: column; min-height: 0; height: 100%;
   background: var(--lw-bg); color: var(--lw-fg);
   font: 14px/1.5 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif;
   -webkit-font-smoothing: antialiased;
-}
-@media (prefers-color-scheme: dark) {
-  .lw-sheet {
-    --lw-bg: #18181a; --lw-surface: #1e1e21; --lw-sunken: #141416;
-    --lw-fg: #ececef; --lw-fg-2: #cfcfd4; --lw-muted: #8d8d94; --lw-faint: #5f5f66;
-    --lw-line: #27272b; --lw-line-2: #323237;
-    --lw-accent: #4fb8aa; --lw-accent-fg: #0d1514; --lw-accent-soft: rgba(79,184,170,.13); --lw-accent-text: #6ccabd;
-    --lw-key-bg: #26262a; --lw-key-fg: #e4e4e8; --lw-key-line: #34343a;
-    --lw-math: #f4f4f6; --lw-hover: #202024;
-    --lw-extras: #e0a764; --lw-extras-soft: rgba(224,167,100,.12); --lw-user: #a7a1ff; --lw-user-soft: rgba(167,161,255,.13);
-    --lw-shadow-seg: 0 1px 2px rgba(0,0,0,.4), 0 0 0 .5px rgba(255,255,255,.06);
-  }
 }
 .lw-sheet *, .lw-sheet *::before, .lw-sheet *::after { box-sizing: border-box; }
 .lw-sheet [hidden] { display: none !important; }

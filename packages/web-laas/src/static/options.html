@@ -89,6 +89,20 @@
         </label>
       </div>
 
+      <h2 class="label">LaTeX 預覽</h2>
+      <div class="card preview-card">
+        <div class="pv-head">
+          <div class="title">打字時浮動預覽公式</div>
+          <div class="desc">游標在數學式裡時，即時渲染整條公式，<span class="caret-dot">|</span> 標出你正在改的位置、□ 是還沒填的欄位；按 <kbd>Esc</kbd> 暫時隱藏。</div>
+        </div>
+        <div class="pv-options" role="radiogroup" aria-label="預覽位置">
+          <label class="pv-opt"><input type="radio" name="preview" value="above"><span class="mock mock-above"><span class="m-line"></span><span class="m-line short"><span class="m-caret"></span></span><span class="m-line"></span><span class="m-card"><span class="m-math">∑</span></span></span><span class="pv-title">游標上方</span><span class="pv-desc">最靠近打字的地方；上方空間不夠時自動翻到下方</span></label>
+          <label class="pv-opt"><input type="radio" name="preview" value="below"><span class="mock mock-below"><span class="m-line"></span><span class="m-line short"><span class="m-caret"></span></span><span class="m-line"></span><span class="m-card"><span class="m-math">∑</span></span></span><span class="pv-title">游標下方</span><span class="pv-desc">不擋到上一行；下方不夠時翻到上方</span></label>
+          <label class="pv-opt"><input type="radio" name="preview" value="corner"><span class="mock mock-corner"><span class="m-line"></span><span class="m-line short"><span class="m-caret"></span></span><span class="m-line"></span><span class="m-card"><span class="m-math">∑</span></span></span><span class="pv-title">右下角</span><span class="pv-desc">固定在視窗角落，完全不遮文字</span></label>
+          <label class="pv-opt"><input type="radio" name="preview" value="off"><span class="mock mock-off"><span class="m-line"></span><span class="m-line short"><span class="m-caret"></span></span><span class="m-line"></span></span><span class="pv-title">關閉</span><span class="pv-desc">不顯示預覽</span></label>
+        </div>
+      </div>
+
       <h2 class="label">Cheat sheet</h2>
       <div class="card">
         <label class="row">

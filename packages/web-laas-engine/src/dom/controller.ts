@@ -4,6 +4,14 @@ import { findExpansion, type Expansion } from "../core/matcher";
 import type { Range } from "../core/template";
 import { mathContext } from "../core/tex";
 import { cdlatexBackTab, cdlatexTab } from "../core/cdlatex";
+import { formulaAt, type Formula } from "../core/formula";
+import type { CaretRect } from "./adapters/types";
+
+/** The formula under the caret, for a live preview. */
+export interface FormulaState extends Formula {
+  /** the caret on screen (viewport coordinates), when the editor can tell */
+  rect: CaretRect | null;
+}
 
 /** Behaviour switches (the snippet list itself lives in the config text). */
 export interface LaasPrefs {
@@ -59,6 +67,12 @@ export interface ControllerOptions {
   adapters?: AdapterFactory[];
   /** called when the config text fails to compile (defaults are used instead) */
   onConfigError?: (error: Error) => void;
+  /**
+   * Live preview hook: called with the formula under the caret whenever it
+   * (or the caret's position on screen) changes, and with null when the caret
+   * leaves math or the editor.
+   */
+  onFormula?: (formula: FormulaState | null) => void;
 }
 
 /**
@@ -123,6 +137,11 @@ export class LaasController {
   private readonly filter: (el: Element) => boolean;
   private readonly factories: AdapterFactory[];
   private readonly onConfigError: (error: Error) => void;
+  private readonly onFormula?: (formula: FormulaState | null) => void;
+  private formulaQueued = false;
+  private lastFormula = "null";
+  private readonly formulaSoon = () => this.scheduleFormula();
+  private readonly formulaGone = () => this.win.setTimeout(() => this.scheduleFormula(), 0);
   private readonly keydown = (e: KeyboardEvent) => this.onKeyDown(e);
   private readonly compStart = () => (this.composing = true);
   /**
@@ -145,6 +164,7 @@ export class LaasController {
     const ie = e as InputEvent;
     // text inserted without a usable keydown (IME commit, no keydown at all)
     if (!this.composing && ie.inputType === "insertText" && (this.imeKey || !sawKey)) this.typedWithoutKey(ie.data);
+    this.scheduleFormula(); // pastes, drops, undo…
   };
   /** the last keydown was an IME key (229): its text arrives via input/compositionend */
   private imeKey = false;
@@ -177,6 +197,7 @@ export class LaasController {
     this.host = options.host ?? this.win.location.hostname;
     this.filter = options.filter ?? (() => true);
     this.factories = options.adapters ?? [];
+    this.onFormula = options.onFormula;
     this.onConfigError =
       options.onConfigError ?? ((e) => console.warn("[web-laas] config error, using defaults:", e.message));
     this.config = compileConfig(null).config;
@@ -196,6 +217,7 @@ export class LaasController {
     this.snippets = snippetsForHost(this.config, this.host);
     this.sessions = [];
     this.last = null;
+    this.scheduleFormula(); // turning web-laas off hides the preview
   }
 
   get active(): boolean {
@@ -211,6 +233,11 @@ export class LaasController {
     w.addEventListener("compositionstart", this.compStart, true);
     w.addEventListener("compositionend", this.compEnd, true);
     w.addEventListener("input", this.input);
+    if (this.onFormula) {
+      for (const t of ["keyup", "mouseup", "focusin", "resize"]) w.addEventListener(t, this.formulaSoon, true);
+      w.addEventListener("scroll", this.formulaSoon, { capture: true, passive: true });
+      w.addEventListener("focusout", this.formulaGone, true);
+    }
     return () => this.detach();
   }
 
@@ -220,9 +247,52 @@ export class LaasController {
     w.removeEventListener("compositionstart", this.compStart, true);
     w.removeEventListener("compositionend", this.compEnd, true);
     w.removeEventListener("input", this.input);
+    for (const t of ["keyup", "mouseup", "focusin", "resize", "scroll"]) w.removeEventListener(t, this.formulaSoon, true);
+    w.removeEventListener("focusout", this.formulaGone, true);
+    if (this.onFormula && this.lastFormula !== "null") this.onFormula(null);
+    this.lastFormula = "null";
     this.pending = null;
     this.sessions = [];
     this.last = null;
+  }
+
+  /** Report the formula under the caret again (e.g. when a preview just appeared). */
+  refreshFormula() {
+    this.lastFormula = "";
+    this.scheduleFormula();
+  }
+
+  private scheduleFormula() {
+    if (!this.onFormula || this.formulaQueued) return;
+    this.formulaQueued = true;
+    this.win.requestAnimationFrame(() => {
+      this.formulaQueued = false;
+      const f = this.currentFormula();
+      const key = JSON.stringify(f);
+      if (key === this.lastFormula) return;
+      this.lastFormula = key;
+      this.onFormula!(f);
+    });
+  }
+
+  private currentFormula(): FormulaState | null {
+    if (!this.active) return null;
+    const focused = deepActiveElement(this.win.document);
+    if (!focused || !this.filter(focused)) return null;
+    const adapter = adapterFor(focused, this.factories);
+    const sel = adapter?.getSelection();
+    if (!adapter || !sel) return null;
+    const before = adapter.textBefore(sel.to, CONTEXT_CHARS);
+    const after = adapter.slice(sel.to, Math.min(adapter.getLength(), sel.to + 4000));
+    const f = formulaAt(before, after, { comments: this.latexComments() });
+    if (!f) return null;
+    let rect: CaretRect | null = null;
+    try {
+      rect = adapter.caretRect?.() ?? null;
+    } catch {
+      rect = null;
+    }
+    return { ...f, rect };
   }
 
   /** The compiled config currently in use. */
@@ -265,6 +335,7 @@ export class LaasController {
       } finally {
         this.busy = false;
       }
+      this.scheduleFormula();
       return;
     }
     if (e.key === "Backspace" && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -302,6 +373,7 @@ export class LaasController {
     } finally {
       this.busy = false;
     }
+    this.scheduleFormula();
   }
 
   private checkPending(p: NonNullable<LaasController["pending"]>, final: boolean) {

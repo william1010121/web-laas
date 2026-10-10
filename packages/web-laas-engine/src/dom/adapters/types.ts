@@ -1,3 +1,10 @@
+/** Where the caret is on screen, in viewport (client) coordinates. */
+export interface CaretRect {
+  left: number;
+  top: number;
+  bottom: number;
+}
+
 /** A linear-text view of an editor. Offsets are UTF-16 code units. */
 export interface EditorAdapter {
   readonly kind: string;
@@ -13,4 +20,6 @@ export interface EditorAdapter {
   setSelection(from: number, to: number): void;
   /** true while the editor's own autocomplete popup is open (Tab is left to it) */
   completionActive?(): boolean;
+  /** the caret's position on screen (used to place the live preview) */
+  caretRect?(): CaretRect | null;
 }

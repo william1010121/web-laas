@@ -4,6 +4,7 @@ import { ContentEditableAdapter, editingHost } from "./contenteditable";
 import { isTextField, TextFieldAdapter } from "./textarea";
 
 export type { EditorAdapter };
+export type { CaretRect } from "./types";
 export { TextFieldAdapter } from "./textarea";
 export { ContentEditableAdapter } from "./contenteditable";
 export { CM5Adapter, CM6Adapter } from "./codemirror";

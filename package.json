@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "build": "npm run build -w web-laas-engine && npm run build -w web-laas",
-    "test": "npm test -w web-laas-engine",
+    "test": "npm test -w web-laas-engine && npm test -w web-laas",
     "typecheck": "npm run typecheck -w web-laas-engine && npm run typecheck -w web-laas",
     "serve:test": "npm run serve:test -w web-laas-engine"
   },

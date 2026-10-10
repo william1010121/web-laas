@@ -70,6 +70,24 @@ laas.detach();                                  // remove all listeners
 | `filter` | all | `(el) => boolean` — only handle some elements |
 | `adapters` | `[]` | custom `AdapterFactory`s, tried before the built-ins |
 | `onConfigError` | `console.warn` | called when the config fails to compile (built-ins are used) |
+| `onFormula` | — | live-preview hook: `(f: FormulaState \| null) => void`, called when the formula under the caret or its position on screen changes |
+
+### Live preview
+
+```ts
+const laas = new LaasController({
+  onFormula: (f) => {
+    // f: { latex, caret, display, env?, rect: { left, top, bottom } | null } — or null outside math
+    f ? showPreview(f.latex, f.caret, f.rect) : hidePreview();
+  },
+});
+laas.attach();
+laas.refreshFormula(); // report the current state again (e.g. once your preview UI is ready)
+```
+
+Every built-in adapter implements `caretRect()` (textarea/input via a mirror element, contenteditable via the
+selection, CodeMirror via its own coordinates); add it to a custom adapter to place a preview there too.
+`formulaAt(before, after)` is the pure version: the formula around a caret, from the text on either side.
 
 ### Behaviour switches (`prefs`)
 

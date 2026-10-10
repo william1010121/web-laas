@@ -1,18 +1,19 @@
 {
   "name": "web-laas",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Chrome extension: Emacs laas-style LaTeX auto-activating snippets on Overleaf, ChatGPT, Claude, Notion, HackMD, Jupyter, …",
   "type": "module",
   "dependencies": {
     "katex": "^0.19.0",
-    "web-laas-engine": "0.3.1"
+    "web-laas-engine": "0.4.0"
   },
   "scripts": {
     "build": "node build.mjs",
     "watch": "node build.mjs --watch",
     "typecheck": "tsc --noEmit",
-    "serve:preview": "node build.mjs && python3 -m http.server 8766 --directory ."
+    "serve:preview": "node build.mjs && python3 -m http.server 8766 --directory .",
+    "test": "vitest run"
   },
   "license": "GPL-3.0-or-later",
   "repository": {

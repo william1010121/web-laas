@@ -1,7 +1,7 @@
 import { cheatsheetEntries, compileConfig, groupCheatsheet, snippetsForHost, type CompiledConfig } from "web-laas-engine";
 import { LaasController } from "web-laas-engine/dom";
 import { buildCheatsheet, SHEET_CSS } from "../cheatsheet/sheet";
-import { loadState, savePrefs, saveState, type ExtensionPrefs, type StoredState } from "../shared/storage";
+import { loadState, savePrefs, saveState, type ExtensionPrefs, type PreviewPref, type StoredState } from "../shared/storage";
 import TEMPLATE from "./template.laas";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -83,9 +83,21 @@ function renderMaster() {
   $("masterState").textContent = state.enabled ? "已啟用 · Alt+Shift+L" : "已暫停 · Alt+Shift+L";
 }
 
+type BoolPref = { [K in keyof ExtensionPrefs]: ExtensionPrefs[K] extends boolean ? K : never }[keyof ExtensionPrefs];
+
 function bindPrefs() {
+  document.querySelectorAll<HTMLInputElement>('input[name="preview"]').forEach((radio) => {
+    radio.checked = radio.value === state.prefs.preview;
+    radio.onchange = async () => {
+      if (!radio.checked) return;
+      const preview = radio.value as PreviewPref;
+      state.prefs = { ...state.prefs, preview };
+      await savePrefs({ preview });
+      toast("已儲存");
+    };
+  });
   document.querySelectorAll<HTMLInputElement>("input[data-pref]").forEach((input) => {
-    const key = input.dataset.pref as keyof ExtensionPrefs;
+    const key = input.dataset.pref as BoolPref;
     input.checked = state.prefs[key];
     input.onchange = async () => {
       state.prefs = { ...state.prefs, [key]: input.checked };
