@@ -19,7 +19,10 @@ Type <code>;a</code> → <code>\alpha</code>, <code>x/</code> → <code>\frac{x}
   <a href="README.zh-TW.md">繁體中文</a>
 </p>
 
-<!-- demo -->
+<p align="center">
+  <a href="docs/demo.mp4"><img src="docs/demo.gif" width="800" alt="web-laas demo: typing $, ;a, sr, `b, x1/, sq⇥, sum, x'. and _ in an Overleaf-style editor — the keys pressed are shown underneath, the formula renders live"></a>
+  <br><sub>Every editor state in this video comes from the real engine. <a href="docs/demo.mp4">1080p MP4</a> · <a href="demo">video source (HyperFrames)</a></sub>
+</p>
 
 ---
 

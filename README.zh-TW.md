@@ -5,7 +5,10 @@
 
 <p align="center"><a href="README.md">English</a></p>
 
-<!-- demo -->
+<p align="center">
+  <a href="docs/demo.mp4"><img src="docs/demo.gif" width="800" alt="web-laas 示範：在 Overleaf 風格的編輯器裡打 $、;a、sr、`b、x1/、sq⇥、sum、x'.、_，下方顯示按下的鍵，右邊即時渲染公式"></a>
+  <br><sub>影片裡每一個編輯器狀態，都是真的 engine 算出來的。<a href="docs/demo.mp4">1080p MP4</a> · <a href="demo">影片原始檔（HyperFrames）</a></sub>
+</p>
 
 ---
 

@@ -1,0 +1,6 @@
+.cache/
+renders/
+node_modules/
+.media/
+.thumbnails/
+.hyperframes/

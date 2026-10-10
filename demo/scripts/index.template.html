@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <title>web-laas demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <link rel="stylesheet" href="assets/katex/katex.min.css">
+    <style>
+      :root {
+        --bg: #0d1211;
+        --surface: #141c1b;
+        --surface-2: #1a2422;
+        --line: #26332f;
+        --fg: #e9efed;
+        --muted: #9aaca8;
+        --accent: #4fb8aa;
+        --accent-soft: rgba(79, 184, 170, 0.16);
+        --amber: #e7ae6b;
+        --violet: #b1abff;
+        --display: "Montserrat", sans-serif;
+        --mono: "JetBrains Mono", monospace;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--fg);
+      }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: var(--display);
+      }
+      .clip {
+        position: absolute;
+        inset: 0;
+      }
+
+      /* ── background ── */
+      #glow {
+        position: absolute;
+        width: 1500px;
+        height: 1500px;
+        right: -420px;
+        top: -620px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(79, 184, 170, 0.22) 0%, rgba(79, 184, 170, 0.07) 38%, rgba(79, 184, 170, 0) 68%);
+      }
+      #grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(79, 184, 170, 0.07) 2px, transparent 2px),
+          linear-gradient(90deg, rgba(79, 184, 170, 0.07) 2px, transparent 2px);
+        background-size: 96px 96px;
+        -webkit-mask-image: radial-gradient(ellipse at 70% 30%, #000 0%, transparent 70%);
+        mask-image: radial-gradient(ellipse at 70% 30%, #000 0%, transparent 70%);
+      }
+      #ghost {
+        position: absolute;
+        right: -60px;
+        bottom: -260px;
+        width: 820px;
+        height: 1000px;
+        display: block;
+      }
+
+      /* ── header ── */
+      #header {
+        position: absolute;
+        top: 60px;
+        left: 96px;
+        right: 96px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      .logo {
+        display: grid;
+        place-items: center;
+        width: 60px;
+        height: 60px;
+        border-radius: 16px;
+        background: var(--accent);
+        color: #0b1413;
+        font: 400 40px/1 "EB Garamond", serif;
+      }
+      .brand-name {
+        font: 900 40px/1 var(--display);
+        letter-spacing: -0.02em;
+      }
+      .proof {
+        font: 400 22px/1 var(--mono);
+        color: var(--muted);
+        letter-spacing: 0.02em;
+      }
+      .proof b {
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      /* ── intro ── */
+      #intro-inner {
+        position: absolute;
+        left: 96px;
+        top: 300px;
+        width: 1500px;
+      }
+      .headline {
+        font: 900 124px/1.02 var(--display);
+        letter-spacing: -0.045em;
+      }
+      .headline .line {
+        display: block;
+      }
+      .headline .accent {
+        color: var(--accent);
+      }
+      .subline {
+        margin-top: 44px;
+        font: 400 34px/1.4 var(--mono);
+        color: var(--muted);
+      }
+
+      /* ── stage ── */
+      #editor,
+      #render {
+        position: absolute;
+        top: 176px;
+        height: 580px;
+        border-radius: 22px;
+        background: var(--surface);
+        border: 2px solid var(--line);
+        box-shadow: 0 40px 90px rgba(0, 0, 0, 0.45);
+        overflow: hidden;
+      }
+      #editor {
+        left: 96px;
+        width: 1110px;
+      }
+      #render {
+        left: 1240px;
+        width: 584px;
+        display: flex;
+        flex-direction: column;
+      }
+      .chrome {
+        height: 70px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 30px;
+        border-bottom: 2px solid var(--line);
+        background: var(--surface-2);
+      }
+      .dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #3a4744;
+      }
+      .chrome-title {
+        margin-left: 14px;
+        font: 400 22px/1 var(--mono);
+        color: var(--muted);
+      }
+      #source {
+        padding: 44px 48px;
+        font: 400 42px/1.6 var(--mono);
+        white-space: pre-wrap;
+        word-break: break-all;
+        color: var(--fg);
+        font-variant-ligatures: none;
+      }
+      #source .math {
+        color: #f2d9b0;
+      }
+      #source .cmd {
+        color: var(--accent);
+      }
+      #source .hl {
+        border-radius: 8px;
+      }
+      #caret {
+        display: inline-block;
+        width: 4px;
+        height: 1.15em;
+        margin: 0 -2px;
+        vertical-align: -0.2em;
+        background: var(--accent);
+      }
+      .render-label {
+        padding: 26px 34px 0;
+        font: 700 20px/1 var(--mono);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      #math-box {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 28px;
+      }
+      #math {
+        display: block;
+        font-size: 50px;
+        color: var(--fg);
+        transform-origin: center center;
+      }
+      #math .katex-display {
+        margin: 0;
+      }
+      .render-foot {
+        padding: 0 34px 28px;
+        font: 400 20px/1.4 var(--mono);
+        color: var(--muted);
+      }
+
+      /* ── key bar ── */
+      #keybar {
+        position: absolute;
+        left: 96px;
+        right: 96px;
+        top: 806px;
+        height: 182px;
+        display: flex;
+        align-items: center;
+        gap: 34px;
+        padding: 0 40px;
+        border-radius: 22px;
+        background: rgba(20, 28, 27, 0.92);
+        border: 2px solid var(--line);
+      }
+      .keys-label {
+        font: 700 20px/1 var(--mono);
+        letter-spacing: 0.14em;
+        color: var(--muted);
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+      }
+      #keys {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        flex: 1;
+        min-width: 0;
+        height: 100%;
+      }
+      .key {
+        display: grid;
+        place-items: center;
+        min-width: 84px;
+        height: 92px;
+        padding: 0 22px;
+        border-radius: 14px;
+        background: var(--surface-2);
+        border: 2px solid #33423e;
+        border-bottom-width: 7px;
+        font: 700 44px/1 var(--mono);
+        color: var(--fg);
+      }
+      .key.wide {
+        font-size: 30px;
+      }
+      .key.now {
+        background: var(--accent-soft);
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      #pill {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        min-width: 640px;
+        justify-content: flex-end;
+      }
+      #tag {
+        font: 700 22px/1 var(--mono);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 12px 16px;
+        border-radius: 10px;
+        color: #0b1413;
+        background: var(--accent);
+      }
+      #label {
+        font: 700 40px/1.2 var(--mono);
+        color: var(--fg);
+        white-space: nowrap;
+      }
+
+      /* ── cheat sheet ── */
+      #sheet-card {
+        position: absolute;
+        left: 50%;
+        top: 140px;
+        width: 860px;
+        margin-left: -430px;
+        border-radius: 22px;
+        overflow: hidden;
+        box-shadow: 0 50px 120px rgba(0, 0, 0, 0.6), 0 0 0 2px var(--line);
+      }
+      #sheet-card img {
+        display: block;
+        width: 860px;
+        height: auto;
+      }
+
+      /* ── end card ── */
+      #end-inner {
+        position: absolute;
+        left: 96px;
+        right: 96px;
+        top: 200px;
+      }
+      .end-title {
+        display: flex;
+        align-items: center;
+        gap: 34px;
+        font: 900 150px/1 var(--display);
+        letter-spacing: -0.05em;
+      }
+      .end-title .logo {
+        width: 150px;
+        height: 150px;
+        border-radius: 38px;
+        font-size: 104px;
+      }
+      #end-rule {
+        display: block;
+        width: 1060px;
+        height: 4px;
+        margin: 54px 0 42px;
+        background: var(--accent);
+        transform-origin: left center;
+      }
+      .end-sites {
+        font: 700 40px/1.4 var(--display);
+        color: var(--fg);
+        letter-spacing: -0.01em;
+      }
+      .end-sites span {
+        color: var(--muted);
+        font-weight: 400;
+      }
+      .install {
+        display: flex;
+        gap: 28px;
+        margin-top: 58px;
+      }
+      .cmd-line {
+        font: 400 36px/1 var(--mono);
+        padding: 26px 34px;
+        border-radius: 16px;
+        background: var(--surface);
+        border: 2px solid var(--line);
+        color: var(--fg);
+      }
+      .cmd-line b {
+        color: var(--accent);
+        font-weight: 700;
+      }
+      .end-foot {
+        margin-top: 48px;
+        font: 400 24px/1.5 var(--mono);
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-la9c" id="root" data-composition-id="main" data-start="0" data-duration="42" data-width="1920" data-height="1080">
+      <!-- background: persistent, slow ambient motion -->
+      <div data-hf-id="hf-p83z" id="bg" class="clip" data-start="0" data-duration="42" data-track-index="0">
+        <div data-hf-id="hf-gs5t" id="grid"></div>
+        <div data-hf-id="hf-27c6" id="glow"></div>
+        <svg data-hf-id="hf-3z3y" id="ghost" viewBox="0 0 820 1000" aria-hidden="true">
+          <path data-hf-id="hf-46u7" d="M700 120 H120 L460 500 L120 880 H700" fill="none" stroke="rgba(79,184,170,0.12)" stroke-width="64" stroke-linejoin="round" stroke-linecap="round" />
+        </svg>
+      </div>
+
+      <div data-hf-id="hf-l9pp" id="head" class="clip" data-start="0" data-duration="33.6" data-track-index="1">
+        <div data-hf-id="hf-rw2y" id="header">
+          <div data-hf-id="hf-oojr" class="brand"><span data-hf-id="hf-gemb" class="logo">∑</span><span data-hf-id="hf-ueka" class="brand-name">web-laas</span></div>
+          <div data-hf-id="hf-1ngc" class="proof">every state below comes from <b data-hf-id="hf-lr0p">web-laas-engine 0.3.0</b></div>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-rl0q" id="intro" class="clip" data-start="0" data-duration="3.7" data-track-index="2">
+        <div data-hf-id="hf-cztq" id="intro-inner">
+          <div data-hf-id="hf-sodk" class="headline">
+            <span data-hf-id="hf-1bll" class="line">LaTeX snippets</span>
+            <span data-hf-id="hf-y1j8" class="line accent">that type themselves.</span>
+          </div>
+          <div data-hf-id="hf-4und" class="subline">Emacs laas + cdlatex, in every editor on the web.</div>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-fgn2" id="stage" class="clip" data-start="3.65" data-duration="29.95" data-track-index="3">
+        <div data-hf-id="hf-u78e" id="stage-inner">
+          <div data-hf-id="hf-71ji" id="editor">
+            <div data-hf-id="hf-6ex2" class="chrome">
+              <span data-hf-id="hf-9gry" class="dot"></span><span data-hf-id="hf-zcc2" class="dot"></span><span data-hf-id="hf-zqn3" class="dot"></span>
+              <span data-hf-id="hf-afay" class="chrome-title">main.tex — Overleaf</span>
+            </div>
+            <div data-hf-id="hf-xw3i" id="source"></div>
+          </div>
+          <div data-hf-id="hf-n5mp" id="render">
+            <div data-hf-id="hf-jmgq" class="render-label">renders as</div>
+            <div data-hf-id="hf-3x6v" id="math-box"><div data-hf-id="hf-0qrm" id="math" data-layout-allow-overflow=""></div></div>
+            <div data-hf-id="hf-n5h5" class="render-foot">□ = the field you fill next</div>
+          </div>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-w2sq" id="keyclip" class="clip" data-start="3.65" data-duration="29.95" data-track-index="4">
+        <div data-hf-id="hf-sshx" id="keybar">
+          <div data-hf-id="hf-7rht" class="keys-label">KEYS</div>
+          <div data-hf-id="hf-k305" id="keys"></div>
+          <div data-hf-id="hf-6cks" id="pill"><span data-hf-id="hf-jzsl" id="tag">laas</span><span data-hf-id="hf-awk8" id="label"></span></div>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-2t8z" id="sheet" class="clip" data-start="27.6" data-duration="6.0" data-track-index="5">
+        <div data-hf-id="hf-uvel" id="sheet-card"><img data-hf-id="hf-sdz7" src="assets/cheatsheet.png" alt="web-laas cheat sheet"></div>
+      </div>
+
+      <div data-hf-id="hf-1l6p" id="end" class="clip" data-start="33.4" data-duration="8.6" data-track-index="6">
+        <div data-hf-id="hf-r847" id="end-inner">
+          <div data-hf-id="hf-o6mi" class="end-title"><span data-hf-id="hf-y7pf" class="logo">∑</span><span data-hf-id="hf-qiur">web-laas</span></div>
+          <div data-hf-id="hf-i7zz" id="end-rule"></div>
+          <div data-hf-id="hf-3qi0" class="end-sites">Overleaf · ChatGPT · Claude · Notion · HackMD · Jupyter <span data-hf-id="hf-673r">— and any text field.</span></div>
+          <div data-hf-id="hf-wvxt" class="install">
+            <div data-hf-id="hf-zgb0" class="cmd-line"><b data-hf-id="hf-0ogj">$</b> npm i web-laas-engine</div>
+            <div data-hf-id="hf-06pw" class="cmd-line"><b data-hf-id="hf-smeu">↗</b> github.com/william1010121/web-laas</div>
+          </div>
+          <div data-hf-id="hf-vi1d" class="end-foot">laas.el + cdlatex.el, ported to the browser · GPL-3.0</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Engine output (scripts/build-states.mjs → scripts/render-math.mjs), inlined.
+      const DATA = /*STATES*/ null;
+
+      // The extension shortcut that opens the cheat sheet (not an engine keystroke).
+      const SHORTCUT = [
+        { t: 27.4, key: "⌥" },
+        { t: 27.48, key: "⇧" },
+        { t: 27.56, key: "K", label: "⌥⇧K  →  cheat sheet", tag: "ext" },
+      ];
+      const STATES = DATA.states;
+      const KEYS = [...STATES.filter((s) => s.key), ...SHORTCUT];
+      const LABELS = [...STATES.filter((s) => s.label), ...SHORTCUT.filter((s) => s.label)];
+      const TAG_STYLE = {
+        laas: ["laas", "#4fb8aa"],
+        cdlatex: ["cdlatex", "#e7ae6b"],
+        web: ["web extras", "#b1abff"],
+        tab: ["Tab", "#d9e2df"],
+        ext: ["extension", "#4fb8aa"],
+      };
+
+      const $ = (id) => document.getElementById(id);
+      const sourceEl = $("source");
+      const mathEl = $("math");
+      const keysEl = $("keys");
+      const tagEl = $("tag");
+      const labelEl = $("label");
+      const pillEl = $("pill");
+
+      const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const last = (list, t) => {
+        let found = null;
+        for (const s of list) if (s.t <= t) found = s;
+        return found;
+      };
+      const keyText = (k) => (k === "⇥" ? "Tab" : k === " " ? "␣" : k);
+
+      /** Source text with math tinted, \commands accented, the latest insertion highlighted, and the caret. */
+      function sourceHtml(s, t) {
+        const text = s.text;
+        const hlAlpha = s.changed ? Math.max(0, 1 - (t - s.t) / 1.1) : 0;
+        const blink = t - s.t < 0.55 || Math.sin((t - s.t) * Math.PI * 2 * 0.9) > -0.2;
+        // colour class per character
+        const cls = [];
+        let inMath = false;
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          let c = inMath || ch === "$" ? "math" : "";
+          if (ch === "$") inMath = !inMath;
+          if (ch === "\\" || (/[A-Za-z]/.test(ch) && /\\[A-Za-z]*$/.test(text.slice(0, i)))) c = "cmd";
+          cls.push(c);
+        }
+        const run = (a, b) => {
+          let out = "";
+          for (let i = a; i < b; ) {
+            let j = i;
+            while (j < b && cls[j] === cls[i]) j++;
+            out += `<span class="${cls[i]}">${esc(text.slice(i, j))}</span>`;
+            i = j;
+          }
+          return out;
+        };
+        const caret = `<span id="caret" style="opacity:${blink ? 1 : 0}"></span>`;
+        // split at the highlight range and the caret, keeping the highlight one box
+        const [h0, h1] = s.changed && hlAlpha > 0 ? s.changed : [-1, -1];
+        const cuts = [...new Set([0, text.length, s.caret, ...(h0 >= 0 ? [h0, h1] : [])])].sort((a, b) => a - b);
+        let html = "";
+        for (let k = 0; k < cuts.length; k++) {
+          const a = cuts[k];
+          if (a === s.caret) html += caret;
+          const b = cuts[k + 1];
+          if (b === undefined || b <= a) continue;
+          const seg = run(a, b);
+          html += a >= h0 && b <= h1 && h0 >= 0
+            ? `<span class="hl" style="background:rgba(79,184,170,${(0.36 * hlAlpha).toFixed(3)})">${seg}</span>`
+            : seg;
+        }
+        return html;
+      }
+
+      // Formula scale per state, measured once before the timeline is built (fonts loaded).
+      const SCALE = new Map();
+      function measureFormulas() {
+        const box = 584 - 2 * 28 - 56; // #render width − #math-box padding − margin
+        for (const s of STATES) {
+          if (!s.math || SCALE.has(s.math)) continue;
+          mathEl.innerHTML = s.math;
+          const w = mathEl.scrollWidth;
+          SCALE.set(s.math, w > box ? box / w : 1);
+        }
+        mathEl.innerHTML = "";
+      }
+
+      let shownMath = null;
+      function render(t) {
+        const s = last(STATES, t) ?? STATES[0];
+        sourceEl.innerHTML = sourceHtml(s, t);
+
+        if (s.math !== shownMath) {
+          mathEl.innerHTML = s.math || "";
+          shownMath = s.math;
+        }
+        const k = SCALE.get(s.math) ?? 1;
+        mathEl.style.transform = k < 1 ? `scale(${k.toFixed(4)})` : "none";
+
+        // key bar: the last keys, newest highlighted
+        const pressed = KEYS.filter((k) => k.t <= t).slice(-8);
+        keysEl.innerHTML = pressed
+          .map((k, i) => {
+            const age = t - k.t;
+            const now = i === pressed.length - 1 && age < 0.9;
+            const fade = Math.max(0.35, 1 - (pressed.length - 1 - i) * 0.09);
+            const pop = age < 0.12 ? 1 + 0.12 * (1 - age / 0.12) : 1;
+            const label = keyText(k.key);
+            return `<span class="key${now ? " now" : ""}${label.length > 1 ? " wide" : ""}" style="opacity:${fade};transform:scale(${pop.toFixed(3)})">${esc(label)}</span>`;
+          })
+          .join("");
+
+        // the last expansion stays on screen until the next one
+        const l = last(LABELS, t);
+        pillEl.style.opacity = l ? "1" : "0";
+        if (l) {
+          const [name, color] = TAG_STYLE[l.tag] ?? TAG_STYLE.laas;
+          tagEl.textContent = name;
+          tagEl.style.background = color;
+          labelEl.textContent = l.label;
+          const age = t - l.t;
+          pillEl.style.transform = age < 0.25 ? `translateY(${(14 * (1 - age / 0.25)).toFixed(1)}px)` : "none";
+        }
+      }
+
+      function build() {
+      measureFormulas();
+      const tl = gsap.timeline({ paused: true });
+      const DUR = 42;
+
+      // one driver renders the engine states at the timeline's time
+      const driver = { t: 0 };
+      tl.to(driver, { t: DUR, duration: DUR, ease: "none", onUpdate: () => render(driver.t) }, 0);
+
+      // ambient background
+      tl.fromTo("#glow", { scale: 0.92 }, { scale: 1.1, duration: 7, ease: "sine.inOut", yoyo: true, repeat: 5 }, 0);
+      tl.fromTo("#ghost", { x: 0, rotation: -4 }, { x: -120, rotation: 3, duration: DUR, ease: "none" }, 0);
+      tl.fromTo("#grid", { backgroundPositionY: "0px" }, { backgroundPositionY: "96px", duration: DUR, ease: "none" }, 0);
+
+      // intro
+      tl.fromTo("#header", { y: -24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 0.1);
+      tl.fromTo(".headline .line", { y: 70, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, ease: "expo.out", stagger: 0.14 }, 0.25);
+      tl.fromTo(".subline", { x: -30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6, ease: "power2.out" }, 0.85);
+      tl.to("#intro-inner", { y: -90, opacity: 0, duration: 0.45, ease: "power2.in" }, 3.2);
+
+      // stage in
+      tl.fromTo("#editor", { x: -70, opacity: 0 }, { x: 0, opacity: 1, duration: 0.8, ease: "power3.out" }, 3.7);
+      tl.fromTo("#render", { x: 70, opacity: 0 }, { x: 0, opacity: 1, duration: 0.8, ease: "back.out(1.4)" }, 3.85);
+      tl.fromTo("#keybar", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: "power3.out" }, 4.0);
+
+      // the finished formula gets a moment
+      tl.to("#render", { borderColor: "#4fb8aa", duration: 0.5, ease: "power2.out" }, 25.6);
+
+      // cheat sheet
+      tl.to("#stage-inner", { opacity: 0.22, duration: 0.4, ease: "power2.out" }, 27.6);
+      tl.fromTo("#sheet-card", { y: 60, scale: 0.94, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.6, ease: "expo.out" }, 27.65);
+      tl.to("#sheet-card", { y: -40, opacity: 0, duration: 0.45, ease: "power2.in" }, 33.0);
+      tl.to(["#stage-inner", "#keybar", "#header"], { opacity: 0, duration: 0.45, ease: "power2.in" }, 33.0);
+
+      // end card
+      tl.fromTo(".end-title", { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, ease: "expo.out" }, 33.6);
+      tl.fromTo("#end-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.7, ease: "power3.inOut" }, 34.0);
+      tl.fromTo(".end-sites", { x: -40, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6, ease: "power2.out" }, 34.3);
+      tl.fromTo(".cmd-line", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "back.out(1.6)", stagger: 0.15 }, 34.8);
+      tl.fromTo(".end-foot", { opacity: 0 }, { opacity: 1, duration: 0.6, ease: "sine.out" }, 35.5);
+
+      render(0);
+      window.__timelines["main"] = tl; // registered only after the build completes
+      }
+
+      // KaTeX fonts load on first use: render every formula once, wait, then measure and build.
+      mathEl.innerHTML = STATES.map((s) => s.math || "").join("");
+      document.fonts.ready.then(build);
+    </script>
+  </body>
+</html>
