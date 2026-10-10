@@ -41,6 +41,11 @@ one-to-one from the Emacs packages, not approximated — and the same <kbd>Tab</
   empty `{}`, past `$`. <kbd>Shift</kbd>+<kbd>Tab</kbd> walks back. Inside math, focus never jumps to another button.
 - **Works where you write.** CodeMirror 6 (Overleaf, JupyterLab), CodeMirror 5 (HackMD), ProseMirror (ChatGPT, Claude),
   contenteditable (Notion) and plain text fields — including input methods like Zhuyin and Pinyin.
+- **See what you're editing.** A small floating preview renders the formula under the caret as you type, with the caret
+  marked and empty fields shown as □ — above the caret, below it, or in the corner (your choice). It follows your
+  light/dark theme; <kbd>Esc</kbd> hides it until you type again.
+- **Your delimiters, per site.** Pick what ` mk` and ` dm` insert right in the toolbar popup — `$…$` or `\(…\)`,
+  `$$…$$`, `\[…\]`, `equation*` or `align` — and each site remembers its own choice.
 - **A cheat sheet one key away.** <kbd>⌥</kbd><kbd>⇧</kbd><kbd>K</kbd> shows every snippet available on the current site,
   searchable, with the math rendered.
 - **Yours to configure.** Write snippets like an Emacs config, try them in a live playground, turn sets on and off.

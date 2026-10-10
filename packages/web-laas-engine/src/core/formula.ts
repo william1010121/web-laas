@@ -1,0 +1,79 @@
+// The formula the caret is in: its LaTeX source (opener and closer excluded),
+// where the caret sits inside it, and how it should be rendered.
+import { matchClose, mathContext, TEXT_ARG_CMDS } from "./tex";
+
+export interface Formula {
+  /** LaTeX between the delimiters */
+  latex: string;
+  /** caret offset within `latex` */
+  caret: number;
+  /** display math ($$, \[, equation, align…) rather than inline */
+  display: boolean;
+  /** the enclosing environment for \begin{env} math (align, gather, …) */
+  env?: string;
+}
+
+const ESCAPED = /(^|[^\\])(\\\\)*$/; // an even number of backslashes before a position
+
+function closerFor(opener: string): { closer: string; env?: string } {
+  if (opener === "$$") return { closer: "$$" };
+  if (opener === "$") return { closer: "$" };
+  if (opener === "\\(") return { closer: "\\)" };
+  if (opener === "\\[") return { closer: "\\]" };
+  const env = /^\\begin\s*\{([^}]*)\}$/.exec(opener)?.[1]?.trim();
+  return { closer: env ? `\\end{${env}}` : "", env };
+}
+
+/** Index of the first unescaped `closer` in `text` (outside % comments when `comments`), or -1. */
+function findCloser(text: string, closer: string, comments: boolean): number {
+  // \end {align} is as good as \end{align}
+  const env = /^\\end\{(.*)\}$/.exec(closer)?.[1];
+  const endRe = env !== undefined ? new RegExp(`^\\\\end\\s*\\{\\s*${env.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\}`) : null;
+  const closesAt = (i: number) => (endRe ? endRe.test(text.slice(i, i + closer.length + 16)) : text.startsWith(closer, i));
+  for (let i = 0; i < text.length; i++) {
+    const unescaped = ESCAPED.test(text.slice(Math.max(0, i - 32), i));
+    if (comments && text[i] === "%" && unescaped) {
+      const nl = text.indexOf("\n", i);
+      if (nl < 0) return -1;
+      i = nl; // a comment runs to the end of the line
+      continue;
+    }
+    // \text{… $x$ …}: delimiters inside a text argument belong to nested math, skip the group
+    const cmd = unescaped && text[i] === "\\" ? /^\\([A-Za-z]+\*?)\s*\{/.exec(text.slice(i, i + 40)) : null;
+    if (cmd && cmd[1] !== "begin" && cmd[1] !== "end" && TEXT_ARG_CMDS.has(cmd[1].replace(/\*$/, ""))) {
+      const close = matchClose(text, i + cmd[0].length - 1, comments);
+      if (close < 0) return -1;
+      i = close;
+      continue;
+    }
+    // \$ is a dollar sign; in \\) the backslashes pair up, so the ) is plain text
+    if (!unescaped || !closesAt(i)) continue;
+    return i; // for "$", a "$$" right here also ends this formula (it opens the next one)
+  }
+  return -1;
+}
+
+/**
+ * The formula around the caret, given the text before it (from any earlier
+ * point) and some text after it; null when the caret isn't in math.
+ */
+export function formulaAt(before: string, after: string, opts: { comments?: boolean } = {}): Formula | null {
+  // no formula spans a blank line: start the scan in the caret's paragraph, so an
+  // opener left open further up can't swallow this paragraph's delimiters
+  let cut = 0;
+  for (const m of before.matchAll(/\n[ \t]*\n/g)) cut = m.index + m[0].length;
+  if (cut) before = before.slice(cut);
+  const ctx = mathContext(before, opts);
+  if (!ctx.math || ctx.start === undefined) return null;
+  const opener = before.slice(ctx.start - (ctx.openLen ?? 0), ctx.start);
+  const { closer, env } = closerFor(opener);
+  const found = closer ? findCloser(after, closer, !!opts.comments) : -1;
+  // math can't run past a blank line (TeX complains there): a closer beyond one belongs to a later formula
+  const blank = after.search(/\n[ \t]*\n/);
+  const end = blank >= 0 && (found < 0 || blank < found) ? blank : found >= 0 ? found : after.length;
+  const head = before.slice(ctx.start);
+  if (/\n[ \t]*\n/.test(head)) return null; // an opener left open in an earlier paragraph
+  // the caret inside a % comment: what follows on this line isn't math either
+  if (opts.comments && /(^|[^\\])(\\\\)*%/.test(head.slice(head.lastIndexOf("\n") + 1))) return null;
+  return { latex: head + after.slice(0, end), caret: head.length, display: ctx.display, env };
+}

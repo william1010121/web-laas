@@ -1,6 +1,6 @@
 // cheatsheet.js: injected into the top frame by the background only when the
 // cheat sheet is opened, so KaTeX isn't loaded into every page and iframe.
-import { cheatsheetEntries, compileConfig, groupCheatsheet, snippetsForHost } from "web-laas-engine";
+import { cheatsheetEntries, compileConfig, groupCheatsheet, snippetsForHost, withMathDelimiters, resolveMathDelimiters } from "web-laas-engine";
 import { alive } from "../shared/alive";
 import { loadState, type ContentMessage } from "../shared/storage";
 import { toggleCheatsheet } from "./overlay";
@@ -20,7 +20,7 @@ async function open(shortcut?: string) {
     config = compileConfig(null, { extras: state.prefs.extras, cdlatex: state.prefs.cdlatex }).config;
   }
   const host = location.hostname;
-  const groups = groupCheatsheet(cheatsheetEntries(snippetsForHost(config, host)));
+  const groups = groupCheatsheet(cheatsheetEntries(withMathDelimiters(snippetsForHost(config, host), resolveMathDelimiters(state.siteMath, host))));
   toggleCheatsheet(groups, { host, shortcut });
 }
 

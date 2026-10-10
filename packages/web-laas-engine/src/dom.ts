@@ -4,6 +4,7 @@ export {
   DEFAULT_PREFS,
   LaasController,
   type ControllerOptions,
+  type FormulaState,
   type LaasPrefs,
   type RuntimeState,
 } from "./dom/controller";
@@ -15,5 +16,6 @@ export {
   ContentEditableAdapter,
   TextFieldAdapter,
   type AdapterFactory,
+  type CaretRect,
   type EditorAdapter,
 } from "./dom/adapters";

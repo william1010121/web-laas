@@ -1,7 +1,7 @@
-import { cheatsheetEntries, compileConfig, groupCheatsheet, snippetsForHost, type CompiledConfig } from "web-laas-engine";
+import { cheatsheetEntries, compileConfig, groupCheatsheet, snippetsForHost, withMathDelimiters, resolveMathDelimiters, type CompiledConfig } from "web-laas-engine";
 import { LaasController } from "web-laas-engine/dom";
 import { buildCheatsheet, SHEET_CSS } from "../cheatsheet/sheet";
-import { loadState, savePrefs, saveState, type ExtensionPrefs, type StoredState } from "../shared/storage";
+import { loadState, savePrefs, saveState, type ExtensionPrefs, type PreviewPref, type StoredState } from "../shared/storage";
 import TEMPLATE from "./template.laas";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -73,7 +73,9 @@ function renderSheet() {
   const { config } = compileCurrent();
   const cfg = config ?? compileConfig(null, { extras: state.prefs.extras, cdlatex: state.prefs.cdlatex }).config;
   const select = $<HTMLSelectElement>("sheetSite");
-  const groups = groupCheatsheet(cheatsheetEntries(snippetsForHost(cfg, select.value)));
+  const groups = groupCheatsheet(cheatsheetEntries(
+    withMathDelimiters(snippetsForHost(cfg, select.value), resolveMathDelimiters(state.siteMath, select.value)),
+  ));
   const label = select.selectedOptions[0]?.textContent ?? "";
   $("sheetHost").replaceChildren(buildCheatsheet(document, groups, { host: label }));
 }
@@ -83,9 +85,21 @@ function renderMaster() {
   $("masterState").textContent = state.enabled ? "已啟用 · Alt+Shift+L" : "已暫停 · Alt+Shift+L";
 }
 
+type BoolPref = { [K in keyof ExtensionPrefs]: ExtensionPrefs[K] extends boolean ? K : never }[keyof ExtensionPrefs];
+
 function bindPrefs() {
+  document.querySelectorAll<HTMLInputElement>('input[name="preview"]').forEach((radio) => {
+    radio.checked = radio.value === state.prefs.preview;
+    radio.onchange = async () => {
+      if (!radio.checked) return;
+      const preview = radio.value as PreviewPref;
+      state.prefs = { ...state.prefs, preview };
+      await savePrefs({ preview });
+      toast("已儲存");
+    };
+  });
   document.querySelectorAll<HTMLInputElement>("input[data-pref]").forEach((input) => {
-    const key = input.dataset.pref as keyof ExtensionPrefs;
+    const key = input.dataset.pref as BoolPref;
     input.checked = state.prefs[key];
     input.onchange = async () => {
       state.prefs = { ...state.prefs, [key]: input.checked };
@@ -189,6 +203,12 @@ async function main() {
     if (changes.disabledHosts) {
       state.disabledHosts = Array.isArray(changes.disabledHosts.newValue) ? changes.disabledHosts.newValue : [];
       renderSites();
+    }
+    if (changes.siteMath) {
+      // the popup changed what mk / dm insert somewhere: the cheat sheet shows it
+      state.siteMath = (changes.siteMath.newValue ?? {}) as StoredState["siteMath"];
+      sheetDirty = true;
+      if ($("page-cheatsheet").classList.contains("active")) renderSheet();
     }
   });
   renderMaster();

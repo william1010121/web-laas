@@ -38,6 +38,32 @@ label.row { cursor: pointer; }
   .pill-cdlatex { color: #6ccabd; background: rgba(79,184,170,.14); }
 }
 
+/* live preview picker */
+.preview-card { padding: 16px 18px 18px; }
+.pv-head .title { font-weight: 550; }
+.pv-head .desc { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.caret-dot { color: var(--accent); font-weight: 700; }
+.pv-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.pv-opt { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface-2); cursor: pointer; }
+.pv-opt:hover { border-color: var(--border-strong); }
+.pv-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.pv-opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.pv-opt:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pv-title { font-weight: 600; font-size: 13px; margin-top: 4px; }
+.pv-desc { font-size: 11.5px; color: var(--muted); line-height: 1.4; }
+.mock { position: relative; display: flex; flex-direction: column; justify-content: center; gap: 7px; height: 68px; padding: 0 10px; border-radius: 7px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
+.m-line { display: block; height: 5px; width: 82%; border-radius: 3px; background: var(--border-strong); }
+.m-line.short { width: 46%; position: relative; }
+.m-caret { position: absolute; right: -5px; top: -4px; width: 2px; height: 13px; background: var(--accent); }
+.m-card { position: absolute; display: grid; place-items: center; width: 44px; height: 20px; border-radius: 5px; background: var(--surface); border: 1px solid var(--accent); box-shadow: 0 3px 8px rgba(0,0,0,.18); }
+.m-math { font: 12px/1 Georgia, "Times New Roman", serif; color: var(--accent); }
+.mock-above .m-card { left: 28%; top: 6px; }
+.mock-below .m-card { left: 28%; bottom: 6px; }
+.mock-corner .m-card { right: 6px; bottom: 6px; }
+.mock-off { opacity: .55; }
+.mock-above .m-line:first-child, .mock-below .m-line:last-child { visibility: hidden; }
+@media (max-width: 860px) { .pv-options { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
 /* snippet editor */
 .ref { padding: 6px 14px; margin-bottom: 14px; }
 .ref table { border-collapse: collapse; font-size: 12.5px; width: 100%; }

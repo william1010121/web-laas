@@ -1,0 +1,16 @@
+<!doctype html>
+<!-- The live LaTeX preview on an ordinary page. Type math in the box. -->
+<html><head><meta charset="utf-8"><title>live preview</title>
+<style>
+  body { font: 16px/1.6 system-ui, sans-serif; margin: 0; padding: 60px 80px; background: #f7f7f5; color: #222; }
+  @media (prefers-color-scheme: dark) { body { background: #1b1b1d; color: #ddd; } textarea { background: #242427; color: #eee; border-color: #3a3a3f; } }
+  textarea { width: 760px; height: 220px; font: 17px/1.6 ui-monospace, Menlo, monospace; padding: 14px; border: 1px solid #ccc; border-radius: 10px; }
+  h1 { font-size: 20px; }
+</style></head>
+<body>
+<h1>Live preview</h1>
+<p>Some text above the editor, the way a chat composer or a form would sit on a page.</p>
+<textarea id="editor" spellcheck="false"></textarea>
+<p>More page content below.</p>
+<script src="dist/live-preview.js"></script>
+</body></html>

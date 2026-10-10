@@ -27,6 +27,7 @@ const builds = [
       "content-main": "src/content/main.ts",
       "content-isolated": "src/content/isolated.ts",
       cheatsheet: "src/cheatsheet/entry.ts",
+      preview: "src/preview/entry.ts",
       background: "src/background.ts",
       options: "src/options/options.ts",
       popup: "src/popup/popup.ts",
@@ -36,7 +37,10 @@ const builds = [
   {
     // previews of the extension UI outside Chrome (test/preview/*.html)
     ...common,
-    entryPoints: { "overlay-preview": "test/preview/src/overlay-preview.ts" },
+    entryPoints: {
+      "overlay-preview": "test/preview/src/overlay-preview.ts",
+      "live-preview": "test/preview/src/live-preview.ts",
+    },
     outdir: "test/preview/dist",
   },
 ];

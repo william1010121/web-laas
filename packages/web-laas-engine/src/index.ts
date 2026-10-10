@@ -5,7 +5,12 @@ export {
   compileConfig,
   hostMatches,
   snippetsForHost,
+  withMathDelimiters,
+  resolveMathDelimiters,
   type CompiledConfig,
+  type MathDelimiters,
+  type InlineMathStyle,
+  type DisplayMathStyle,
   type CompileOptions,
   type SnippetSource,
   type ConfigIssue,
@@ -13,6 +18,7 @@ export {
 } from "./core/config";
 export { findExpansion, type Expansion, type MatchOptions } from "./core/matcher";
 export { mathContext, objectStart, unwrapObject, type MathContext } from "./core/tex";
+export { formulaAt, type Formula } from "./core/formula";
 export { cdlatexModify, cdlatexTab, type ModifyResult, type ModifySpec, type TabMove } from "./core/cdlatex";
 export {
   cheatsheetEntries,

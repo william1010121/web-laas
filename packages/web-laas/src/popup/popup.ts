@@ -1,4 +1,18 @@
+import { resolveMathDelimiters, type DisplayMathStyle, type InlineMathStyle, type MathDelimiters } from "web-laas-engine";
 import { loadState, saveState } from "../shared/storage";
+
+const INLINE: [InlineMathStyle, string, string][] = [
+  ["auto", "預設", "依網站預設（$…$）"],
+  ["dollar", "$…$", "$…$"],
+  ["paren", "\\(…\\)", "\\(…\\)"],
+];
+const DISPLAY: [DisplayMathStyle, string, string][] = [
+  ["auto", "預設", "依網站預設（Overleaf 用 \\[…\\]，其他用 $$…$$）"],
+  ["ddollar", "$$", "$$…$$"],
+  ["bracket", "\\[ \\]", "\\[…\\]"],
+  ["equation", "equation*", "\\begin{equation*}…\\end{equation*}"],
+  ["align", "align", "\\begin{align}…\\end{align}"],
+];
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -44,6 +58,42 @@ async function main() {
     await chrome.runtime.sendMessage({ type: "open-cheatsheet", tabId: tab?.id });
     window.close();
   };
+  // any web host, localhost and intranet names included (file: pages have no host to key on)
+  if (host && host !== "file:") setupDelims(host, resolveMathDelimiters(state.siteMath, host)); // inherited choices show too
   $("options").onclick = () => chrome.runtime.openOptionsPage();
 }
+
+/** The mk / dm segmented controls: one choice per kind, saved under this host. */
+function setupDelims(host: string, current: MathDelimiters) {
+  let saving = Promise.resolve();
+  $("delims").hidden = false;
+  const build = <K extends keyof MathDelimiters>(kind: K, options: [NonNullable<MathDelimiters[K]>, string, string][]) => {
+    const seg = $(kind);
+    const render = (value: string) =>
+      seg.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.value === value)));
+    for (const [value, label, title] of options) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.dataset.value = value;
+      b.textContent = label;
+      b.title = title;
+      if (value === "auto") b.className = "auto";
+      b.onclick = async () => {
+        render(value);
+        // one read-modify-write at a time, so quick mk + dm clicks both land
+        saving = saving.then(async () => {
+          const { siteMath } = await loadState();
+          // "auto" is stored too: it overrides a parent domain's choice
+          await saveState({ siteMath: { ...siteMath, [host]: { ...siteMath[host], [kind]: value } } });
+        });
+        await saving;
+      };
+      seg.appendChild(b);
+    }
+    render(current[kind] ?? "auto");
+  };
+  build("inline", INLINE);
+  build("display", DISPLAY);
+}
+
 void main();

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { LaasController, type EditorAdapter } from "../../src/dom";
 
 /** Simulate the browser inserting a typed character, then the keydown our controller sees. */
@@ -30,6 +30,54 @@ describe("LaasController", () => {
     type(ta, "y");
     ta.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
     expect(ta.selectionStart).toBe(" $\\frac{x}{y}".length);
+  });
+
+  it("mk / dm insert the delimiters chosen for the site", async () => {
+    document.body.innerHTML = "<textarea></textarea>";
+    const ta = document.querySelector("textarea")!;
+    ta.focus();
+    const c = new LaasController({ host: "chat.example.com" });
+    c.setState({
+      siteMath: {
+        "example.com": { inline: "dollar", display: "equation" },
+        "chat.example.com": { inline: "paren" }, // more specific: wins for mk; dm still comes from example.com
+        "other.org": { inline: "dollar" },
+      },
+    });
+    detach = c.attach();
+    for (const ch of " mkx") {
+      type(ta, ch);
+      await tick();
+    }
+    expect(ta.value).toBe(" \\(x\\)");
+    ta.value = "";
+    for (const ch of "dm") {
+      type(ta, ch);
+      await tick();
+    }
+    expect(ta.value).toBe("\\begin{equation*}\n\t\n\\end{equation*}");
+    c.setState({ siteMath: { "example.com": { display: "align" } } });
+    ta.value = "";
+    for (const ch of "dm") {
+      type(ta, ch);
+      await tick();
+    }
+    expect(ta.value).toBe("\\begin{align}\n\t\n\\end{align}");
+    // "auto" on the subdomain stops inheriting from example.com
+    c.setState({ siteMath: { "example.com": { inline: "paren" }, "chat.example.com": { inline: "auto" } } });
+    ta.value = "";
+    for (const ch of "mk") {
+      type(ta, ch);
+      await tick();
+    }
+    expect(ta.value).toBe("$$");
+    c.setState({ siteMath: {} }); // back to the built-in $…$
+    ta.value = "";
+    for (const ch of "mk") {
+      type(ta, ch);
+      await tick();
+    }
+    expect(ta.value).toBe("$$");
   });
 
   it("expands synchronously on the input event", () => {
@@ -383,6 +431,145 @@ describe("LaasController", () => {
       imeCommit("你好");
       await tick();
       expect(ta.value).toBe("$x 你好");
+    });
+  });
+
+  describe("live preview hook (onFormula)", () => {
+    const frame = () => new Promise((r) => requestAnimationFrame(() => r(null)));
+    it("reports the formula under the caret, and null outside math", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      ta.value = "see $\\frac{a}{b}$ here";
+      ta.focus();
+      ta.setSelectionRange(14, 14); // after "b"
+      const seen: unknown[] = [];
+      detach = new LaasController({ host: "example.com", onFormula: (f) => seen.push(f && { latex: f.latex, caret: f.caret, hasRect: !!f.rect }) }).attach();
+      ta.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowRight", bubbles: true }));
+      await frame();
+      expect(seen.at(-1)).toEqual({ latex: "\\frac{a}{b}", caret: 9, hasRect: true });
+      ta.setSelectionRange(1, 1);
+      ta.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowLeft", bubbles: true }));
+      await frame();
+      expect(seen.at(-1)).toBeNull();
+      // unchanged state: no repeat report
+      const n = seen.length;
+      ta.dispatchEvent(new KeyboardEvent("keyup", { key: "Shift", bubbles: true }));
+      await frame();
+      expect(seen.length).toBe(n);
+    });
+
+    it("gives each formula its own id, stable while the caret moves inside it", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      ta.value = "$x$ and $x$";
+      ta.focus();
+      const ids: string[] = [];
+      detach = new LaasController({ host: "example.com", onFormula: (f) => f && ids.push(f.id) }).attach();
+      for (const pos of [1, 2, 9]) {
+        ta.setSelectionRange(pos, pos);
+        ta.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowRight", bubbles: true }));
+        await frame();
+      }
+      expect(ids).toHaveLength(3);
+      expect(ids[0]).toBe(ids[1]);
+      expect(ids[2]).not.toBe(ids[0]);
+    });
+
+    it("finds a closer more than 4,000 characters past the caret", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      const long = "a+".repeat(3000) + "b";
+      ta.value = "$x" + long + "$ tail";
+      ta.focus();
+      ta.setSelectionRange(2, 2);
+      let last: { latex: string } | null = null;
+      detach = new LaasController({ host: "example.com", onFormula: (f) => (last = f) }).attach();
+      ta.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowRight", bubbles: true }));
+      await frame();
+      expect(last!.latex).toBe("x" + long);
+    });
+
+    it("finds an opener more than 20,000 characters before the caret", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      const long = "a+".repeat(15000);
+      ta.value = "text $" + long + "x$";
+      ta.focus();
+      ta.setSelectionRange(ta.value.length - 1, ta.value.length - 1);
+      let last: { latex: string } | null = null;
+      detach = new LaasController({ host: "example.com", onFormula: (f) => (last = f) }).attach();
+      ta.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowRight", bubbles: true }));
+      await frame();
+      expect(last!.latex).toBe(long + "x");
+    });
+
+    it("follows caret moves that only fire selectionchange", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      ta.value = "$a$ and $b$";
+      ta.focus();
+      const seen: (string | null)[] = [];
+      detach = new LaasController({ host: "example.com", onFormula: (f) => seen.push(f && f.latex) }).attach();
+      ta.setSelectionRange(9, 9);
+      document.dispatchEvent(new Event("selectionchange"));
+      await frame();
+      expect(seen.at(-1)).toBe("b");
+    });
+
+    it("stops scanning while formula reports are paused", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      ta.value = "$a$";
+      ta.focus();
+      ta.setSelectionRange(2, 2);
+      const seen: (string | null)[] = [];
+      const c = new LaasController({ host: "example.com", onFormula: (f) => seen.push(f && f.latex) });
+      detach = c.attach();
+      document.dispatchEvent(new Event("selectionchange"));
+      await frame();
+      expect(seen).toEqual(["a"]);
+      c.watchFormula(false); // hides once
+      const scan = vi.spyOn(c as unknown as { currentFormula: () => unknown }, "currentFormula");
+      document.dispatchEvent(new Event("selectionchange"));
+      await frame();
+      expect(scan).not.toHaveBeenCalled();
+      expect(seen).toEqual(["a", null]);
+      c.watchFormula(true);
+      await frame();
+      expect(seen).toEqual(["a", null, "a"]);
+    });
+
+    it("drops formula work still queued when it detaches", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      ta.value = "$x$";
+      ta.focus();
+      ta.setSelectionRange(2, 2);
+      const seen: unknown[] = [];
+      const c = new LaasController({ host: "example.com", onFormula: (f) => seen.push(f) });
+      c.attach();
+      c.refreshFormula(); // queued for the next frame…
+      c.detach(); // …but the controller is gone by then
+      await frame();
+      ta.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+      await frame();
+      expect(seen.filter((f) => f !== null)).toEqual([]);
+    });
+
+    it("updates after an expansion", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      ta.value = "$";
+      ta.focus();
+      ta.setSelectionRange(1, 1);
+      let last: { latex: string; caret: number } | null = null;
+      detach = new LaasController({ host: "example.com", onFormula: (f) => (last = f && { latex: f.latex, caret: f.caret }) }).attach();
+      for (const ch of "x/") {
+        type(ta, ch);
+        await tick();
+      }
+      await frame();
+      expect(last).toEqual({ latex: "\\frac{x}{}", caret: 9 });
     });
   });
 

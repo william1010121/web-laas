@@ -249,3 +249,46 @@ export function snippetsForHost(config: CompiledConfig, host: string): Snippet[]
       !(s.excludeSites && s.excludeSites.some((p) => hostMatches(host, p))),
   );
 }
+
+export type InlineMathStyle = "auto" | "dollar" | "paren";
+export type DisplayMathStyle = "auto" | "ddollar" | "bracket" | "equation" | "align";
+
+/** Which delimiters mk / dm insert ("auto": the built-in choice for the site). */
+export interface MathDelimiters {
+  inline?: InlineMathStyle;
+  display?: DisplayMathStyle;
+}
+
+const MATH_DELIMITERS: Record<string, [replacement: string, description: string]> = {
+  dollar: ["$$1$$0", "行內數學 $…$"],
+  paren: ["\\($1\\)$0", "行內數學 \\(…\\)"],
+  ddollar: ["$$\n$1\n$$$0", "區塊數學 $$…$$"],
+  bracket: ["\\[\n\t$1\n\\]$0", "區塊數學 \\[…\\]"],
+  equation: ["\\begin{equation*}\n\t$1\n\\end{equation*}$0", "區塊數學 equation*"],
+  align: ["\\begin{align}\n\t$1\n\\end{align}$0", "區塊數學 align"],
+};
+
+/** The built-in mk / dm snippets rewritten to insert the chosen delimiters (your own mk / dm are left alone). */
+export function withMathDelimiters(snippets: Snippet[], d: MathDelimiters | undefined): Snippet[] {
+  if (!d) return snippets;
+  return snippets.map((s) => {
+    if (s.source !== "extras") return s;
+    const style = s.key === "mk" ? d.inline : s.key === "dm" ? d.display : undefined;
+    const pick = style && style !== "auto" ? MATH_DELIMITERS[style] : undefined;
+    if (!pick) return s;
+    return { ...s, replacement: pick[0], template: tokenizeTemplate(pick[0]), description: pick[1] };
+  });
+}
+
+/**
+ * The mk / dm delimiters in effect on `host`: per kind, the most specific
+ * matching pattern that sets it wins (chat.example.com over example.com). An
+ * explicit "auto" counts, so a subdomain can opt back into the built-in choice.
+ */
+export function resolveMathDelimiters(siteMath: Record<string, MathDelimiters> | undefined, host: string): MathDelimiters {
+  const sites = Object.entries(siteMath ?? {})
+    .filter(([p]) => hostMatches(host, p))
+    .sort(([a], [b]) => b.replace(/^\*\./, "").length - a.replace(/^\*\./, "").length)
+    .map(([, d]) => d);
+  return { inline: sites.find((d) => d.inline)?.inline, display: sites.find((d) => d.display)?.display };
+}

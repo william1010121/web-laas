@@ -1,4 +1,4 @@
-import type { EditorAdapter } from "./types";
+import type { CaretRect, EditorAdapter } from "./types";
 
 // contenteditable editors (ProseMirror: ChatGPT / Claude, Notion, Lexical, …).
 // The DOM is linearized into plain text: text nodes as-is, <br> as "\n",
@@ -132,6 +132,49 @@ export class ContentEditableAdapter implements EditorAdapter {
     else if (from !== to) doc.execCommand("delete", false);
     this.cache = null;
     this.setSelection(selFrom, selTo);
+  }
+  caretRect(): CaretRect | null {
+    const doc = this.root.ownerDocument;
+    const sel = doc.getSelection();
+    if (!sel || sel.rangeCount === 0 || !this.root.contains(sel.focusNode)) return null;
+    const range = sel.getRangeAt(0).cloneRange();
+    range.collapse(false);
+    const rects = range.getClientRects();
+    if (rects.length) {
+      const r = rects[rects.length - 1];
+      return { left: r.left, top: r.top, bottom: r.bottom };
+    }
+    // a collapsed range at a node boundary has no box: measure the character before it
+    const node = range.startContainer;
+    if (node.nodeType === Node.TEXT_NODE && range.startOffset > 0) {
+      const r2 = doc.createRange();
+      r2.setStart(node, range.startOffset - 1);
+      r2.setEnd(node, range.startOffset);
+      const b = r2.getBoundingClientRect();
+      return { left: b.right, top: b.top, bottom: b.bottom };
+    }
+    // at an element boundary (or offset 0): the edge of the node next to the caret
+    const near = (n: Node | null, side: "before" | "after"): CaretRect | null => {
+      if (!n) return null;
+      const r2 = doc.createRange();
+      if (n.nodeType === Node.TEXT_NODE && n.textContent) {
+        const len = n.textContent.length;
+        if (side === "before") r2.setStart(n, len - 1), r2.setEnd(n, len);
+        else r2.setStart(n, 0), r2.setEnd(n, 1);
+      } else r2.selectNode(n);
+      const b = r2.getBoundingClientRect();
+      if (!b.width && !b.height) return null;
+      return { left: side === "before" ? b.right : b.left, top: b.top, bottom: b.bottom };
+    };
+    const at = node.nodeType === Node.ELEMENT_NODE ? range.startOffset : -1;
+    const hit =
+      at >= 0
+        ? near(node.childNodes[at - 1] ?? null, "before") ?? near(node.childNodes[at] ?? null, "after")
+        : near(node.previousSibling, "before") ?? near(node.nextSibling ?? node, "after");
+    if (hit) return hit;
+    const el = (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement) as Element | null;
+    const b = (el ?? this.root).getBoundingClientRect();
+    return { left: b.left, top: b.top, bottom: Math.min(b.bottom, b.top + 24) };
   }
   setSelection(from: number, to: number) {
     const { segs } = linearize(this.root);

@@ -136,6 +136,13 @@ chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, reply) => 
       const tab = msg.tabId !== undefined ? await chrome.tabs.get(msg.tabId).catch(() => undefined) : undefined;
       await runCommand("toggle-cheatsheet", tab);
     })();
+  } else if (msg?.type === "load-preview") {
+    const tabId = sender.tab?.id;
+    if (tabId !== undefined) {
+      void chrome.scripting
+        .executeScript({ target: { tabId, frameIds: [sender.frameId ?? 0] }, files: ["preview.js"], injectImmediately: true })
+        .catch(() => {});
+    }
   } else if (msg?.type === "shortcuts") {
     void assignedShortcuts().then(reply);
     return true; // async reply

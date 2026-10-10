@@ -27,6 +27,9 @@ if (!window.__webLaasIsolatedAlive?.()) {
 }
 
 function start() {
+  // a fresh start means the previous build's scripts are dead: take down a card it left on screen
+  // (the new preview.js only arrives once a formula shows up, which may be never)
+  document.querySelectorAll("[data-web-laas-preview]").forEach((el) => el.remove());
   async function send() {
     const state = await loadState();
     document.dispatchEvent(new CustomEvent("web-laas:state", { detail: JSON.stringify(state) }));
@@ -36,6 +39,14 @@ function start() {
   document.dispatchEvent(new CustomEvent("laasweb:state", { detail: JSON.stringify({ enabled: false }) }));
 
   document.addEventListener("web-laas:ready", () => alive() && void send());
+
+  // The first time the caret is in math here, load the live preview into this frame.
+  let previewRequested = false;
+  document.addEventListener("web-laas:formula", (e) => {
+    if (previewRequested || !alive() || (e as CustomEvent<string>).detail === "null") return;
+    previewRequested = true;
+    chrome.runtime.sendMessage({ type: "load-preview" } satisfies BackgroundMessage).catch(() => (previewRequested = false));
+  });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && Object.keys(changes).some((k) => (STORAGE_KEYS as readonly string[]).includes(k))) void send();
   });

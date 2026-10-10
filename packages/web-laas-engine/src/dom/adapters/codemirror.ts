@@ -1,4 +1,4 @@
-import type { EditorAdapter } from "./types";
+import type { CaretRect, EditorAdapter } from "./types";
 
 // ── CodeMirror 6 (Overleaf, JupyterLab 4, …) ───────────────────────────────
 // We run in the page's main world, so the EditorView is reachable from the DOM.
@@ -6,12 +6,13 @@ import type { EditorAdapter } from "./types";
 interface CM6View {
   state: {
     doc: { length: number };
-    selection: { main: { from: number; to: number } };
+    selection: { main: { from: number; to: number; head: number } };
     sliceDoc(from: number, to: number): string;
   };
   dispatch(spec: unknown): void;
   focus(): void;
   dom: HTMLElement;
+  coordsAtPos(pos: number): { left: number; top: number; bottom: number } | null;
 }
 
 export function findCM6View(el: Element): CM6View | null {
@@ -55,6 +56,11 @@ export class CM6Adapter implements EditorAdapter {
   setSelection(from: number, to: number) {
     this.view.dispatch({ selection: { anchor: from, head: to }, scrollIntoView: true });
   }
+  caretRect(): CaretRect | null {
+    // the selection's end, the position the controller reads the formula at
+    const c = this.view.coordsAtPos(this.view.state.selection.main.to);
+    return c && { left: c.left, top: c.top, bottom: c.bottom };
+  }
   completionActive() {
     // tooltips live inside the editor unless the app moves them to <body>
     const doc = this.view.dom.ownerDocument;
@@ -78,6 +84,7 @@ interface CM5 {
   lastLine(): number;
   getLine(n: number): string;
   operation(fn: () => void): void;
+  cursorCoords(start: boolean, mode: "window"): { left: number; top: number; bottom: number };
 }
 
 export function findCM5(el: Element): CM5 | null {
@@ -119,5 +126,9 @@ export class CM5Adapter implements EditorAdapter {
   }
   completionActive() {
     return !!document.querySelector(".CodeMirror-hints");
+  }
+  caretRect(): CaretRect {
+    const c = this.cm.cursorCoords(false, "window");
+    return { left: c.left, top: c.top, bottom: c.bottom };
   }
 }
