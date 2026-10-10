@@ -50,6 +50,13 @@ describe("LaasController", () => {
       await tick();
     }
     expect(ta.value).toBe("\\begin{equation*}\n\t\n\\end{equation*}");
+    c.setState({ siteMath: { "example.com": { display: "align" } } });
+    ta.value = "";
+    for (const ch of "dm") {
+      type(ta, ch);
+      await tick();
+    }
+    expect(ta.value).toBe("\\begin{align}\n\t\n\\end{align}");
     c.setState({ siteMath: {} }); // back to the built-in $…$
     ta.value = "";
     for (const ch of "mk") {

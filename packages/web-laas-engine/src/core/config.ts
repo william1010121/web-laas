@@ -251,7 +251,7 @@ export function snippetsForHost(config: CompiledConfig, host: string): Snippet[]
 }
 
 export type InlineMathStyle = "auto" | "dollar" | "paren";
-export type DisplayMathStyle = "auto" | "ddollar" | "bracket" | "equation";
+export type DisplayMathStyle = "auto" | "ddollar" | "bracket" | "equation" | "align";
 
 /** Which delimiters mk / dm insert ("auto": the built-in choice for the site). */
 export interface MathDelimiters {
@@ -265,6 +265,7 @@ const MATH_DELIMITERS: Record<string, [replacement: string, description: string]
   ddollar: ["$$\n$1\n$$$0", "區塊數學 $$…$$"],
   bracket: ["\\[\n\t$1\n\\]$0", "區塊數學 \\[…\\]"],
   equation: ["\\begin{equation*}\n\t$1\n\\end{equation*}$0", "區塊數學 equation*"],
+  align: ["\\begin{align}\n\t$1\n\\end{align}$0", "區塊數學 align"],
 };
 
 /** The built-in mk / dm snippets rewritten to insert the chosen delimiters (your own mk / dm are left alone). */

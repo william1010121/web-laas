@@ -58,7 +58,7 @@ laas.setState({
 });
 laas.setState({ prefs: { autoSpace: false } }); // behaviour switches
 laas.setState({ enabled: false });              // pause
-// what mk / dm insert, per site: "dollar" | "paren" and "ddollar" | "bracket" | "equation"
+// what mk / dm insert, per site: "dollar" | "paren" and "ddollar" | "bracket" | "equation" | "align"
 laas.setState({ siteMath: { "chatgpt.com": { inline: "paren", display: "bracket" } } });
 laas.detach();                                  // remove all listeners
 ```

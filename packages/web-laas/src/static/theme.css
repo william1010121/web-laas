@@ -52,7 +52,7 @@ kbd { display: inline-block; padding: 2px 7px; border-radius: 6px; background: v
 .switch input:disabled + span { opacity: .4; cursor: default; }
 
 .seg { display: inline-flex; padding: 2px; gap: 2px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); flex: none; }
-.seg button { appearance: none; border: 0; background: transparent; color: var(--muted); font: 500 12px/1 var(--mono); padding: 6px 8px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.seg button { appearance: none; border: 0; background: transparent; color: var(--muted); font: 500 12px/1 var(--mono); padding: 6px 7px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
 .seg button:hover { color: var(--fg); }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
 .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
