@@ -62,12 +62,10 @@ export function formulaAt(before: string, after: string, opts: { comments?: bool
   if (!ctx.math || ctx.start === undefined) return null;
   const opener = before.slice(ctx.start - (ctx.openLen ?? 0), ctx.start);
   const { closer, env } = closerFor(opener);
-  let end = closer ? findCloser(after, closer, !!opts.comments) : -1;
-  if (end < 0) {
-    // unclosed: stop at a blank line, like TeX would complain there
-    const blank = after.search(/\n\s*\n/);
-    end = blank >= 0 ? blank : after.length;
-  }
+  const found = closer ? findCloser(after, closer, !!opts.comments) : -1;
+  // math can't run past a blank line (TeX complains there): a closer beyond one belongs to a later formula
+  const blank = after.search(/\n[ \t]*\n/);
+  const end = blank >= 0 && (found < 0 || blank < found) ? blank : found >= 0 ? found : after.length;
   const head = before.slice(ctx.start);
   return { latex: head + after.slice(0, end), caret: head.length, display: ctx.display, env };
 }

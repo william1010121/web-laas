@@ -230,11 +230,16 @@ export class LaasController {
       this.onConfigError(e as Error);
       this.config = compileConfig(null, opts).config;
     }
-    // the most specific pattern wins: chat.example.com over example.com
-    const site = Object.entries(this.state.siteMath ?? {})
+    // per kind, the most specific pattern that sets it wins: chat.example.com over example.com
+    const sites = Object.entries(this.state.siteMath ?? {})
       .filter(([p]) => hostMatches(this.host, p))
-      .sort(([a], [b]) => b.replace(/^\*\./, "").length - a.replace(/^\*\./, "").length)[0];
-    this.snippets = withMathDelimiters(snippetsForHost(this.config, this.host), site?.[1]);
+      .sort(([a], [b]) => b.replace(/^\*\./, "").length - a.replace(/^\*\./, "").length)
+      .map(([, d]) => d);
+    const pick = <K extends keyof MathDelimiters>(k: K) => sites.find((d) => d[k] && d[k] !== "auto")?.[k];
+    this.snippets = withMathDelimiters(snippetsForHost(this.config, this.host), {
+      inline: pick("inline"),
+      display: pick("display"),
+    });
     this.sessions = [];
     this.last = null;
     this.scheduleFormula(); // turning web-laas off hides the preview

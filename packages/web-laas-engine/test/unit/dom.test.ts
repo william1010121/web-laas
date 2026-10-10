@@ -39,8 +39,8 @@ describe("LaasController", () => {
     const c = new LaasController({ host: "chat.example.com" });
     c.setState({
       siteMath: {
-        "example.com": { inline: "dollar" },
-        "chat.example.com": { inline: "paren", display: "equation" }, // more specific: wins
+        "example.com": { inline: "dollar", display: "equation" },
+        "chat.example.com": { inline: "paren" }, // more specific: wins for mk; dm still comes from example.com
         "other.org": { inline: "dollar" },
       },
     });

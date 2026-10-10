@@ -57,6 +57,10 @@ describe("formulaAt", () => {
     expect(at("\\begin {align} a &= |b \\end {align} trailing")?.tex).toBe(" a &= |b ");
   });
 
+  it("does not borrow a closer from the next paragraph", () => {
+    expect(at("$x + |y\n\nnext $z$")?.tex).toBe("x + |y");
+  });
+
   it("stops an unclosed formula at a blank line", () => {
     expect(at("$x + |y\n\nnext paragraph")?.tex).toBe("x + |y");
   });
