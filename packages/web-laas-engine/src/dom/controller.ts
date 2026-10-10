@@ -3,6 +3,7 @@ import {
   compileConfig,
   hostMatches,
   snippetsForHost,
+  resolveMathDelimiters,
   withMathDelimiters,
   type CompiledConfig,
   type MathDelimiters,
@@ -230,17 +231,10 @@ export class LaasController {
       this.onConfigError(e as Error);
       this.config = compileConfig(null, opts).config;
     }
-    // per kind, the most specific pattern that sets it wins: chat.example.com over example.com
-    // (an explicit "auto" counts, so a subdomain can opt back into the built-in choice)
-    const sites = Object.entries(this.state.siteMath ?? {})
-      .filter(([p]) => hostMatches(this.host, p))
-      .sort(([a], [b]) => b.replace(/^\*\./, "").length - a.replace(/^\*\./, "").length)
-      .map(([, d]) => d);
-    const pick = <K extends keyof MathDelimiters>(k: K) => sites.find((d) => d[k])?.[k];
-    this.snippets = withMathDelimiters(snippetsForHost(this.config, this.host), {
-      inline: pick("inline"),
-      display: pick("display"),
-    });
+    this.snippets = withMathDelimiters(
+      snippetsForHost(this.config, this.host),
+      resolveMathDelimiters(this.state.siteMath, this.host),
+    );
     this.sessions = [];
     this.last = null;
     this.scheduleFormula(); // turning web-laas off hides the preview

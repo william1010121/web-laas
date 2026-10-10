@@ -6,6 +6,7 @@ export {
   hostMatches,
   snippetsForHost,
   withMathDelimiters,
+  resolveMathDelimiters,
   type CompiledConfig,
   type MathDelimiters,
   type InlineMathStyle,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compileConfig, snippetsForHost } from "../../src/core/config";
+import { compileConfig, resolveMathDelimiters, snippetsForHost } from "../../src/core/config";
 import { cheatsheetEntries, groupCheatsheet } from "../../src/core/cheatsheet";
 import { findExpansion } from "../../src/core/matcher";
 import { parseConfigText } from "../../src/core/parser";
@@ -287,5 +287,14 @@ describe("cheat sheet", () => {
     const groups = groupCheatsheet(entries).map((g) => g.group);
     expect(groups[0]).toBe("laas · 基本符號");
     expect(groups).toContain("Web 擴充 · 結構");
+  });
+});
+
+describe("resolveMathDelimiters", () => {
+  it("takes each kind from the most specific site that sets it", () => {
+    const sites = { "example.com": { inline: "paren", display: "bracket" }, "chat.example.com": { inline: "auto" } } as const;
+    expect(resolveMathDelimiters(sites, "chat.example.com")).toEqual({ inline: "auto", display: "bracket" });
+    expect(resolveMathDelimiters(sites, "www.example.com")).toEqual({ inline: "paren", display: "bracket" });
+    expect(resolveMathDelimiters(sites, "other.org")).toEqual({ inline: undefined, display: undefined });
   });
 });

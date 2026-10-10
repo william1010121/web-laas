@@ -21,6 +21,11 @@ function fieldCaretRect(el: HTMLTextAreaElement | HTMLInputElement, pos: number)
   mirror.style.top = "0";
   mirror.style.left = "-99999px";
   mirror.style.overflow = "hidden";
+  // wrap at the real text width: clientWidth leaves out a scrollbar the mirror doesn't have
+  if (el.clientWidth > 0) {
+    mirror.style.boxSizing = "border-box";
+    mirror.style.width = `${el.clientWidth + parseFloat(cs.borderLeftWidth || "0") + parseFloat(cs.borderRightWidth || "0")}px`;
+  }
   mirror.style.whiteSpace = el instanceof HTMLTextAreaElement ? "pre-wrap" : "pre";
   mirror.textContent = el.value.slice(0, pos);
   const marker = doc.createElement("span");

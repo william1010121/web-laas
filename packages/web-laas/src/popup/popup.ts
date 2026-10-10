@@ -1,4 +1,4 @@
-import type { DisplayMathStyle, InlineMathStyle, MathDelimiters } from "web-laas-engine";
+import { resolveMathDelimiters, type DisplayMathStyle, type InlineMathStyle, type MathDelimiters } from "web-laas-engine";
 import { loadState, saveState } from "../shared/storage";
 
 const INLINE: [InlineMathStyle, string, string][] = [
@@ -59,7 +59,7 @@ async function main() {
     window.close();
   };
   // any web host, localhost and intranet names included (file: pages have no host to key on)
-  if (host && host !== "file:") setupDelims(host, state.siteMath[host] ?? {});
+  if (host && host !== "file:") setupDelims(host, resolveMathDelimiters(state.siteMath, host)); // inherited choices show too
   $("options").onclick = () => chrome.runtime.openOptionsPage();
 }
 

@@ -279,3 +279,16 @@ export function withMathDelimiters(snippets: Snippet[], d: MathDelimiters | unde
     return { ...s, replacement: pick[0], template: tokenizeTemplate(pick[0]), description: pick[1] };
   });
 }
+
+/**
+ * The mk / dm delimiters in effect on `host`: per kind, the most specific
+ * matching pattern that sets it wins (chat.example.com over example.com). An
+ * explicit "auto" counts, so a subdomain can opt back into the built-in choice.
+ */
+export function resolveMathDelimiters(siteMath: Record<string, MathDelimiters> | undefined, host: string): MathDelimiters {
+  const sites = Object.entries(siteMath ?? {})
+    .filter(([p]) => hostMatches(host, p))
+    .sort(([a], [b]) => b.replace(/^\*\./, "").length - a.replace(/^\*\./, "").length)
+    .map(([, d]) => d);
+  return { inline: sites.find((d) => d.inline)?.inline, display: sites.find((d) => d.display)?.display };
+}
