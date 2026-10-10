@@ -80,11 +80,8 @@ function setupDelims(host: string, current: MathDelimiters) {
       b.onclick = async () => {
         render(value);
         const { siteMath } = await loadState();
-        const next = { ...siteMath[host], [kind]: value };
-        if (value === "auto") delete next[kind];
-        const all = { ...siteMath, [host]: next };
-        if (!next.inline && !next.display) delete all[host];
-        await saveState({ siteMath: all });
+        // "auto" is stored too: it overrides a parent domain's choice
+        await saveState({ siteMath: { ...siteMath, [host]: { ...siteMath[host], [kind]: value } } });
       };
       seg.appendChild(b);
     }

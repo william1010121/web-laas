@@ -231,11 +231,12 @@ export class LaasController {
       this.config = compileConfig(null, opts).config;
     }
     // per kind, the most specific pattern that sets it wins: chat.example.com over example.com
+    // (an explicit "auto" counts, so a subdomain can opt back into the built-in choice)
     const sites = Object.entries(this.state.siteMath ?? {})
       .filter(([p]) => hostMatches(this.host, p))
       .sort(([a], [b]) => b.replace(/^\*\./, "").length - a.replace(/^\*\./, "").length)
       .map(([, d]) => d);
-    const pick = <K extends keyof MathDelimiters>(k: K) => sites.find((d) => d[k] && d[k] !== "auto")?.[k];
+    const pick = <K extends keyof MathDelimiters>(k: K) => sites.find((d) => d[k])?.[k];
     this.snippets = withMathDelimiters(snippetsForHost(this.config, this.host), {
       inline: pick("inline"),
       display: pick("display"),

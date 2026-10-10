@@ -63,6 +63,14 @@ describe("LaasController", () => {
       await tick();
     }
     expect(ta.value).toBe("\\begin{align}\n\t\n\\end{align}");
+    // "auto" on the subdomain stops inheriting from example.com
+    c.setState({ siteMath: { "example.com": { inline: "paren" }, "chat.example.com": { inline: "auto" } } });
+    ta.value = "";
+    for (const ch of "mk") {
+      type(ta, ch);
+      await tick();
+    }
+    expect(ta.value).toBe("$$");
     c.setState({ siteMath: {} }); // back to the built-in $…$
     ta.value = "";
     for (const ch of "mk") {
