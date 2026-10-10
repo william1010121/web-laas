@@ -27,6 +27,9 @@ if (!window.__webLaasIsolatedAlive?.()) {
 }
 
 function start() {
+  // a fresh start means the previous build's scripts are dead: take down a card it left on screen
+  // (the new preview.js only arrives once a formula shows up, which may be never)
+  document.querySelectorAll("[data-web-laas-preview]").forEach((el) => el.remove());
   async function send() {
     const state = await loadState();
     document.dispatchEvent(new CustomEvent("web-laas:state", { detail: JSON.stringify(state) }));
