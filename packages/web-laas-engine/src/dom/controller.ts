@@ -306,7 +306,14 @@ export class LaasController {
     const sel = adapter?.getSelection();
     if (!adapter || !sel) return null;
     const before = adapter.textBefore(sel.to, CONTEXT_CHARS);
-    const after = adapter.slice(sel.to, Math.min(adapter.getLength(), sel.to + 4000));
+    // read on in chunks until a blank line (no formula runs past one) or the end; bounded for huge documents
+    const len = adapter.getLength();
+    let end = Math.min(len, sel.to + 4000);
+    let after = adapter.slice(sel.to, end);
+    while (end < len && after.length < 64000 && !/\n[ \t]*\n/.test(after)) {
+      end = Math.min(len, end + 16000);
+      after = adapter.slice(sel.to, end);
+    }
     const f = formulaAt(before, after, { comments: this.latexComments() });
     if (!f) return null;
     let rect: CaretRect | null = null;

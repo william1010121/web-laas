@@ -475,6 +475,20 @@ describe("LaasController", () => {
       expect(ids[2]).not.toBe(ids[0]);
     });
 
+    it("finds a closer more than 4,000 characters past the caret", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      const long = "a+".repeat(3000) + "b";
+      ta.value = "$x" + long + "$ tail";
+      ta.focus();
+      ta.setSelectionRange(2, 2);
+      let last: { latex: string } | null = null;
+      detach = new LaasController({ host: "example.com", onFormula: (f) => (last = f) }).attach();
+      ta.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowRight", bubbles: true }));
+      await frame();
+      expect(last!.latex).toBe("x" + long);
+    });
+
     it("drops formula work still queued when it detaches", async () => {
       document.body.innerHTML = "<textarea></textarea>";
       const ta = document.querySelector("textarea")!;
