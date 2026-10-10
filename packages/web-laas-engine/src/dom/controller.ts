@@ -258,6 +258,8 @@ export class LaasController {
       for (const t of ["keyup", "mouseup", "focusin", "resize"]) w.addEventListener(t, this.formulaSoon, true);
       w.addEventListener("scroll", this.formulaSoon, { capture: true, passive: true });
       w.addEventListener("focusout", this.formulaGone, true);
+      // caret moves with no key or mouse: selection handles, setSelectionRange, editor transactions
+      w.document.addEventListener("selectionchange", this.formulaSoon);
     }
     return () => this.detach();
   }
@@ -271,6 +273,7 @@ export class LaasController {
     w.removeEventListener("input", this.input);
     for (const t of ["keyup", "mouseup", "focusin", "resize", "scroll"]) w.removeEventListener(t, this.formulaSoon, true);
     w.removeEventListener("focusout", this.formulaGone, true);
+    w.document.removeEventListener("selectionchange", this.formulaSoon);
     if (this.onFormula && this.lastFormula !== "null") this.onFormula(null);
     this.lastFormula = "null";
     this.pending = null;

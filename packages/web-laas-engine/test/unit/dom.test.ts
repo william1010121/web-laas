@@ -503,6 +503,19 @@ describe("LaasController", () => {
       expect(last!.latex).toBe(long + "x");
     });
 
+    it("follows caret moves that only fire selectionchange", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      ta.value = "$a$ and $b$";
+      ta.focus();
+      const seen: (string | null)[] = [];
+      detach = new LaasController({ host: "example.com", onFormula: (f) => seen.push(f && f.latex) }).attach();
+      ta.setSelectionRange(9, 9);
+      document.dispatchEvent(new Event("selectionchange"));
+      await frame();
+      expect(seen.at(-1)).toBe("b");
+    });
+
     it("drops formula work still queued when it detaches", async () => {
       document.body.innerHTML = "<textarea></textarea>";
       const ta = document.querySelector("textarea")!;
