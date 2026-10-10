@@ -1,0 +1,99 @@
+name: Codex review
+
+# Reviews every pull request, again on every commit pushed to it.
+# main only accepts changes through pull requests, so every commit gets reviewed.
+# Needs the repository secret OPENAI_API_KEY; without it the review is skipped.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: codex-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.key.outputs.enabled }}
+    steps:
+      - id: key
+        env:
+          KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then echo "enabled=true" >> "$GITHUB_OUTPUT"; else
+            echo "::warning::OPENAI_API_KEY is not set: skipping the Codex review"
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  codex:
+    needs: check
+    if: needs.check.outputs.enabled == 'true' && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      final_message: ${{ steps.run_codex.outputs.final-message }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          persist-credentials: false
+
+      - name: Fetch the base and head of the PR
+        env:
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: git fetch --no-tags origin "$PR_BASE_REF" "+refs/pull/$PR_NUMBER/head"
+
+      - name: Run Codex
+        id: run_codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":read-only"
+          prompt: |
+            You are reviewing PR #${{ github.event.pull_request.number }} of ${{ github.repository }}:
+            web-laas, Emacs laas/cdlatex-style LaTeX auto-activating snippets for web editors.
+            - packages/web-laas-engine: the npm engine (TypeScript) — config language, snippet matching,
+              TeX math detection, cdlatex Tab movement, editor adapters (textarea, contenteditable,
+              CodeMirror 5/6) and the LaasController.
+            - packages/web-laas: the Chromium MV3 extension (content scripts, options page, cheat sheet).
+
+            Review ONLY the changes of this PR:
+              git diff ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}
+            (the latest push is ${{ github.event.pull_request.head.sha }}).
+
+            Look for correctness bugs first (caret/offset arithmetic, tabstop bookkeeping, math-mode
+            detection, IME/composition handling, editor-specific behaviour, MV3 / CSP constraints),
+            then missing tests, then clear simplifications. Skip style nits.
+            For each finding give the file and line, what goes wrong and in which situation, and a fix.
+            If there is nothing worth changing, say so in one line.
+            Write the review in Traditional Chinese (繁體中文); keep code, identifiers and paths in English.
+
+            PR title and description:
+            ----
+            ${{ github.event.pull_request.title }}
+            ${{ github.event.pull_request.body }}
+
+  post:
+    needs: codex
+    if: needs.codex.outputs.final_message != ''
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          REVIEW: ${{ needs.codex.outputs.final_message }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `### 🤖 Codex review — \`${process.env.SHA.slice(0, 7)}\`\n\n${process.env.REVIEW}`,
+            });

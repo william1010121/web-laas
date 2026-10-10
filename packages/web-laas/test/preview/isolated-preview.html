@@ -1,0 +1,26 @@
+<!doctype html>
+<!-- Runs the real dist/content-isolated.js (and, with ?cheatsheet, dist/cheatsheet.js)
+     with a chrome.* stub, to test the shortcut fallback, toasts and the cheat sheet.
+     Messages sent to the background land in window.sent; deliver(msg) plays the background. -->
+<html><head><meta charset="utf-8"><title>isolated preview</title></head>
+<body>
+<textarea id="editor" style="width:100%;height:100px"></textarea>
+<script>
+  window.sent = [];
+  const listeners = [];
+  window.chrome = {
+    runtime: {
+      id: "preview",
+      sendMessage: async (m) => { sent.push(m); return m.type === "missing-shortcuts" ? ["toggle-enabled", "toggle-cheatsheet"] : undefined; },
+      onMessage: { addListener: (l) => listeners.push(l) },
+    },
+    storage: { local: { get: async () => ({}) }, onChanged: { addListener() {} } },
+  };
+  // what the background would send back
+  window.deliver = (m) => listeners.forEach((l) => l(m, {}, () => {}));
+</script>
+<script src="../../dist/content-isolated.js"></script>
+<script>
+  if (location.search.includes("cheatsheet")) document.write('<script src="../../dist/cheatsheet.js"><\/script>');
+</script>
+</body></html>

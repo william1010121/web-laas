@@ -1,0 +1,72 @@
+{
+  "manifest_version": 3,
+  "name": "web-laas · LaTeX Auto Snippets",
+  "version": "0.3.0",
+  "description": "Emacs laas-style auto-activating LaTeX snippets for Overleaf, ChatGPT, Claude, Notion, HackMD, Jupyter and any text field.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "notifications"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "web-laas",
+    "default_icon": {
+      "16": "icons/on-16.png",
+      "32": "icons/on-32.png"
+    }
+  },
+  "options_page": "options.html",
+  "commands": {
+    "toggle-enabled": {
+      "suggested_key": {
+        "default": "Alt+Shift+L"
+      },
+      "description": "開關 LaTeX 自動 snippet"
+    },
+    "toggle-cheatsheet": {
+      "suggested_key": {
+        "default": "Alt+Shift+K"
+      },
+      "description": "開關 snippet cheat sheet"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content-main.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_about_blank": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content-isolated.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_about_blank": true
+    }
+  ],
+  "icons": {
+    "16": "icons/on-16.png",
+    "32": "icons/on-32.png",
+    "48": "icons/on-48.png",
+    "128": "icons/on-128.png"
+  },
+  "host_permissions": [
+    "<all_urls>"
+  ]
+}

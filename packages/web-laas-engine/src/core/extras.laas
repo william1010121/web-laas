@@ -1,0 +1,45 @@
+// Web 擴充：laas.el 沒有、但在網頁上很常用的 snippet（可在設定中關閉）。
+// 不會覆蓋任何 laas 的 trigger。
+{
+  snippets: [
+    {
+      // 網頁上沒有 Emacs 的 $ 自動配對，用 mk / dm 進入數學模式；按 Tab 跳出
+      group: "Web 擴充 · 進入數學模式",
+      options: "tAw",
+      snippets: [
+        { trigger: "mk", replacement: "$$1$$0", description: "行內數學 $…$" },
+        { trigger: "dm", replacement: "\\[\n\t$1\n\\]$0", sites: ["overleaf.com"], description: "區塊數學 \\[…\\]" },
+        { trigger: "dm", replacement: "$$\n$1\n$$$0", excludeSites: ["overleaf.com"], description: "區塊數學 $$…$$" },
+      ],
+    },
+    {
+      group: "Web 擴充 · 結構",
+      options: "mA",
+      snippets: [
+        { trigger: "__", replacement: "_{$1}$0", preview: "x_{\\square}" },
+        { trigger: "td", replacement: "^{$1}$0", preview: "x^{\\square}" },
+        { trigger: "ee", replacement: "e^{$1}$0" },
+        { trigger: "invs", replacement: "^{-1}", preview: "x^{-1}" },
+        { trigger: "sq", replacement: "\\sqrt{$1}$0" },
+        { trigger: "conj", replacement: "\\overline{$1}$0" },
+        { trigger: "tt", replacement: "\\text{$1}$0", preview: "\\text{text}" },
+        { trigger: "set", replacement: "\\{ $1 \\}$0" },
+        { trigger: "norm", replacement: "\\| $1 \\|$0" },
+        { trigger: "abs", replacement: "\\left| $1 \\right|$0" },
+        { trigger: "lr(", replacement: "\\left( $1 \\right)$0" },
+        { trigger: "lr[", replacement: "\\left[ $1 \\right]$0" },
+        { trigger: "lr{", replacement: "\\left\\{ $1 \\right\\}$0" },
+        { trigger: "ceil", replacement: "\\lceil $1 \\rceil$0" },
+        { trigger: "floor", replacement: "\\lfloor $1 \\rfloor$0" },
+        { trigger: "part", replacement: "\\frac{\\partial $1}{\\partial $2}$0" },
+        { trigger: "sum", replacement: "\\sum_{$1}^{$2} $0" },
+        { trigger: "prod", replacement: "\\prod_{$1}^{$2} $0" },
+        { trigger: "lim", replacement: "\\lim_{${1:n} \\to ${2:\\infty}} $0" },
+        { trigger: "int", replacement: "\\int_{$1}^{$2} $0" },
+        { trigger: "bmat", replacement: "\\begin{bmatrix} $1 \\end{bmatrix}$0", preview: "\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}" },
+        { trigger: "pmat", replacement: "\\begin{pmatrix} $1 \\end{pmatrix}$0", preview: "\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}" },
+        { trigger: "case", replacement: "\\begin{cases} $1 \\end{cases}$0", preview: "\\begin{cases} a & x>0 \\\\ b & x \\le 0 \\end{cases}" },
+      ],
+    },
+  ],
+}

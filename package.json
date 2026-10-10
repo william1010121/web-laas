@@ -1,0 +1,34 @@
+{
+  "name": "web-laas-monorepo",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/web-laas-engine",
+    "packages/web-laas"
+  ],
+  "scripts": {
+    "build": "npm run build -w web-laas-engine && npm run build -w web-laas",
+    "test": "npm test -w web-laas-engine",
+    "typecheck": "npm run typecheck -w web-laas-engine && npm run typecheck -w web-laas",
+    "serve:test": "npm run serve:test -w web-laas-engine"
+  },
+  "devDependencies": {
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.14",
+    "@types/chrome": "^0.3.5",
+    "codemirror": "^6.0.2",
+    "codemirror5": "npm:codemirror@^5.65.21",
+    "esbuild": "^0.28.2",
+    "jsdom": "^29.1.1",
+    "prosemirror-example-setup": "^1.2.3",
+    "prosemirror-history": "^1.5.1",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-model": "^1.25.12",
+    "prosemirror-schema-basic": "^1.2.5",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-view": "^1.42.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

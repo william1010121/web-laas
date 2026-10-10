@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>web-laas 設定</title>
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="options.css">
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar">
+    <div class="brand">
+      <span class="logo">∑</span>
+      <div>
+        <div class="brand-name">web-laas</div>
+        <div class="brand-sub">LaTeX Auto Snippets</div>
+      </div>
+    </div>
+    <a class="nav" href="#general"><span class="ico">◐</span>一般</a>
+    <a class="nav" href="#snippets"><span class="ico">{ }</span>Snippet 編輯器</a>
+    <a class="nav" href="#cheatsheet"><span class="ico">∑</span>Cheat sheet</a>
+    <a class="nav" href="#shortcuts"><span class="ico">⌨</span>快捷鍵</a>
+    <a class="nav" href="#sites"><span class="ico">◎</span>網站</a>
+    <a class="nav" href="#about"><span class="ico">i</span>關於</a>
+    <div class="sidebar-foot">
+      <label class="master">
+        <span>
+          <span class="master-title">自動展開</span>
+          <span class="master-state" id="masterState"></span>
+        </span>
+        <span class="switch"><input type="checkbox" id="enabled"><span></span></span>
+      </label>
+    </div>
+  </nav>
+
+  <main>
+    <!-- 一般 -->
+    <section class="page" id="page-general">
+      <header class="page-head">
+        <h1>一般</h1>
+        <p>行為設定會立即套用到所有分頁。</p>
+      </header>
+      <div class="banner" id="shortcutWarn" hidden>
+        <div class="text"><div class="title">瀏覽器沒有指派部分快捷鍵</div><div class="desc">一般網頁上仍然可以用 <kbd>Alt+Shift+K</kbd>／<kbd>Alt+Shift+L</kbd>（由頁面內監聽處理）。到瀏覽器指派後，<code>chrome://</code> 等頁面也能使用。</div></div>
+        <button class="btn" id="fixShortcuts">指派快捷鍵…</button>
+      </div>
+      <h2 class="label">編輯行為</h2>
+      <div class="card">
+        <label class="row">
+          <div class="text"><div class="title">Tab 跳到下一格</div><div class="desc">像 yasnippet：在欄位結尾按 Tab 到下一格，最後一格之後離開 snippet（巢狀時交回外層）；Shift+Tab 回上一格</div></div>
+          <span class="switch"><input type="checkbox" data-pref="tabJump"><span></span></span>
+        </label>
+        <label class="row">
+          <div class="text"><div class="title">Tab 像 cdlatex 一樣移動</div><div class="desc">跳出括號、進入下一個空的 <code>{}</code>、跳過 <code>$</code>；在欄位裡最多移到欄位結尾（同你 Emacs 的 cdlatex-tab）</div></div>
+          <span class="switch"><input type="checkbox" data-pref="tabOut"><span></span></span>
+        </label>
+        <label class="row">
+          <div class="text"><div class="title">跳出時簡化上下標</div><div class="desc">Tab 離開單一字元的上下標時，<code>x_{2}</code> → <code>x_2</code>（cdlatex 預設行為）</div></div>
+          <span class="switch"><input type="checkbox" data-pref="simplifyScripts"><span></span></span>
+        </label>
+        <label class="row">
+          <div class="text"><div class="title">自動配對 <code>$</code> <code>[</code> <code>{</code></div><div class="desc">cdlatex 的 <code>cdlatex-dollar</code>／<code>cdlatex-pbb</code>：文字裡打 <code>$</code> → <code>$|$</code>；數學裡 <code>[</code> <code>{</code> 成對（Overleaf 全文）；在收合符號前再打一次會直接跳過</div></div>
+          <span class="switch"><input type="checkbox" data-pref="autoPair"><span></span></span>
+        </label>
+        <label class="row">
+          <div class="text"><div class="title">Backspace 還原</div><div class="desc">展開後立刻按 Backspace，還原成原本打的字</div></div>
+          <span class="switch"><input type="checkbox" data-pref="backspaceUndo"><span></span></span>
+        </label>
+        <label class="row">
+          <div class="text"><div class="title">自動空白</div><div class="desc">和 laas 一樣，<code>;a</code> → <code>\alpha␣</code>，後面是 <code>)</code> 或 <code>]</code> 時不加</div></div>
+          <span class="switch"><input type="checkbox" data-pref="autoSpace"><span></span></span>
+        </label>
+      </div>
+
+      <h2 class="label">Snippet 組合</h2>
+      <div class="card">
+        <div class="row">
+          <div class="text"><div class="title">laas 預設 <span class="pill pill-laas">laas.el</span></div><div class="desc">逐條移植自 Emacs laas.el（<span id="laasCount"></span> 個）。可在 Snippet 編輯器用 <code>useDefaults: false</code> 關閉</div></div>
+          <span class="switch"><input type="checkbox" checked disabled><span></span></span>
+        </div>
+        <label class="row">
+          <div class="text"><div class="title">cdlatex <span class="pill pill-cdlatex">cdlatex.el</span></div><div class="desc"><code>`a</code> → <code>\alpha</code>（<code>``</code> 第 2 層…）、<code>x'.</code> → <code>\dot{x}</code>（只改最後一個字元）、<code>_</code> → <code>_{|}</code>、<code>fr</code><kbd>Tab</kbd> → <code>\frac{}{}</code>（<span id="cdlatexCount"></span> 個；同名 trigger 優先於 laas，與 Emacs 相同）</div></div>
+          <span class="switch"><input type="checkbox" data-pref="cdlatex"><span></span></span>
+        </label>
+        <label class="row">
+          <div class="text"><div class="title">Web 擴充 <span class="pill pill-extras">extras</span></div><div class="desc"><code>mk</code> <code>dm</code> 進入數學模式，以及 <code>sum</code> <code>lim</code> <code>sq</code> <code>bmat</code>…（<span id="extrasCount"></span> 個，不會覆蓋 laas）</div></div>
+          <span class="switch"><input type="checkbox" data-pref="extras"><span></span></span>
+        </label>
+      </div>
+
+      <h2 class="label">Cheat sheet</h2>
+      <div class="card">
+        <label class="row">
+          <div class="text"><div class="title">快捷鍵開啟 cheat sheet</div><div class="desc">在任何網頁按 <kbd id="csKey">Alt+Shift+K</kbd> 顯示目前網站可用的 snippet</div></div>
+          <span class="switch"><input type="checkbox" data-pref="cheatsheet"><span></span></span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Snippet 編輯器 -->
+    <section class="page page-wide" id="page-snippets">
+      <header class="page-head">
+        <h1>Snippet 編輯器</h1>
+        <p>像 Emacs 設定檔一樣用文字定義 snippet。<a href="#" id="toggleRef">語法說明</a></p>
+      </header>
+      <div class="ref card" id="ref" hidden>
+        <table>
+          <tr><td><code>options</code></td><td><code>t</code> 文字模式 · <code>m</code> 數學模式 · <code>n</code> 行內數學 · <code>M</code> 區塊數學 · <code>A</code> 自動展開（否則按 Tab） · <code>r</code> 字串 trigger 當 regex · <code>w</code> 前面不能是英數字 · <code>o</code> 需要左邊有物件</td></tr>
+          <tr><td><code>$1</code> <code>${1:預設}</code></td><td>Tab 跳位；<code>$0</code> 是最後游標位置；其他的 <code>$</code> 都是字面上的 $</td></tr>
+          <tr><td><code>[[0]]</code></td><td>regex 第一個括號群組</td></tr>
+          <tr><td><code>${PREV}</code> <code>${PREV_INNER}</code></td><td>左邊的 TeX 物件（搭配 <code>o</code>）；INNER 會去掉外層 () []</td></tr>
+          <tr><td><code>{ group, options, snippets: [...] }</code></td><td>群組：名稱顯示在 cheat sheet，options／sites 會傳給裡面的 snippet</td></tr>
+          <tr><td><code>sites</code> / <code>excludeSites</code></td><td>只在／不在某些網站生效（含子網域）</td></tr>
+          <tr><td><code>description</code> / <code>preview</code></td><td>cheat sheet 上的說明，以及要渲染的 LaTeX</td></tr>
+          <tr><td><code>priority</code></td><td>數字越大越優先；同優先權時 trigger 越長越優先</td></tr>
+        </table>
+      </div>
+      <div class="editor-grid">
+        <div class="card editor-card">
+          <div class="toolbar">
+            <span id="status" class="status"></span>
+            <button class="btn ghost" id="reset">恢復範本</button>
+            <button class="btn" id="save">儲存 <kbd>⌘S</kbd></button>
+          </div>
+          <textarea id="config" spellcheck="false" autocomplete="off"></textarea>
+        </div>
+        <div class="card play-card">
+          <div class="play-head">
+            <div class="title">試玩區</div>
+            <div class="desc">使用編輯中的設定。試試 <code>mk</code> <code>x/</code> <code>;a</code> <code>xii</code> 再按 Tab</div>
+          </div>
+          <textarea id="playground" spellcheck="false">Let </textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cheat sheet -->
+    <section class="page page-wide page-fill" id="page-cheatsheet">
+      <div class="sheet-bar">
+        <span class="hint">在任何網頁按 <kbd class="csKey">Alt+Shift+K</kbd> 也能叫出這份表（只列該網站可用的 snippet）</span>
+        <label class="select">網站
+          <select id="sheetSite">
+            <option value="example.com">一般網站</option>
+            <option value="www.overleaf.com">Overleaf</option>
+          </select>
+        </label>
+      </div>
+      <div class="card sheet-card" id="sheetHost"></div>
+    </section>
+
+    <!-- 快捷鍵 -->
+    <section class="page" id="page-shortcuts">
+      <header class="page-head">
+        <h1>快捷鍵</h1>
+        <p>瀏覽器層級的快捷鍵由 Chrome 管理，可以在任何網頁使用。</p>
+      </header>
+      <h2 class="label">全域快捷鍵</h2>
+      <div class="card" id="commands"></div>
+      <p class="hint"><button class="btn secondary" id="editShortcuts">在 Chrome 中變更快捷鍵…</button></p>
+
+      <h2 class="label">在編輯器裡</h2>
+      <div class="card">
+        <div class="row"><div class="text"><div class="title">Tab</div><div class="desc">依序：① 展開 Tab 型 snippet ② 欄位裡還沒到結尾 → cdlatex 移動（最多到欄位結尾）③ 欄位結尾 → 下一格／離開 snippet ④ 不在 snippet、在數學模式 → cdlatex 移動</div></div><kbd>Tab</kbd></div>
+        <div class="row"><div class="text"><div class="title">Shift+Tab</div><div class="desc">Tab 的反方向：往回停在 Tab 的停靠點和「群組結尾內側」（<code>\frac{x}{y}|</code> → <code>\frac{x}{y|}</code> → <code>\frac{x|}{y}</code>）；欄位開頭 → 上一格；第一格不會跳出。剛跳出 <code>$x$|</code> 時會回到裡面</div></div><kbd>Shift</kbd><kbd>Tab</kbd></div>
+        <div class="row"><div class="text"><div class="title">在數學式裡</div><div class="desc">Tab 與 Shift+Tab 一律由 web-laas 處理，不會跳到網頁上的其他按鈕；在文字裡緊鄰公式時也會跳進公式</div></div><kbd>Tab</kbd></div>
+        <div class="row"><div class="text"><div class="title">取消剛剛的展開</div><div class="desc">展開後立刻按</div></div><kbd>Backspace</kbd></div>
+      </div>
+    </section>
+
+    <!-- 網站 -->
+    <section class="page" id="page-sites">
+      <header class="page-head">
+        <h1>網站</h1>
+        <p>在這些網站停用自動展開（含子網域）。也可以在工具列 popup 一鍵切換目前網站。</p>
+      </header>
+      <form class="card add-site" id="addSite">
+        <input id="siteInput" placeholder="例如 mail.google.com" spellcheck="false" autocomplete="off">
+        <button class="btn">加入</button>
+      </form>
+      <div class="card" id="siteList"></div>
+      <p class="hint">設定檔中的 <code>disabledSites</code> 也會生效；Overleaf 會把 <code>%</code> 視為註解（<code>latexCommentSites</code>）。</p>
+    </section>
+
+    <!-- 關於 -->
+    <section class="page" id="page-about">
+      <header class="page-head">
+        <h1>關於</h1>
+      </header>
+      <div class="card about">
+        <span class="logo big">∑</span>
+        <div>
+          <div class="title">web-laas <span id="version"></span></div>
+          <p>在網頁上使用 Emacs <a href="https://github.com/tecosaur/LaTeX-auto-activating-snippets" target="_blank" rel="noopener">laas</a> 風格的 LaTeX 自動展開 snippet。引擎為 <code>web-laas-engine</code>。</p>
+          <p class="desc">支援 Overleaf、JupyterLab（CodeMirror 6）、HackMD（CodeMirror 5）、ChatGPT／Claude（ProseMirror）、Notion（contenteditable）以及一般輸入框。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+<script src="options.js"></script>
+</body>
+</html>

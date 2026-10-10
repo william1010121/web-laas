@@ -1,0 +1,70 @@
+{
+  "name": "web-laas-engine",
+  "version": "0.3.0",
+  "description": "LaTeX auto-activating snippets for the web — Emacs laas + cdlatex for textarea, contenteditable/ProseMirror and CodeMirror 5/6",
+  "keywords": [
+    "latex",
+    "snippets",
+    "laas",
+    "cdlatex",
+    "emacs",
+    "auto-activating-snippets",
+    "math",
+    "katex",
+    "codemirror",
+    "prosemirror",
+    "contenteditable",
+    "overleaf",
+    "editor"
+  ],
+  "homepage": "https://github.com/william1010121/web-laas/tree/main/packages/web-laas-engine#readme",
+  "bugs": {
+    "url": "https://github.com/william1010121/web-laas/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/william1010121/web-laas.git",
+    "directory": "packages/web-laas-engine"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "william1010121",
+  "type": "module",
+  "sideEffects": [
+    "./dist/web-laas-engine.auto.js"
+  ],
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./dom": {
+      "source": "./src/dom.ts",
+      "types": "./dist/types/dom.d.ts",
+      "default": "./dist/dom.js"
+    },
+    "./auto": "./dist/web-laas-engine.auto.js",
+    "./defaults.laas": "./src/core/defaults.laas"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/types/index.d.ts",
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "serve:test": "node build.mjs && python3 -m http.server 8765 --directory .",
+    "prepublishOnly": "npm run build && npm test && npm run typecheck"
+  }
+}
