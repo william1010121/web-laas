@@ -1,0 +1,12 @@
+{
+  "name": "demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "states": "node scripts/build-states.mjs && node scripts/render-math.mjs && node scripts/build-html.mjs",
+    "dev": "npx --yes hyperframes@0.8.145 preview",
+    "check": "npx --yes hyperframes@0.8.145 check",
+    "render": "npx --yes hyperframes@0.8.145 render",
+    "publish": "npx --yes hyperframes@0.8.145 publish"
+  }
+}
