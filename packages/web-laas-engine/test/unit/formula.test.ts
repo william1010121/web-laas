@@ -47,6 +47,10 @@ describe("formulaAt", () => {
     expect(at("\\(a + | \\\\) + b \\) end")?.tex).toBe("a + | \\\\) + b ");
   });
 
+  it("accepts spaces in \\end {env}", () => {
+    expect(at("\\begin {align} a &= |b \\end {align} trailing")?.tex).toBe(" a &= |b ");
+  });
+
   it("stops an unclosed formula at a blank line", () => {
     expect(at("$x + |y\n\nnext paragraph")?.tex).toBe("x + |y");
   });

@@ -37,7 +37,13 @@ describe("LaasController", () => {
     const ta = document.querySelector("textarea")!;
     ta.focus();
     const c = new LaasController({ host: "chat.example.com" });
-    c.setState({ siteMath: { "example.com": { inline: "paren", display: "equation" }, "other.org": { inline: "dollar" } } });
+    c.setState({
+      siteMath: {
+        "example.com": { inline: "dollar" },
+        "chat.example.com": { inline: "paren", display: "equation" }, // more specific: wins
+        "other.org": { inline: "dollar" },
+      },
+    });
     detach = c.attach();
     for (const ch of " mkx") {
       type(ta, ch);

@@ -224,7 +224,10 @@ export class LaasController {
       this.onConfigError(e as Error);
       this.config = compileConfig(null, opts).config;
     }
-    const site = Object.entries(this.state.siteMath ?? {}).find(([p]) => hostMatches(this.host, p));
+    // the most specific pattern wins: chat.example.com over example.com
+    const site = Object.entries(this.state.siteMath ?? {})
+      .filter(([p]) => hostMatches(this.host, p))
+      .sort(([a], [b]) => b.replace(/^\*\./, "").length - a.replace(/^\*\./, "").length)[0];
     this.snippets = withMathDelimiters(snippetsForHost(this.config, this.host), site?.[1]);
     this.sessions = [];
     this.last = null;

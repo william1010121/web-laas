@@ -26,6 +26,10 @@ function closerFor(opener: string): { closer: string; env?: string } {
 
 /** Index of the first unescaped `closer` in `text` (outside % comments when `comments`), or -1. */
 function findCloser(text: string, closer: string, comments: boolean): number {
+  // \end {align} is as good as \end{align}
+  const env = /^\\end\{(.*)\}$/.exec(closer)?.[1];
+  const endRe = env !== undefined ? new RegExp(`^\\\\end\\s*\\{\\s*${env.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\}`) : null;
+  const closesAt = (i: number) => (endRe ? endRe.test(text.slice(i, i + closer.length + 16)) : text.startsWith(closer, i));
   for (let i = 0; i < text.length; i++) {
     const unescaped = ESCAPED.test(text.slice(Math.max(0, i - 32), i));
     if (comments && text[i] === "%" && unescaped) {
@@ -43,7 +47,7 @@ function findCloser(text: string, closer: string, comments: boolean): number {
       continue;
     }
     // \$ is a dollar sign; in \\) the backslashes pair up, so the ) is plain text
-    if (!text.startsWith(closer, i) || !unescaped) continue;
+    if (!unescaped || !closesAt(i)) continue;
     return i; // for "$", a "$$" right here also ends this formula (it opens the next one)
   }
   return -1;
