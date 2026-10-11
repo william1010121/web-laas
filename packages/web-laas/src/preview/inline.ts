@@ -2,7 +2,7 @@
 // its typeset version, drawn on a layer above the editor (the editor's own text
 // can't change). Move the caret into one, or click it, and the source shows.
 import { findFormulas, type FormulaSpan } from "web-laas-engine";
-import { renderMath } from "../shared/math";
+import { MATH_FONT_CSS, renderMath } from "../shared/math";
 import { prepareLatex } from "./preview";
 
 const EDITORS = ".cm-content, .CodeMirror-code, textarea, input[type=text], input[type=search], input:not([type]), [contenteditable]";
@@ -32,6 +32,7 @@ const MIRRORED = [
 
 const CSS = `
 :host { all: initial; }
+${MATH_FONT_CSS}
 .layer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
 .layer > .boxes { position: absolute; left: 0; top: 0; }
 .box {
@@ -56,6 +57,8 @@ interface Item {
   html: string;
   /** inline math (left-aligned in its box); display math is centred */
   inline: boolean;
+  /** the editor's on-screen scale (its font size is in CSS px) */
+  scale: number;
   box: Rect;
   clip: Rect;
   color: string;
@@ -753,7 +756,7 @@ export class InlineRender {
       if (cm5Marks.some((m) => m.right >= box.left && m.left <= box.right && m.bottom > box.top && m.top < box.bottom)) continue;
       const html = this.htmlOf(st, i);
       if (!html) continue;
-      items.push({ html, inline: !fs[i].display, box, clip: area, color: frame.color, background: this.backgroundOf(host), fontSize: frame.fontSize });
+      items.push({ html, inline: !fs[i].display, scale: frame.sy, box, clip: area, color: frame.color, background: this.backgroundOf(host), fontSize: frame.fontSize });
     }
     return items;
   }
@@ -804,7 +807,7 @@ export class InlineRender {
       const box = this.boxFor(rects, f.display, frame, lineHeight);
       const html = box && this.htmlOf(st, i);
       if (!box || !html) continue;
-      items.push({ html, inline: !f.display, box, clip: area, color: frame.color, background, fontSize: frame.fontSize });
+      items.push({ html, inline: !f.display, scale: frame.sy, box, clip: area, color: frame.color, background, fontSize: frame.fontSize });
     }
     return items;
   }
@@ -997,13 +1000,16 @@ export class InlineRender {
     s.height = `${h}px`;
     s.color = item.color;
     s.background = item.background;
-    s.fontSize = item.fontSize;
+    // the editor's text as big as it shows: its own scale over the layer's (they differ when
+    // the editor itself is transformed, as the layer sits beside it then)
+    const fontSize = `${(parseFloat(item.fontSize) * item.scale) / layer.sy}px`;
+    s.fontSize = fontSize;
     const c = map(item.clip);
     // cut off only by the editor's visible area: a formula may reach a little past its line
     s.clipPath = `inset(${c.top - top}px ${right - c.right}px ${bottom - c.bottom}px ${c.left - left}px)`;
     s.visibility = empty(intersect(item.box, item.clip)) ? "hidden" : "";
     // a formula bigger than its source is shrunk to fit, once its size is known (see fitAll)
-    const size = `${Math.round(w)}x${Math.round(h)}:${item.fontSize}`;
+    const size = `${Math.round(w)}x${Math.round(h)}:${fontSize}`;
     if (box.dataset.size !== size) {
       box.dataset.size = size;
       const math = box.firstElementChild as HTMLElement | null;

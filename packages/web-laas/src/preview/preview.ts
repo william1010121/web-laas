@@ -1,6 +1,6 @@
 // The live LaTeX preview: a small floating card that renders the formula under
 // the caret, marks where the caret is, and stays out of the way of the mouse.
-import { renderMath } from "../shared/math";
+import { MATH_FONT_CSS, renderMath } from "../shared/math";
 import { accentColor, themeCss } from "../shared/theme";
 
 export type PreviewMode = "above" | "below" | "corner";
@@ -66,6 +66,7 @@ export function fixCaretMark(mathml: string): string {
 
 const CSS = `
 ${themeCss(".lw-preview")}
+${MATH_FONT_CSS}
 :host { all: initial; }
 .lw-preview {
   position: fixed; left: 0; top: 0; z-index: 2147483646;

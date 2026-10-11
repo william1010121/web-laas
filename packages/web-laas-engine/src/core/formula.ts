@@ -138,7 +138,10 @@ export function findFormulas(text: string, opts: { comments?: boolean } = {}): F
     if ((c === "`" || c === "~") && !comments && /^ {0,3}$/.test(text.slice(text.lastIndexOf("\n", i - 1) + 1, i))) {
       let len = 0;
       while (text[i + len] === c) len++;
-      if (len >= 3) {
+      // (a backtick fence's info string has no backticks: ```a``` opening a line is inline code)
+      const eol = text.indexOf("\n", i);
+      const info = text.slice(i + len, eol < 0 ? n : eol);
+      if (len >= 3 && !(c === "`" && info.includes("`"))) {
         const mark = c === "`" ? "`" : "~";
         const closer = new RegExp(`\\n {0,3}${mark}{${len},}[ \\t]*(?=\\n|$)`, "g");
         closer.lastIndex = i + len;

@@ -167,6 +167,8 @@ describe("findFormulas edge cases", () => {
     expect(latex("````\n$a$\n\n", false)).toEqual([]); // unclosed: to the end
     expect(latex("text ``` $a$ ``` $b$", false)).toEqual(["b"]); // mid-line: an inline code span
     expect(latex("```\n$a$\n```\n$b$", true)).toEqual(["a", "b"]); // LaTeX has no fences
+    expect(latex("```foo``` and $x$\nthen $y$", false)).toEqual(["x", "y"]); // backticks after: inline code
+    expect(latex("~~~ a`b\n$a$\n~~~\n$c$", false)).toEqual(["c"]); // a tilde fence's info may have them
   });
 
   it("an empty pair is passed over, closer and all", () => {

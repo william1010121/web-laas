@@ -21,6 +21,10 @@ declare global {
 
 // The background re-injects this script into tabs that were open before the
 // extension was (re)loaded; skip if a live copy is already here.
+/** Shadow roots whose scrolling also triggers a look for math (see onScroll). */
+const watchedShadows = new WeakSet<ShadowRoot>();
+let onScroll = () => {};
+
 const MATH_HINT = /\$|\\[([]|\\begin\s*\{/;
 
 /** Does any editor on the page contain something that looks like math? */
@@ -30,6 +34,11 @@ function editorsHaveMath(): boolean {
   const scopes: (Document | ShadowRoot)[] = [document];
   for (let i = 0; i < scopes.length; i++) {
     for (const el of scopes[i].querySelectorAll("*")) if (el.shadowRoot) scopes.push(el.shadowRoot);
+  }
+  // scrolling inside a shadow root doesn't reach the document's listener
+  for (const sc of scopes) if (sc instanceof ShadowRoot && !watchedShadows.has(sc)) {
+    watchedShadows.add(sc);
+    sc.addEventListener("scroll", () => onScroll(), { capture: true, passive: true });
   }
   for (const el of scopes.flatMap((sc) => [...sc.querySelectorAll<HTMLElement>(editors)])) {
     const field = el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement;
@@ -81,7 +90,8 @@ function start() {
   };
   for (const type of ["focusin", "input"]) document.addEventListener(type, checkForMath, true);
   // CodeMirror only has the lines near the window in the page: math further down shows up on scrolling
-  document.addEventListener("scroll", () => !previewRequested && checkForMath(), { capture: true, passive: true });
+  onScroll = () => !previewRequested && checkForMath();
+  document.addEventListener("scroll", () => onScroll(), { capture: true, passive: true });
   // editors in web apps show up (and fill) a while after the page loads
   let checks = 0;
   const poll = window.setInterval(() => (previewRequested || ++checks > 20 ? clearInterval(poll) : checkForMath()), 3000);

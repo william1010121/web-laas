@@ -1,6 +1,6 @@
 // Searchable snippet cheat sheet, shared by the options page and the in-page overlay.
 import type { CheatsheetEntry, CheatsheetGroup, SnippetSource } from "web-laas-engine";
-import { renderMath } from "../shared/math";
+import { MATH_FONT_CSS, renderMath } from "../shared/math";
 import { themeCss } from "../shared/theme";
 
 export interface SheetOptions {
@@ -277,6 +277,7 @@ export function buildCheatsheet(doc: Document, groups: CheatsheetGroup[], opts: 
 
 export const SHEET_CSS = `
 ${themeCss(".lw-sheet")}
+${MATH_FONT_CSS}
 .lw-sheet {
   display: flex; flex-direction: column; min-height: 0; height: 100%;
   background: var(--lw-bg); color: var(--lw-fg);

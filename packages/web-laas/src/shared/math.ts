@@ -51,6 +51,14 @@ export function alignColumns(mathml: string): string {
   return out + mathml.slice(last);
 }
 
+/**
+ * Math fonts by name, in front of the generic `math` family: browsers let users
+ * map `math` to any font (Arc's ends up with a plain one), and without a math
+ * font's OpenType MATH table a radical is a √ glyph with a loose bar over it.
+ * STIX Two Math ships with macOS, Cambria Math with Windows.
+ */
+export const MATH_FONT_CSS = `math { font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", "Noto Sans Math", math; }`;
+
 const cache = new Map<string, string | null>();
 
 /** MathML markup for `latex`, or null when it doesn't parse (yet). */
