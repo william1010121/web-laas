@@ -556,6 +556,8 @@ export class InlineRender {
   private laterTimer = 0;
   /** layers by the stacking context they're in, then z-index */
   /** layers by the stacking context they're in */
+  /** an element never in the page, to parse old style attributes with */
+  private probe: HTMLElement;
   private layers = new Map<Element, (Layer & { z: number; after: Element | null })[]>();
   /** boxes on screen, by the SVG they show (a box moves with its formula as text is typed before it) */
   private boxes = new Map<string, HTMLElement[]>();
@@ -585,6 +587,7 @@ export class InlineRender {
       alive?: () => boolean;
     } = {},
   ) {
+    this.probe = doc.createElement("div");
     this.observer = new MutationObserver((records) => {
       // only an editor whose content changed has to read its text again
       // (a style changing outside any editor, say an animation, needs no update at all)
@@ -594,10 +597,12 @@ export class InlineRender {
         // editors restyle their own elements all the time: only a display: none coming or going counts
         if (r.type === "attributes" && r.attributeName === "style") {
           const style = (r.target as HTMLElement).style;
+          // the old declarations, parsed as the browser does (a value may be var(--x), say)
+          const was = this.probe.style;
+          was.cssText = r.oldValue ?? "";
           // (visibility, anywhere: hiding an editor or what holds it takes its formulas away at once;
           // it is looked at on every draw, so a draw is all it needs)
-          const vis = /visibility\s*:\s*([a-z]+)/.exec(r.oldValue ?? "")?.[1] ?? "";
-          if (vis !== (style?.visibility ?? "")) {
+          if (was.visibility !== (style?.visibility ?? "")) {
             any = true;
             // inside an editor, the formulas' elements it knows to be hidden may have changed
             for (let n: Node | null = r.target; n; n = n.parentNode) {
@@ -608,8 +613,7 @@ export class InlineRender {
               }
             }
           }
-          const was = /display\s*:\s*none/.test(r.oldValue ?? "");
-          if (was === (style?.display === "none")) continue;
+          if ((was.display === "none") === (style?.display === "none")) continue;
         }
         if (r.type !== "attributes") any = true;
         for (let n: Node | null = r.target; n && !seen.has(n); n = n.parentNode) {

@@ -67,6 +67,13 @@ describe("domText", () => {
     await new Promise((res) => setTimeout(res, 0));
     expect(st.faded.size).toBe(0);
     scheduled = 1;
+    // a visibility given as var(): only a change of the whole value counts
+    wrap.style.cssText = "visibility: var(--v)";
+    await new Promise((res) => setTimeout(res, 0));
+    scheduled = 1;
+    wrap.style.transform = "translateX(1px)";
+    await new Promise((res) => setTimeout(res, 0));
+    expect(scheduled).toBe(1);
     // other style changes outside an editor need nothing
     wrap.style.color = "red";
     await new Promise((res) => setTimeout(res, 0));
