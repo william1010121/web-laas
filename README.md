@@ -11,6 +11,7 @@ Type <code>;a</code> → <code>\alpha</code>, <code>x/</code> → <code>\frac{x}
 </p>
 
 <p align="center">
+  <a href="https://william1010121.github.io/web-laas/">Live demo</a> ·
   <a href="#install">Install</a> ·
   <a href="#what-you-get">What you get</a> ·
   <a href="#keys">Keys</a> ·

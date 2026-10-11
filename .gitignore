@@ -6,3 +6,4 @@ packages/web-laas/test/preview/dist/
 .DS_Store
 .vite/
 dist/
+site/.cache/
