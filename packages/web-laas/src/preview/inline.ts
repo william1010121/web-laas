@@ -410,6 +410,16 @@ function firstReaching(n: number, bottomOf: (i: number) => number, top: number):
   return lo;
 }
 
+/** What changes an editor's text: its content, and the attributes that hide text from domText or make it a widget. */
+const OBSERVE: MutationObserverInit = {
+  childList: true,
+  subtree: true,
+  characterData: true,
+  attributes: true,
+  attributeOldValue: true,
+  attributeFilter: ["hidden", "style", "contenteditable"],
+};
+
 /** Formulas this far outside the visible area are drawn too, so a scroll doesn't show them late. */
 const MARGIN = 120;
 /** How often (ms) an unchanged editor's scroll containers and stacking are looked at again. */
@@ -486,7 +496,8 @@ interface RootState {
   faded: Map<Element, boolean>;
   /**
    * no boxes over this editor: it is rotated, skewed or flipped (they can't be placed over its
-   * text), or it fades, filters, clips or masks itself (the layer beside it wouldn't be)
+   * text), it fades, filters, clips or masks itself (the layer beside it wouldn't be), or it is
+   * invisible
    */
   skip: boolean;
   checked: number;
@@ -607,15 +618,7 @@ export class InlineRender {
       doc.addEventListener("focusin", this.schedule);
       doc.addEventListener("focusout", this.schedule);
       view.addEventListener("resize", this.schedule);
-      // (and the attributes that hide text from domText or make it a widget)
-      this.observer.observe(doc.body ?? doc.documentElement, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-        attributes: true,
-        attributeOldValue: true,
-        attributeFilter: ["hidden", "style", "contenteditable"],
-      });
+      this.observer.observe(doc.body ?? doc.documentElement, OBSERVE);
       // layout can also move without any of the above (a sidebar sliding open)
       this.timer = view.setInterval(this.schedule, 700);
       this.schedule();
@@ -673,7 +676,7 @@ export class InlineRender {
         if (!this.shadows.has(sr)) {
           this.shadows.add(sr);
           // mutations and scrolling inside don't reach the document's listeners
-          this.observer.observe(sr, { childList: true, subtree: true, characterData: true });
+          this.observer.observe(sr, OBSERVE);
           sr.addEventListener("scroll", this.schedule, { capture: true, passive: true });
         }
         look(sr);
@@ -763,7 +766,8 @@ export class InlineRender {
       st.stacking = stackingFor(root);
       st.levels = new Map();
       st.faded = new Map();
-      st.skip = turned(root) || ownEffects(root);
+      // (visibility is inherited: the editor's own value covers its ancestors)
+      st.skip = turned(root) || ownEffects(root) || getComputedStyle(root).visibility !== "visible";
       st.checked = now;
     }
     if (!st.stale) return st;
@@ -836,6 +840,9 @@ export class InlineRender {
     const r = root.getBoundingClientRect();
     const cs = getComputedStyle(root);
     const { sx, sy } = scaleOf(root, r);
+    // stretched one way only (scaleX(2)): math drawn at one font size can't match its source
+    // (by more than offsetWidth's rounding to whole pixels can explain)
+    if (Math.abs(sx - sy) * (root as HTMLElement).offsetWidth > 2) return;
     const contentLeft = r.left + root.clientLeft * sx;
     const frame: Frame = {
       area,

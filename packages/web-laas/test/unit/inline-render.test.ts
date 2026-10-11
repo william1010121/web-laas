@@ -46,6 +46,25 @@ describe("domText", () => {
     ce.remove();
   });
 
+  it("watches the same attributes inside shadow roots", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const sr = host.attachShadow({ mode: "open" });
+    sr.innerHTML = '<div contenteditable="true"><p>a <span hidden>$x$</span></p></div>';
+    const ce = sr.firstElementChild!;
+    const r = new InlineRender(document) as any;
+    r.schedule = () => {};
+    r.set({ on: true, comments: false });
+    r.findShadows?.();
+    const st = { stale: false };
+    r.states.set(ce, st);
+    sr.querySelector("span")!.hidden = false;
+    await new Promise((res) => setTimeout(res, 0));
+    expect(st.stale).toBe(true);
+    r.destroy();
+    host.remove();
+  });
+
   it("nested blocks don't add blank lines", () => {
     expect(domText(html("<ul><li><p>a</p></li><li><p>b</p></li></ul>")).text).toBe("a\nb\n");
   });
