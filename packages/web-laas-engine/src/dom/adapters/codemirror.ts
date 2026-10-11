@@ -169,10 +169,11 @@ function paragraphAround(read: (from: number, to: number) => string, length: num
   let to = length;
   for (let start = pos; start < length; start += CHUNK) {
     const text = read(Math.max(0, start - 2), Math.min(length, start + CHUNK));
-    BLANK.lastIndex = 0;
-    const m = BLANK.exec(text);
+    // (from a little before, for a blank line across two chunks; one ending by pos is the one before it)
+    const base = Math.max(0, start - 2);
+    const m = [...text.matchAll(BLANK)].find((m) => base + m.index + m[0].length > pos);
     if (m) {
-      to = Math.max(0, start - 2) + m.index;
+      to = base + m.index;
       break;
     }
   }

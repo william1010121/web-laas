@@ -216,4 +216,22 @@ describe("the formula open where CodeMirror's drawn lines resume", async () => {
   it("text outside any formula needs nothing", () => {
     expect(open("$a$ then text and $b$", 8)).toBe("");
   });
+
+  it("a paragraph starting right at pos ends at its own blank line, not the one before", () => {
+    const text = "a\n\n$x y$ b\n\nc";
+    const reads: [number, number][] = [];
+    const read = (a: number, b: number) => (reads.push([a, b]), text.slice(a, b));
+    const key = {};
+    expect(openAt(key, 1, read, text.length, 3, true)).toBe("");
+    expect(reads.at(-1)).toEqual([3, 10]); // the paragraph "$x y$ b"
+    expect(openAt(key, 1, read, text.length, 5, true)).toBe("$x"); // from the cache
+  });
+
+  it("\\verb bodies are literal text", () => {
+    const latex = (s: string) => findFormulas(s, { comments: true }).map((f) => f.latex);
+    expect(latex("\\verb|$not_math$| and $x$")).toEqual(["x"]);
+    expect(latex("\\verb*+$a$+ \\verb!b! $y$")).toEqual(["y"]);
+    // unclosed on its line: just the command
+    expect(latex("\\verb|a\n$z$")).toEqual(["z"]);
+  });
 });

@@ -200,6 +200,13 @@ export function findFormulas(text: string, opts: { comments?: boolean } = {}): F
       const m = /^\\(?:[()[\]]|begin\s*\{([^{}\n]*)\})/.exec(text.slice(i, i + 64));
       if (m && (m[1] === undefined || MATH_ENVS.has(m[1].trim()))) opener = m[0];
       else {
+        // \verb|$x$| is literal text up to the delimiter repeated (on the same line)
+        const verb = /^\\verb\*?([^A-Za-z*\s])/.exec(text.slice(i, i + 8));
+        const close = verb ? text.indexOf(verb[1], i + verb[0].length) : -1;
+        if (verb && close >= 0 && !text.slice(i + verb[0].length, close).includes("\n")) {
+          i = close + 1;
+          continue;
+        }
         i += /^\\[A-Za-z]+/.exec(text.slice(i, i + 64))?.[0].length ?? 2; // \$, \\ and \command
         continue;
       }

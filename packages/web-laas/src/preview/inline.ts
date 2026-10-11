@@ -178,10 +178,16 @@ export function formulasIn(text: string, comments: boolean, resumes: number[], u
   });
 }
 
-/** The height of a line of text in `el`, in px. */
-function lineHeightOf(el: Element): number {
+/** The text style formulas drawn over `el` take: its line height (px), colour and font size. */
+interface Typography {
+  lineHeight: number;
+  color: string;
+  fontSize: string;
+}
+
+function typographyOf(el: Element): Typography {
   const cs = getComputedStyle(el);
-  return parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2 || 0;
+  return { lineHeight: parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2 || 0, color: cs.color, fontSize: cs.fontSize };
 }
 
 /** The element above `el`, stepping out of a shadow root to its host. */
@@ -447,7 +453,7 @@ export class InlineRender {
   private observer: MutationObserver;
   // per-frame memos of computed styles
   private backgrounds = new Map<Element, string>();
-  private lineHeights = new Map<Element, number>();
+  private typographies = new Map<Element, Typography>();
   private toFit: { math: HTMLElement; w: number; h: number }[] = [];
   /** new formulas are rendered until then in a frame; the rest wait for the next one */
   private renderUntil = 0;
@@ -580,7 +586,7 @@ export class InlineRender {
     const old = this.boxes;
     this.boxes = new Map();
     this.backgrounds.clear();
-    this.lineHeights.clear();
+    this.typographies.clear();
     if (this.doc.visibilityState !== "hidden") {
       for (const root of this.roots()) {
         try {
@@ -800,12 +806,14 @@ export class InlineRender {
         continue;
       }
       const host = rg.startContainer.parentElement ?? root;
-      const box = this.boxFor(rects, fs[i].display, frame, this.lineHeightOf(host));
+      // (a heading or a coloured span in a rich editor has its own size and colour)
+      const type = this.typographyOf(host);
+      const box = this.boxFor(rects, fs[i].display, frame, type.lineHeight);
       if (!box) continue;
       if (cm5Marks.some((m) => m.right >= box.left && m.left <= box.right && m.bottom > box.top && m.top < box.bottom)) continue;
       const html = this.htmlOf(st, i);
       if (!html) continue;
-      items.push({ html, inline: !fs[i].display, scale: frame.sy, box, clip: area, color: frame.color, background: this.backgroundOf(host), fontSize: frame.fontSize });
+      items.push({ html, inline: !fs[i].display, scale: frame.sy, box, clip: area, color: type.color, background: this.backgroundOf(host), fontSize: type.fontSize });
     }
     return items;
   }
@@ -843,7 +851,7 @@ export class InlineRender {
     st.near = [first, fs.length];
     const focused = scopeOf(ta).activeElement === ta;
     const background = this.backgroundOf(ta);
-    const lineHeight = this.lineHeightOf(ta);
+    const { lineHeight } = this.typographyOf(ta);
     const items: Item[] = [];
     for (let i = first; i < fs.length; i++) {
       const f = fs[i];
@@ -983,10 +991,10 @@ export class InlineRender {
     return bg;
   }
 
-  private lineHeightOf(el: Element): number {
-    let h = this.lineHeights.get(el);
-    if (h === undefined) this.lineHeights.set(el, (h = lineHeightOf(el)));
-    return h;
+  private typographyOf(el: Element): Typography {
+    let t = this.typographies.get(el);
+    if (t === undefined) this.typographies.set(el, (t = typographyOf(el)));
+    return t;
   }
 
   /** The layer for a place in the page's stacking, made (and put there) the first time. */
