@@ -1,11 +1,10 @@
 {
   "manifest_version": 3,
   "name": "web-laas · LaTeX Auto Snippets",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Emacs laas-style auto-activating LaTeX snippets for Overleaf, ChatGPT, Claude, Notion, HackMD, Jupyter and any text field.",
   "permissions": [
     "storage",
-    "activeTab",
     "scripting",
     "notifications"
   ],
