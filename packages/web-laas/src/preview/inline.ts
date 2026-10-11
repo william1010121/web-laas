@@ -264,6 +264,16 @@ function scaleOf(el: Element, rect = el.getBoundingClientRect()): { sx: number; 
   };
 }
 
+/**
+ * Do scales `sx`, `sy` (on-screen size over offsetWidth / offsetHeight, `w` × `h`) differ by more
+ * than the rounding of offsetWidth and offsetHeight to whole pixels explains? Each ratio is off
+ * by up to half a pixel over its own size, so the allowance is per dimension, not one width's.
+ */
+export function oneWayScaled(sx: number, sy: number, w: number, h: number): boolean {
+  if (!w || !h) return false;
+  return Math.abs(sx - sy) > Math.max(sx, sy) * (0.5 / w + 0.5 / h) + 0.002;
+}
+
 /** The part of the window where content inside all of `clippers` can show. */
 function visibleArea(view: Window, clippers: Element[]): Rect {
   let r: Rect = { left: 0, top: 0, right: view.innerWidth, bottom: view.innerHeight };
@@ -841,8 +851,7 @@ export class InlineRender {
     const cs = getComputedStyle(root);
     const { sx, sy } = scaleOf(root, r);
     // stretched one way only (scaleX(2)): math drawn at one font size can't match its source
-    // (by more than offsetWidth's rounding to whole pixels can explain)
-    if (Math.abs(sx - sy) * (root as HTMLElement).offsetWidth > 2) return;
+    if (oneWayScaled(sx, sy, (root as HTMLElement).offsetWidth, (root as HTMLElement).offsetHeight)) return;
     const contentLeft = r.left + root.clientLeft * sx;
     const frame: Frame = {
       area,

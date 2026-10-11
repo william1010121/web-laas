@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { clippersOf, domText, formulasIn, InlineRender, splitPieces, stackingFor } from "../../src/preview/inline";
+import { clippersOf, domText, formulasIn, InlineRender, oneWayScaled, splitPieces, stackingFor } from "../../src/preview/inline";
 
 const html = (s: string) => {
   const el = document.createElement("div");
@@ -237,5 +237,21 @@ describe("an orphaned renderer", () => {
     expect(r.on).toBe(false);
     r.schedule(); // nothing is scheduled any more
     expect(r.frame).toBe(0);
+  });
+});
+
+describe("oneWayScaled", () => {
+  it("allows each dimension's rounding to whole pixels", () => {
+    // 500 × 20.5 px, untransformed: offsetHeight rounds to 21
+    expect(oneWayScaled(1, 20.5 / 21, 500, 21)).toBe(false);
+    expect(oneWayScaled(667.5 / 668, 1, 668, 318)).toBe(false);
+    // uniform scaling
+    expect(oneWayScaled(1.2, 1.2, 400, 300)).toBe(false);
+  });
+
+  it("catches one-way stretching", () => {
+    expect(oneWayScaled(2, 1, 400, 300)).toBe(true);
+    expect(oneWayScaled(1, 1.1, 400, 300)).toBe(true);
+    expect(oneWayScaled(1.5, 1, 30, 20)).toBe(true);
   });
 });
