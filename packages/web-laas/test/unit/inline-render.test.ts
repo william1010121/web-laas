@@ -17,7 +17,13 @@ describe("domText", () => {
   it("counts a hard break, not a trailing one; skips widgets and gutters", () => {
     expect(domText(html("<p>a<br>b<br></p>")).text).toBe("a\nb\n");
     expect(domText(html('<p>$a<span contenteditable="false">w</span>b$</p>')).text).toBe("$a￼b$\n");
-    expect(domText(html('<pre><div class="CodeMirror-gutter-wrapper">12</div><span>x</span></pre><pre><span>​</span></pre>')).text).toBe("x\n\n");
+    expect(domText(html('<pre class="CodeMirror-line"><div class="CodeMirror-gutter-wrapper">12</div><span>x</span></pre><pre class="CodeMirror-line"><span>​</span></pre>')).text).toBe("x\n\n");
+  });
+
+  it("code holds no math; CodeMirror 5's <pre> lines are text", () => {
+    const t = domText(html("<p>see <code>$x$</code> and $y$</p><pre><code>$z$\n</code></pre><p>$w$</p>"));
+    expect(formulasIn(t.text, false, t.resumes).map((f) => f.latex)).toEqual(["y", "w"]);
+    expect(domText(html('<pre class="CodeMirror-line"><span>$a$</span></pre>')).text).toBe("$a$\n");
   });
 
   it("nested blocks don't add blank lines", () => {

@@ -19,6 +19,7 @@ const BLOCKS = new Set([
   "TD", "TH", "TR", "UL",
 ]);
 const SKIP = new Set(["SCRIPT", "STYLE", "TEMPLATE", "NOSCRIPT"]);
+const CODE = new Set(["CODE", "PRE", "KBD", "SAMP"]);
 const SKIP_CLASSES = ["CodeMirror-gutter-wrapper", "CodeMirror-linewidget", "CodeMirror-widget"];
 
 // Styles that decide where a text field wraps, copied onto its hidden mirror.
@@ -106,6 +107,14 @@ export function domText(root: Element): DomText {
       }
       if (e.getAttribute("contenteditable") === "false" || e.tagName === "IMG") {
         add("\ufffc"); // a widget: nothing to read, but it isn't nothing
+        continue;
+      }
+      // code in a rich editor (<code>, <pre>: Markdown already turned into blocks) holds no math;
+      // CodeMirror 5's lines are <pre> too, but those are text
+      if (CODE.has(e.tagName) && !cls.contains("CodeMirror-line")) {
+        const block = e.tagName === "PRE";
+        if (block && len && last !== "\n") add("\n");
+        add(block ? "\ufffc\n" : "\ufffc");
         continue;
       }
       const block = BLOCKS.has(e.tagName) || cls.contains("cm-line");
