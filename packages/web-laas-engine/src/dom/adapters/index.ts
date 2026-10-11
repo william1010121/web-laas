@@ -7,7 +7,7 @@ export type { EditorAdapter };
 export type { CaretRect } from "./types";
 export { TextFieldAdapter } from "./textarea";
 export { ContentEditableAdapter } from "./contenteditable";
-export { CM5Adapter, CM6Adapter } from "./codemirror";
+export { CM5Adapter, CM6Adapter, undrawnParagraphs } from "./codemirror";
 
 /** Returns an adapter for the focused element, or null if it is not that editor. */
 export type AdapterFactory = (el: Element) => EditorAdapter | null;

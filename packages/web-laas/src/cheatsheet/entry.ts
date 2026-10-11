@@ -1,5 +1,5 @@
 // cheatsheet.js: injected into the top frame by the background only when the
-// cheat sheet is opened, so KaTeX isn't loaded into every page and iframe.
+// cheat sheet is opened, so MathJax isn't loaded into every page and iframe.
 import { cheatsheetEntries, compileConfig, groupCheatsheet, snippetsForHost, withMathDelimiters, resolveMathDelimiters } from "web-laas-engine";
 import { alive } from "../shared/alive";
 import { loadState, type ContentMessage } from "../shared/storage";

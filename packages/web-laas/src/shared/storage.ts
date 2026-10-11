@@ -9,9 +9,11 @@ export interface ExtensionPrefs extends LaasPrefs {
   cheatsheet: boolean;
   /** live LaTeX preview: floating above / below the caret, in the corner, or off */
   preview: PreviewPref;
+  /** formulas the caret isn't in are shown rendered, over their source */
+  inlineRender: boolean;
 }
 
-export const DEFAULT_EXTENSION_PREFS: ExtensionPrefs = { ...DEFAULT_PREFS, cheatsheet: true, preview: "above" };
+export const DEFAULT_EXTENSION_PREFS: ExtensionPrefs = { ...DEFAULT_PREFS, cheatsheet: true, preview: "above", inlineRender: true };
 
 export interface StoredState extends RuntimeState {
   prefs: ExtensionPrefs;

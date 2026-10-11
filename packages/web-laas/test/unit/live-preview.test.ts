@@ -96,9 +96,9 @@ describe("LivePreview fallback", () => {
     const stale = () => internals.card.classList.contains("stale");
 
     p.update({ latex: "a + b", caret: 5, display: false, rect });
-    expect(html()).toContain("<math");
+    expect(html()).toContain("<svg");
     p.update({ latex: "a + \\frac{b}{", caret: 13, display: false, rect }); // half-typed: keep it, dimmed
-    expect(html()).toContain("<math");
+    expect(html()).toContain("<svg");
     expect(stale()).toBe(true);
     p.update(null); // the caret left the formula
     p.update({ latex: "\\frac{c}{", caret: 9, display: false, rect }); // another formula, half-typed

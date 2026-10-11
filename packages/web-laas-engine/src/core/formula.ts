@@ -1,6 +1,6 @@
 // The formula the caret is in: its LaTeX source (opener and closer excluded),
 // where the caret sits inside it, and how it should be rendered.
-import { matchClose, mathContext, TEXT_ARG_CMDS } from "./tex";
+import { MATH_ENVS, matchClose, mathContext, TEXT_ARG_CMDS } from "./tex";
 
 export interface Formula {
   /** LaTeX between the delimiters */
@@ -24,25 +24,44 @@ function closerFor(opener: string): { closer: string; env?: string } {
   return { closer: env ? `\\end{${env}}` : "", env };
 }
 
-/** Index of the first unescaped `closer` in `text` (outside % comments when `comments`), or -1. */
-function findCloser(text: string, closer: string, comments: boolean): number {
-  // \end {align} is as good as \end{align}
+// \end {align} is as good as \end{align}
+function endPattern(closer: string): RegExp | null {
   const env = /^\\end\{(.*)\}$/.exec(closer)?.[1];
-  const endRe = env !== undefined ? new RegExp(`^\\\\end\\s*\\{\\s*${env.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\}`) : null;
+  return env !== undefined ? new RegExp(`^\\\\end\\s*\\{\\s*${env.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\}`) : null;
+}
+
+/** Is the character at `i` not escaped (an even number of backslashes before it)? */
+function unescapedAt(text: string, i: number): boolean {
+  let k = i;
+  while (k > 0 && text[k - 1] === "\\") k--;
+  return (i - k) % 2 === 0;
+}
+
+/**
+ * Index of the first unescaped `closer` in `text` within [from, to) (outside
+ * % comments when `comments`), or -1. Works in place: no copies of the text.
+ */
+function findCloser(text: string, closer: string, comments: boolean, from = 0, to = text.length): number {
+  const endRe = endPattern(closer);
   const closesAt = (i: number) => (endRe ? endRe.test(text.slice(i, i + closer.length + 16)) : text.startsWith(closer, i));
-  for (let i = 0; i < text.length; i++) {
-    const unescaped = ESCAPED.test(text.slice(Math.max(0, i - 32), i));
-    if (comments && text[i] === "%" && unescaped) {
+  for (let i = from; i < to; i++) {
+    const c = text[i];
+    if (c !== "%" && c !== "\\" && c !== closer[0]) continue;
+    // in a run of backslashes only the last can start a command or a closer: go there at once,
+    // so a long run is walked twice in all, not once per backslash
+    if (c === "\\") while (i + 1 < to && text[i + 1] === "\\") i++;
+    const unescaped = unescapedAt(text, i);
+    if (comments && c === "%" && unescaped) {
       const nl = text.indexOf("\n", i);
-      if (nl < 0) return -1;
+      if (nl < 0 || nl >= to) return -1;
       i = nl; // a comment runs to the end of the line
       continue;
     }
     // \text{… $x$ …}: delimiters inside a text argument belong to nested math, skip the group
-    const cmd = unescaped && text[i] === "\\" ? /^\\([A-Za-z]+\*?)\s*\{/.exec(text.slice(i, i + 40)) : null;
+    const cmd = unescaped && c === "\\" ? /^\\([A-Za-z]+\*?)\s*\{/.exec(text.slice(i, i + 40)) : null;
     if (cmd && cmd[1] !== "begin" && cmd[1] !== "end" && TEXT_ARG_CMDS.has(cmd[1].replace(/\*$/, ""))) {
       const close = matchClose(text, i + cmd[0].length - 1, comments);
-      if (close < 0) return -1;
+      if (close < 0 || close >= to) return -1;
       i = close;
       continue;
     }
@@ -76,4 +95,174 @@ export function formulaAt(before: string, after: string, opts: { comments?: bool
   // the caret inside a % comment: what follows on this line isn't math either
   if (opts.comments && /(^|[^\\])(\\\\)*%/.test(head.slice(head.lastIndexOf("\n") + 1))) return null;
   return { latex: head + after.slice(0, end), caret: head.length, display: ctx.display, env };
+}
+
+const BLANK_LINE = /\n[ \t]*\n/g;
+
+/** Environments whose body is literal text. */
+const VERBATIM_ENVS = new Set(["verbatim", "verbatim*", "Verbatim", "Verbatim*", "BVerbatim", "LVerbatim", "lstlisting", "minted", "comment", "filecontents", "filecontents*"]);
+
+/** Is the line starting at `i` the first of the text, or after a blank line? */
+function blankBefore(text: string, i: number): boolean {
+  if (i === 0) return true;
+  let k = i - 2; // text[i - 1] is the line break
+  while (k >= 0 && (text[k] === " " || text[k] === "\t")) k--;
+  return k < 0 || text[k] === "\n";
+}
+
+/** Index of the first match of the global `re` at or after `from`, or -1 (without copying the text). */
+function indexFrom(text: string, re: RegExp, from: number): number {
+  re.lastIndex = from;
+  return re.exec(text)?.index ?? -1;
+}
+
+/** A formula found in a stretch of text: [from, to) spans its delimiters. */
+export interface FormulaSpan extends Formula {
+  from: number;
+  to: number;
+}
+
+/**
+ * Every formula in `text`, in order. Without `comments` (Markdown sites) a
+ * single $ follows Pandoc: no space just inside it, no digit right after the
+ * closer, so prices like "$5 and $10" stay text; it doesn't cross a line
+ * either, and `code spans` are skipped.
+ */
+export function findFormulas(text: string, opts: { comments?: boolean } = {}): FormulaSpan[] {
+  const comments = !!opts.comments;
+  const out: FormulaSpan[] = [];
+  const n = text.length;
+  // the next blank line at or after a position; positions only grow, so each stretch is searched once
+  let blankAt = -2;
+  const nextBlank = (from: number) => {
+    if (blankAt === -1 || blankAt >= from) return blankAt;
+    blankAt = indexFrom(text, BLANK_LINE, from);
+    return blankAt;
+  };
+  let i = 0;
+  while (i < n) {
+    const c = text[i];
+    if (c === "%" && comments) {
+      const nl = text.indexOf("\n", i);
+      if (nl < 0) break;
+      i = nl;
+      continue;
+    }
+    // an indented code block: lines indented 4+ columns after a blank line, up to the next unindented one
+    if (!comments && (c === " " || c === "\t") && (i === 0 || text[i - 1] === "\n") && blankBefore(text, i)) {
+      // (indented 4 columns: a tab reaches the next stop, so " \t" counts as well as "    ")
+      const line = /^(?: {0,3}\t| {4})[^\n]*/.exec(text.slice(i, i + 4096));
+      if (line && line[0].trim()) {
+        let j = i;
+        for (;;) {
+          const eol = text.indexOf("\n", j);
+          if (eol < 0) {
+            j = n;
+            break;
+          }
+          const next = text.slice(eol + 1, text.indexOf("\n", eol + 1) < 0 ? n : text.indexOf("\n", eol + 1));
+          j = eol + 1;
+          if (next.trim() && !/^(?: {0,3}\t| {4})/.test(next)) break;
+        }
+        i = j;
+        continue;
+      }
+    }
+    // a fenced code block (``` or ~~~ opening a line) runs to its closing fence, blank lines and all
+    if ((c === "`" || c === "~") && !comments && /^ {0,3}$/.test(text.slice(text.lastIndexOf("\n", i - 1) + 1, i))) {
+      let len = 0;
+      while (text[i + len] === c) len++;
+      // (a backtick fence's info string has no backticks: ```a``` opening a line is inline code)
+      const eol = text.indexOf("\n", i);
+      const info = text.slice(i + len, eol < 0 ? n : eol);
+      if (len >= 3 && !(c === "`" && info.includes("`"))) {
+        const mark = c === "`" ? "`" : "~";
+        const closer = new RegExp(`\\n {0,3}${mark}{${len},}[ \\t]*(?=\\n|$)`, "g");
+        closer.lastIndex = i + len;
+        const m = closer.exec(text);
+        i = m ? m.index + m[0].length : n; // an unclosed fence runs to the end
+        continue;
+      }
+    }
+    if (c === "`" && !comments) {
+      let len = 1;
+      while (text[i + len] === "`") len++;
+      // the closer is a run of exactly as many backticks (``a ``` b`` is one span)
+      const run = "`".repeat(len);
+      let close = text.indexOf(run, i + len);
+      while (close >= 0 && (text[close + len] === "`" || text[close - 1] === "`")) {
+        let end = close;
+        while (text[end] === "`") end++;
+        close = text.indexOf(run, end);
+      }
+      const blank = nextBlank(i);
+      i = close >= 0 && (blank < 0 || blank > close) ? close + len : i + len;
+      continue;
+    }
+    let opener = "";
+    if (c === "\\") {
+      const m = /^\\(?:[()[\]]|begin\s*\{([^{}\n]*)\})/.exec(text.slice(i, i + 64));
+      if (m && (m[1] === undefined || MATH_ENVS.has(m[1].trim()))) opener = m[0];
+      else if (m && VERBATIM_ENVS.has(m[1]?.trim() ?? "")) {
+        // verbatim, lstlisting, minted…: literal text up to their \end, blank lines and all
+        const end = indexFrom(text, new RegExp(`\\\\end\\s*\\{\\s*${m[1]!.trim().replace(/\*/g, "\\*")}\\s*\\}`, "g"), i + m[0].length);
+        i = end < 0 ? n : end + 1;
+        continue;
+      } else {
+        // \verb|$x$| is literal text up to the delimiter repeated (on the same line)
+        // (after \verb* the delimiter may be a * too: \verb**x*)
+        const verb = /^\\verb(?:\*([^A-Za-z\s])|([^A-Za-z*\s]))/.exec(text.slice(i, i + 8));
+        const close = verb ? text.indexOf(verb[1] ?? verb[2], i + verb[0].length) : -1;
+        if (verb && close >= 0 && !text.slice(i + verb[0].length, close).includes("\n")) {
+          i = close + 1;
+          continue;
+        }
+        i += /^\\[A-Za-z]+/.exec(text.slice(i, i + 64))?.[0].length ?? 2; // \$, \\ and \command
+        continue;
+      }
+    } else if (c === "$") opener = text[i + 1] === "$" ? "$$" : "$";
+    if (!opener) {
+      i++;
+      continue;
+    }
+    const span = formulaFrom(text, i, opener, comments, nextBlank);
+    if (span && "latex" in span) out.push(span);
+    // an empty pair ($ $) is no formula, but its closer is no opener either
+    i = span ? span.to : i + opener.length;
+  }
+  return out;
+}
+
+/**
+ * The formula opened by `opener` at `at`; just its end when it's empty; null
+ * when it isn't closed within its paragraph.
+ */
+function formulaFrom(
+  text: string,
+  at: number,
+  opener: string,
+  comments: boolean,
+  nextBlank: (from: number) => number,
+): FormulaSpan | { to: number } | null {
+  const start = at + opener.length;
+  const pandoc = opener === "$" && !comments;
+  if (pandoc && /^\s|^$/.test(text.slice(start, start + 1))) return null;
+  // a formula ends with its paragraph; in Markdown a $…$ one even ends with its line ($10 …\n… $x$)
+  const blank = pandoc ? text.indexOf("\n", start) : nextBlank(start);
+  const stop = blank < 0 ? text.length : blank;
+  const { closer, env } = closerFor(opener);
+  const endRe = endPattern(closer);
+  for (let from = start; from < stop; ) {
+    const end = findCloser(text, closer, comments, from, stop);
+    if (end < 0) return null;
+    if (pandoc && (/\s/.test(text[end - 1]) || /\d/.test(text[end + 1] ?? ""))) {
+      from = end + 1;
+      continue;
+    }
+    const len = endRe?.exec(text.slice(end, end + closer.length + 16))?.[0].length ?? closer.length;
+    const latex = text.slice(start, end);
+    if (!latex.trim()) return { to: end + len };
+    return { from: at, to: end + len, latex, caret: 0, display: opener !== "$" && opener !== "\\(" && env !== "math", env };
+  }
+  return null;
 }

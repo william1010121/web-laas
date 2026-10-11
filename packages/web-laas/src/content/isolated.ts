@@ -1,7 +1,7 @@
 // Isolated-world bridge: reads settings from chrome.storage and forwards them
 // to the main-world script as a JSON string (objects don't cross worlds).
 // The top frame also shows shortcut toasts. (The cheat sheet lives in
-// cheatsheet.js, injected on demand, to keep KaTeX out of every frame.)
+// cheatsheet.js, injected on demand, to keep MathJax out of every frame.)
 import { alive } from "../shared/alive";
 import { matchesChord, parseShortcut, type Chord } from "../shared/shortcut";
 import {
@@ -21,6 +21,33 @@ declare global {
 
 // The background re-injects this script into tabs that were open before the
 // extension was (re)loaded; skip if a live copy is already here.
+/** Shadow roots whose scrolling also triggers a look for math (see onScroll). */
+const watchedShadows = new WeakSet<ShadowRoot>();
+let onScroll = () => {};
+
+const MATH_HINT = /\$|\\[([]|\\begin\s*\{/;
+
+/** Does any editor on the page contain something that looks like math? */
+function editorsHaveMath(): boolean {
+  const editors = ".cm-content, .CodeMirror-code, textarea, input[type=text], input[type=search], input:not([type]), [contenteditable]";
+  // (editors in open shadow roots too)
+  const scopes: (Document | ShadowRoot)[] = [document];
+  for (let i = 0; i < scopes.length; i++) {
+    for (const el of scopes[i].querySelectorAll("*")) if (el.shadowRoot) scopes.push(el.shadowRoot);
+  }
+  // scrolling inside a shadow root doesn't reach the document's listener
+  for (const sc of scopes) if (sc instanceof ShadowRoot && !watchedShadows.has(sc)) {
+    watchedShadows.add(sc);
+    sc.addEventListener("scroll", () => onScroll(), { capture: true, passive: true });
+  }
+  for (const el of scopes.flatMap((sc) => [...sc.querySelectorAll<HTMLElement>(editors)])) {
+    const field = el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement;
+    const text = field ? el.value : el.isContentEditable || el.classList.contains("CodeMirror-code") ? el.textContent : "";
+    if (text && MATH_HINT.test(text)) return true;
+  }
+  return false;
+}
+
 if (!window.__webLaasIsolatedAlive?.()) {
   window.__webLaasIsolatedAlive = alive;
   start();
@@ -32,6 +59,9 @@ function start() {
   document.querySelectorAll("[data-web-laas-preview]").forEach((el) => el.remove());
   async function send() {
     const state = await loadState();
+    renderWanted = state.enabled && state.prefs.inlineRender;
+    siteOff = false; // the settings changed: ask again
+    if (renderWanted) checkForMath();
     document.dispatchEvent(new CustomEvent("web-laas:state", { detail: JSON.stringify(state) }));
   }
   // A main-world script from a build before the versioned hand-over can't be
@@ -42,11 +72,40 @@ function start() {
 
   // The first time the caret is in math here, load the live preview into this frame.
   let previewRequested = false;
-  document.addEventListener("web-laas:formula", (e) => {
-    if (previewRequested || !alive() || (e as CustomEvent<string>).detail === "null") return;
+  // the engine is off on this site (the background said so): no looking for math until the settings change
+  let siteOff = false;
+  const loadPreview = () => {
+    if (previewRequested || siteOff || !alive()) return;
     previewRequested = true;
-    chrome.runtime.sendMessage({ type: "load-preview" } satisfies BackgroundMessage).catch(() => (previewRequested = false));
+    chrome.runtime
+      .sendMessage({ type: "load-preview" } satisfies BackgroundMessage)
+      .then((loading: unknown) => {
+        if (loading !== false) return;
+        previewRequested = false;
+        siteOff = true;
+      })
+      .catch(() => (previewRequested = false));
+  };
+  document.addEventListener("web-laas:formula", (e) => {
+    if ((e as CustomEvent<string>).detail !== "null") loadPreview();
   });
+  // Rendering formulas in place needs it too, as soon as an editor holds math.
+  let renderWanted = false;
+  let checkTimer = 0;
+  const checkForMath = () => {
+    if (!renderWanted || siteOff || previewRequested) return;
+    clearTimeout(checkTimer);
+    checkTimer = window.setTimeout(() => {
+      if (renderWanted && !previewRequested && editorsHaveMath()) loadPreview();
+    }, 300);
+  };
+  for (const type of ["focusin", "input"]) document.addEventListener(type, checkForMath, true);
+  // CodeMirror only has the lines near the window in the page: math further down shows up on scrolling
+  onScroll = () => !previewRequested && checkForMath();
+  document.addEventListener("scroll", () => onScroll(), { capture: true, passive: true });
+  // editors in web apps show up (and fill) a while after the page loads
+  let checks = 0;
+  const poll = window.setInterval(() => (previewRequested || ++checks > 20 ? clearInterval(poll) : checkForMath()), 3000);
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && Object.keys(changes).some((k) => (STORAGE_KEYS as readonly string[]).includes(k))) void send();
   });

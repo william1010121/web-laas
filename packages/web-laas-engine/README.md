@@ -58,7 +58,7 @@ laas.setState({
 });
 laas.setState({ prefs: { autoSpace: false } }); // behaviour switches
 laas.setState({ enabled: false });              // pause
-// what mk / dm insert, per site: "dollar" | "paren" and "ddollar" | "bracket" | "equation" | "align"
+// what mk / dm insert, per site: "dollar" | "paren" and "ddollar" | "bracket" | "equation" | "align" (align*)
 laas.setState({ siteMath: { "chatgpt.com": { inline: "paren", display: "bracket" } } });
 laas.detach();                                  // remove all listeners
 ```
@@ -90,6 +90,8 @@ laas.refreshFormula(); // report the current state again (e.g. once your preview
 Every built-in adapter implements `caretRect()` (textarea/input via a mirror element, contenteditable via the
 selection, CodeMirror via its own coordinates); add it to a custom adapter to place a preview there too.
 `formulaAt(before, after)` is the pure version: the formula around a caret, from the text on either side.
+`findFormulas(text, { comments })` lists every formula in a text, with the offsets of its delimiters (Markdown rules for
+`$` unless `comments` is on: `$5 and $10` stays text).
 
 ### Behaviour switches (`prefs`)
 

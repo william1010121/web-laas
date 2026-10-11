@@ -1,6 +1,6 @@
 // Searchable snippet cheat sheet, shared by the options page and the in-page overlay.
 import type { CheatsheetEntry, CheatsheetGroup, SnippetSource } from "web-laas-engine";
-import { renderMath } from "../shared/math";
+import { MATH_CSS, renderMath } from "../shared/math";
 import { themeCss } from "../shared/theme";
 
 export interface SheetOptions {
@@ -25,7 +25,7 @@ const FILTERS: [Filter, string][] = [
 
 const ORIGIN: Record<SnippetSource, string> = { laas: "laas", extras: "Web 擴充", cdlatex: "cdlatex", user: "我的" };
 
-const mathml = (latex: string) => renderMath(latex);
+const rendered = (latex: string) => renderMath(latex);
 
 function el<K extends keyof HTMLElementTagNameMap>(
   doc: Document,
@@ -64,7 +64,7 @@ function renderItem(doc: Document, e: CheatsheetEntry): HTMLElement {
   item.append(left);
 
   const out = el(doc, "div", "lw-out");
-  const html = e.preview ? mathml(e.preview) : null;
+  const html = e.preview ? rendered(e.preview) : null;
   if (html) {
     try {
       out.innerHTML = html;
@@ -277,6 +277,7 @@ export function buildCheatsheet(doc: Document, groups: CheatsheetGroup[], opts: 
 
 export const SHEET_CSS = `
 ${themeCss(".lw-sheet")}
+${MATH_CSS}
 .lw-sheet {
   display: flex; flex-direction: column; min-height: 0; height: 100%;
   background: var(--lw-bg); color: var(--lw-fg);
@@ -336,7 +337,7 @@ ${themeCss(".lw-sheet")}
 .lw-key { font: 500 12.5px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; padding: 5px 7px; border-radius: 6px; background: var(--lw-key-bg); color: var(--lw-key-fg); white-space: pre; }
 .lw-tag { font-size: 10.5px; font-weight: 600; padding: 2px 6px; border-radius: 5px; color: var(--lw-accent-text); background: var(--lw-accent-soft); }
 .lw-out { flex: 0 1 auto; min-width: 0; max-width: 100%; text-align: right; color: var(--lw-math); font-size: 16px; line-height: 1.2; overflow: hidden; }
-.lw-out math { font-size: 1em; }
+.lw-out mjx-container { font-size: 1em; }
 .lw-code { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; color: var(--lw-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 .lw-note { flex-basis: 100%; font-size: 11.5px; color: var(--lw-muted); margin: -2px 0 0 2px; }
 .lw-empty { text-align: center; padding: 72px 0; color: var(--lw-muted); font-size: 13px; }

@@ -11,7 +11,7 @@ const DISPLAY: [DisplayMathStyle, string, string][] = [
   ["ddollar", "$$", "$$…$$"],
   ["bracket", "\\[ \\]", "\\[…\\]"],
   ["equation", "equation*", "\\begin{equation*}…\\end{equation*}"],
-  ["align", "align", "\\begin{align}…\\end{align}"],
+  ["align", "align*", "\\begin{align*}…\\end{align*}"],
 ];
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;

@@ -1,0 +1,12 @@
+<!doctype html>
+<!-- Benchmark: formulas rendered in place on a long document. Open with ?editor=cm6|pm|ce|ta&n=2000, run bench(). -->
+<html><head><meta charset="utf-8"><title>inline render bench</title>
+<link rel="stylesheet" href="dist/inline-bench.css">
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 20px; background: #fff; color: #222; }
+  #host { width: 900px; height: 600px; overflow: auto; border: 1px solid #ccc; }
+  #host .cm-editor { height: 600px; } #host .ProseMirror { padding: 8px; white-space: pre-wrap; }
+  #host p { margin: 0 0 4px; }
+  textarea { box-sizing: border-box; width: 100%; height: 100%; font: 13px/1.5 ui-monospace, Menlo, monospace; border: 0; }
+</style></head>
+<body><div id="host"></div><script src="dist/inline-bench.js"></script></body></html>
