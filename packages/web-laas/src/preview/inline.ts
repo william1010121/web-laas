@@ -334,6 +334,8 @@ export class InlineRender {
     private opts: {
       /** for a CodeMirror element, the text before each place its drawn lines resume (see undrawnParagraphs) */
       undrawn?: (root: Element) => string[] | null;
+      /** false once this script is orphaned (extension updated): it then stops for good */
+      alive?: () => boolean;
     } = {},
   ) {
     this.observer = new MutationObserver((records) => {
@@ -413,6 +415,7 @@ export class InlineRender {
 
   /** Redraw now (also what every scheduled frame does). */
   update() {
+    if (this.opts.alive && !this.opts.alive()) return this.destroy();
     const old = this.boxes;
     this.boxes = new Map();
     this.backgrounds.clear();

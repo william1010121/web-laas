@@ -137,7 +137,14 @@ export function findFormulas(text: string, opts: { comments?: boolean } = {}): F
     if (c === "`" && !comments) {
       let len = 1;
       while (text[i + len] === "`") len++;
-      const close = text.indexOf("`".repeat(len), i + len);
+      // the closer is a run of exactly as many backticks (``a ``` b`` is one span)
+      const run = "`".repeat(len);
+      let close = text.indexOf(run, i + len);
+      while (close >= 0 && (text[close + len] === "`" || text[close - 1] === "`")) {
+        let end = close;
+        while (text[end] === "`") end++;
+        close = text.indexOf(run, end);
+      }
       const blank = nextBlank(i);
       i = close >= 0 && (blank < 0 || blank > close) ? close + len : i + len;
       continue;

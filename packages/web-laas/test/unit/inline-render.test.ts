@@ -125,3 +125,17 @@ describe("zIndexFor", () => {
     outer.remove();
   });
 });
+
+describe("an orphaned renderer", () => {
+  it("stops for good once the extension is gone", () => {
+    let alive = true;
+    const r = new InlineRender(document, { alive: () => alive }) as any;
+    r.set({ on: true, comments: false });
+    expect(r.on).toBe(true);
+    alive = false;
+    r.update();
+    expect(r.on).toBe(false);
+    r.schedule(); // nothing is scheduled any more
+    expect(r.frame).toBe(0);
+  });
+});

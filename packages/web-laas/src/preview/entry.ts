@@ -12,9 +12,14 @@ declare global {
   }
 }
 
+/** Sent when a new preview.js starts: an orphaned one from before an extension update stops. */
+const HANDOVER_EVENT = "web-laas:preview-handover";
+
 if (!window.__webLaasPreviewAlive?.()) {
   window.__webLaasPreviewAlive = alive;
-  // an extension update leaves the previous build's card in the page: take it down
+  // the previous build (another isolated world after an update) stops its renderer and takes down
+  // its card; whatever it left on the page goes too
+  document.dispatchEvent(new CustomEvent(HANDOVER_EVENT));
   document.querySelectorAll("[data-web-laas-preview], [data-web-laas-render], [data-web-laas-mirror]").forEach((el) => el.remove());
   const preview = new LivePreview(document);
   // the main-world script reads CodeMirror's undrawn lines for us (events cross worlds synchronously)
@@ -30,7 +35,11 @@ if (!window.__webLaasPreviewAlive?.()) {
       return null;
     }
   };
-  const rendered = new InlineRender(document, { undrawn });
+  const rendered = new InlineRender(document, { undrawn, alive });
+  document.addEventListener(HANDOVER_EVENT, () => {
+    rendered.destroy();
+    preview.destroy();
+  });
   let mode: PreviewMode | "off" = "above";
 
   const apply = async () => {

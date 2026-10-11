@@ -156,6 +156,11 @@ describe("findFormulas edge cases", () => {
     expect(latex("a \\\\% comment $no$\n$y$")).toEqual(["y"]); // \\ is a line break: this % does comment
   });
 
+  it("a code span closes only on a run of as many backticks", () => {
+    expect(latex("`a ``` $x$ b` then $y$", false)).toEqual(["y"]);
+    expect(latex("``a ` $x$ ``  $y$", false)).toEqual(["y"]);
+  });
+
   it("an empty pair is passed over, closer and all", () => {
     expect(latex("$ $ and $x$")).toEqual(["x"]);
     expect(latex("$$  $$ then $$y$$")).toEqual(["y"]);
