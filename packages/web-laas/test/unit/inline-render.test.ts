@@ -46,6 +46,25 @@ describe("domText", () => {
     ce.remove();
   });
 
+  it("draws again at once when visibility changes anywhere", async () => {
+    const wrap = document.createElement("div");
+    document.body.append(wrap);
+    const r = new InlineRender(document) as any;
+    let scheduled = 0;
+    r.schedule = () => scheduled++;
+    r.set({ on: true, comments: false });
+    scheduled = 0;
+    wrap.style.visibility = "hidden";
+    await new Promise((res) => setTimeout(res, 0));
+    expect(scheduled).toBe(1);
+    // other style changes outside an editor need nothing
+    wrap.style.color = "red";
+    await new Promise((res) => setTimeout(res, 0));
+    expect(scheduled).toBe(1);
+    r.destroy();
+    wrap.remove();
+  });
+
   it("watches the same attributes inside shadow roots", async () => {
     const host = document.createElement("div");
     document.body.append(host);

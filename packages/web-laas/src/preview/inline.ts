@@ -506,8 +506,7 @@ interface RootState {
   faded: Map<Element, boolean>;
   /**
    * no boxes over this editor: it is rotated, skewed or flipped (they can't be placed over its
-   * text), it fades, filters, clips or masks itself (the layer beside it wouldn't be), or it is
-   * invisible
+   * text), or it fades, filters, clips or masks itself (the layer beside it wouldn't be)
    */
   skip: boolean;
   checked: number;
@@ -594,8 +593,13 @@ export class InlineRender {
       for (const r of records) {
         // editors restyle their own elements all the time: only a display: none coming or going counts
         if (r.type === "attributes" && r.attributeName === "style") {
+          const style = (r.target as HTMLElement).style;
+          // (visibility, anywhere: hiding an editor or what holds it takes its formulas away at once;
+          // it is looked at on every draw, so a draw is all it needs)
+          const vis = /visibility\s*:\s*([a-z]+)/.exec(r.oldValue ?? "")?.[1] ?? "";
+          if (vis !== (style?.visibility ?? "")) any = true;
           const was = /display\s*:\s*none/.test(r.oldValue ?? "");
-          if (was === ((r.target as HTMLElement).style?.display === "none")) continue;
+          if (was === (style?.display === "none")) continue;
         }
         if (r.type !== "attributes") any = true;
         for (let n: Node | null = r.target; n && !seen.has(n); n = n.parentNode) {
@@ -776,8 +780,7 @@ export class InlineRender {
       st.stacking = stackingFor(root);
       st.levels = new Map();
       st.faded = new Map();
-      // (visibility is inherited: the editor's own value covers its ancestors)
-      st.skip = turned(root) || ownEffects(root) || getComputedStyle(root).visibility !== "visible";
+      st.skip = turned(root) || ownEffects(root);
       st.checked = now;
     }
     if (!st.stale) return st;
@@ -849,6 +852,9 @@ export class InlineRender {
     if (empty(area)) return;
     const r = root.getBoundingClientRect();
     const cs = getComputedStyle(root);
+    // invisible (visibility is inherited: this covers its ancestors), looked at every frame as a
+    // style change can hide it at any time
+    if (cs.visibility !== "visible") return;
     const { sx, sy } = scaleOf(root, r);
     // stretched one way only (scaleX(2)): math drawn at one font size can't match its source
     if (oneWayScaled(sx, sy, (root as HTMLElement).offsetWidth, (root as HTMLElement).offsetHeight)) return;
