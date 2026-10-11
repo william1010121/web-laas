@@ -253,7 +253,9 @@ export function clippersOf(el: Element): Element[] {
   const html = getComputedStyle(doc.documentElement);
   const body = doc.body ? getComputedStyle(doc.body) : null;
   // (containment on either stops the propagation: then <body> clips itself)
-  const contained = (cs: CSSStyleDeclaration | null) => !!cs?.contain && cs.contain !== "none";
+  // (container-type: size / inline-size contains as well, with contain still none)
+  const contained = (cs: CSSStyleDeclaration | null) =>
+    (!!cs?.contain && cs.contain !== "none") || (!!cs?.containerType && cs.containerType !== "normal");
   const bodyToViewport =
     !!body && [html.overflow, html.overflowX, html.overflowY].every((v) => !v || v === "visible") && !contained(html) && !contained(body);
   for (let a: Element | null = el; a && a !== doc.documentElement; a = up(a)) {

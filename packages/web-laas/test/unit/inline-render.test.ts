@@ -208,6 +208,9 @@ describe("clippersOf and <body>", () => {
     document.body.style.contain = "paint";
     expect(clippersOf(ta)).toContain(document.body);
     document.body.style.contain = "";
+    document.body.style.setProperty("container-type", "inline-size");
+    expect(clippersOf(ta)).toContain(document.body);
+    document.body.style.removeProperty("container-type");
     document.body.style.overflow = "";
     ta.remove();
   });
