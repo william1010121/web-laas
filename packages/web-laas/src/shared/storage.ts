@@ -1,5 +1,5 @@
 import { DEFAULT_PREFS, type LaasPrefs, type RuntimeState } from "web-laas-engine/dom";
-import type { MathDelimiters } from "web-laas-engine";
+import { hostMatches, type MathDelimiters } from "web-laas-engine";
 
 /** Engine prefs plus extension-only switches. */
 export type PreviewPref = "above" | "below" | "corner" | "off";
@@ -31,6 +31,15 @@ export async function loadState(): Promise<StoredState> {
     disabledHosts: Array.isArray(v.disabledHosts) ? v.disabledHosts : [],
     siteMath: v.siteMath && typeof v.siteMath === "object" ? (v.siteMath as Record<string, MathDelimiters>) : {},
     prefs: { ...DEFAULT_EXTENSION_PREFS, ...(v.prefs && typeof v.prefs === "object" ? v.prefs : {}) },
+  };
+}
+
+/** The part of the state a page on `host` needs: other sites' entries left out. */
+export function stateForSite(state: StoredState, host: string): StoredState {
+  return {
+    ...state,
+    disabledHosts: state.disabledHosts.filter((p) => hostMatches(host, p)),
+    siteMath: Object.fromEntries(Object.entries(state.siteMath).filter(([p]) => hostMatches(host, p))),
   };
 }
 
