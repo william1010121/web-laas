@@ -176,7 +176,16 @@ function playground() {
   if (!ta) return;
   const preview = new LivePreview(document);
   preview.setMode("above");
-  new LaasController({ host: "example.com", onFormula: (f) => preview.update(f) }).attach();
+  // only the playground: the cheat sheet's search box must stay a plain search box
+  new LaasController({ host: "example.com", filter: (el) => el === ta, onFormula: (f) => preview.update(f) }).attach();
+  // Esc hides the card for this formula, as in the extension
+  window.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key === "Escape" && preview.visible) preview.dismiss();
+    },
+    true,
+  );
   new InlineRender(document).set({ on: true, comments: false });
   document.getElementById("try-reset")?.addEventListener("click", () => {
     ta.value = ta.defaultValue;
