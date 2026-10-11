@@ -4,7 +4,7 @@
 // When the extension is reloaded, the background injects this script again
 // into open tabs, where the previous version is still running (page-world
 // scripts survive an extension reload). A different build replaces it.
-import { LaasController, type RuntimeState } from "web-laas-engine/dom";
+import { LaasController, undrawnParagraphs, type RuntimeState } from "web-laas-engine/dom";
 
 declare const __WEB_LAAS_BUILD__: string;
 
@@ -13,6 +13,9 @@ export const STATE_EVENT = "web-laas:state";
 export const READY_EVENT = "web-laas:ready";
 export const FORMULA_EVENT = "web-laas:formula";
 export const PREVIEW_READY_EVENT = "web-laas:preview-ready";
+/** preview.js asks (on a CodeMirror element) for its undrawn paragraphs; the reply comes back on it at once */
+export const UNDRAWN_EVENT = "web-laas:undrawn";
+export const UNDRAWN_REPLY_EVENT = "web-laas:undrawn-reply";
 
 declare global {
   interface Window {
@@ -43,14 +46,23 @@ if (current?.build !== __WEB_LAAS_BUILD__) {
     }
   };
   const onPreviewReady = () => controller.refreshFormula();
+  // Rendering formulas in place (isolated world) can't see the lines CodeMirror
+  // hasn't drawn; whether drawn text starts inside a formula is answered here.
+  const onUndrawn = (e: Event) => {
+    const el = e.target instanceof Element ? e.target : null;
+    const paragraphs = el && undrawnParagraphs(el);
+    if (paragraphs) el.dispatchEvent(new CustomEvent(UNDRAWN_REPLY_EVENT, { detail: JSON.stringify(paragraphs) }));
+  };
   document.addEventListener(STATE_EVENT, onState);
   document.addEventListener(PREVIEW_READY_EVENT, onPreviewReady);
+  document.addEventListener(UNDRAWN_EVENT, onUndrawn, true);
   window.__webLaas = {
     build: __WEB_LAAS_BUILD__,
     detach: () => {
       detachKeys();
       document.removeEventListener(STATE_EVENT, onState);
       document.removeEventListener(PREVIEW_READY_EVENT, onPreviewReady);
+      document.removeEventListener(UNDRAWN_EVENT, onUndrawn, true);
     },
   };
   document.documentElement.dataset.laasWeb = __WEB_LAAS_BUILD__;

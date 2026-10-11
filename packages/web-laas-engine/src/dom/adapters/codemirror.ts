@@ -13,6 +13,7 @@ interface CM6View {
   focus(): void;
   dom: HTMLElement;
   coordsAtPos(pos: number): { left: number; top: number; bottom: number } | null;
+  posAtDOM?(node: Node, offset?: number): number;
 }
 
 export function findCM6View(el: Element): CM6View | null {
@@ -85,6 +86,8 @@ interface CM5 {
   getLine(n: number): string;
   operation(fn: () => void): void;
   cursorCoords(start: boolean, mode: "window"): { left: number; top: number; bottom: number };
+  indexFromPos(pos: CM5Pos): number;
+  display?: { viewFrom?: number };
 }
 
 export function findCM5(el: Element): CM5 | null {
@@ -131,4 +134,39 @@ export class CM5Adapter implements EditorAdapter {
     const c = this.cm.cursorCoords(false, "window");
     return { left: c.left, top: c.top, bottom: c.bottom };
   }
+}
+
+/** How far back an undrawn paragraph is looked at (a longer one is taken from this point). */
+const PARAGRAPH_LIMIT = 20000;
+
+/** The paragraph's text before `pos`, from the text before it. */
+function paragraphTail(before: string): string {
+  let cut = 0;
+  for (const m of before.matchAll(/\n[ \t]*\n/g)) cut = m.index + m[0].length;
+  return before.slice(cut);
+}
+
+/**
+ * CodeMirror draws only the lines near the window. For each place in `el`
+ * (a .cm-content or .CodeMirror-code) where drawn lines resume after undrawn
+ * ones, in DOM order, the text of that paragraph before it: enough to tell
+ * whether the drawn text starts inside a formula. Null if `el` isn't one.
+ */
+export function undrawnParagraphs(el: Element): string[] | null {
+  const view = findCM6View(el);
+  if (view && el.classList.contains("cm-content")) {
+    return [...el.querySelectorAll(":scope > .cm-gap")].map((gap) => {
+      const next = gap.nextElementSibling;
+      const pos = next && view.posAtDOM ? view.posAtDOM(next, 0) : -1;
+      return pos > 0 ? paragraphTail(view.state.sliceDoc(Math.max(0, pos - PARAGRAPH_LIMIT), pos)) : "";
+    });
+  }
+  const cm = findCM5(el);
+  if (cm && el.classList.contains("CodeMirror-code")) {
+    const line = cm.display?.viewFrom ?? 0;
+    if (line <= 0) return [];
+    const pos = cm.indexFromPos({ line, ch: 0 });
+    return [paragraphTail(cm.getRange(cm.posFromIndex(Math.max(0, pos - PARAGRAPH_LIMIT)), { line, ch: 0 }))];
+  }
+  return null;
 }

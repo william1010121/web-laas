@@ -30,23 +30,35 @@ function endPattern(closer: string): RegExp | null {
   return env !== undefined ? new RegExp(`^\\\\end\\s*\\{\\s*${env.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\}`) : null;
 }
 
-/** Index of the first unescaped `closer` in `text` (outside % comments when `comments`), or -1. */
-function findCloser(text: string, closer: string, comments: boolean): number {
+/** Is the character at `i` not escaped (an even number of backslashes before it)? */
+function unescapedAt(text: string, i: number): boolean {
+  let k = i;
+  while (k > 0 && text[k - 1] === "\\") k--;
+  return (i - k) % 2 === 0;
+}
+
+/**
+ * Index of the first unescaped `closer` in `text` within [from, to) (outside
+ * % comments when `comments`), or -1. Works in place: no copies of the text.
+ */
+function findCloser(text: string, closer: string, comments: boolean, from = 0, to = text.length): number {
   const endRe = endPattern(closer);
   const closesAt = (i: number) => (endRe ? endRe.test(text.slice(i, i + closer.length + 16)) : text.startsWith(closer, i));
-  for (let i = 0; i < text.length; i++) {
-    const unescaped = ESCAPED.test(text.slice(Math.max(0, i - 32), i));
-    if (comments && text[i] === "%" && unescaped) {
+  for (let i = from; i < to; i++) {
+    const c = text[i];
+    if (c !== "%" && c !== "\\" && c !== closer[0]) continue;
+    const unescaped = unescapedAt(text, i);
+    if (comments && c === "%" && unescaped) {
       const nl = text.indexOf("\n", i);
-      if (nl < 0) return -1;
+      if (nl < 0 || nl >= to) return -1;
       i = nl; // a comment runs to the end of the line
       continue;
     }
     // \text{… $x$ …}: delimiters inside a text argument belong to nested math, skip the group
-    const cmd = unescaped && text[i] === "\\" ? /^\\([A-Za-z]+\*?)\s*\{/.exec(text.slice(i, i + 40)) : null;
+    const cmd = unescaped && c === "\\" ? /^\\([A-Za-z]+\*?)\s*\{/.exec(text.slice(i, i + 40)) : null;
     if (cmd && cmd[1] !== "begin" && cmd[1] !== "end" && TEXT_ARG_CMDS.has(cmd[1].replace(/\*$/, ""))) {
       const close = matchClose(text, i + cmd[0].length - 1, comments);
-      if (close < 0) return -1;
+      if (close < 0 || close >= to) return -1;
       i = close;
       continue;
     }
@@ -82,6 +94,14 @@ export function formulaAt(before: string, after: string, opts: { comments?: bool
   return { latex: head + after.slice(0, end), caret: head.length, display: ctx.display, env };
 }
 
+const BLANK_LINE = /\n[ \t]*\n/g;
+
+/** Index of the first match of the global `re` at or after `from`, or -1 (without copying the text). */
+function indexFrom(text: string, re: RegExp, from: number): number {
+  re.lastIndex = from;
+  return re.exec(text)?.index ?? -1;
+}
+
 /** A formula found in a stretch of text: [from, to) spans its delimiters. */
 export interface FormulaSpan extends Formula {
   from: number;
@@ -98,6 +118,13 @@ export function findFormulas(text: string, opts: { comments?: boolean } = {}): F
   const comments = !!opts.comments;
   const out: FormulaSpan[] = [];
   const n = text.length;
+  // the next blank line at or after a position; positions only grow, so each stretch is searched once
+  let blankAt = -2;
+  const nextBlank = (from: number) => {
+    if (blankAt === -1 || blankAt >= from) return blankAt;
+    blankAt = indexFrom(text, BLANK_LINE, from);
+    return blankAt;
+  };
   let i = 0;
   while (i < n) {
     const c = text[i];
@@ -108,14 +135,11 @@ export function findFormulas(text: string, opts: { comments?: boolean } = {}): F
       continue;
     }
     if (c === "`" && !comments) {
-      const run = /^`+/.exec(text.slice(i))![0];
-      const close = text.indexOf(run, i + run.length);
-      const blank = text.slice(i, close < 0 ? n : close).search(/\n[ \t]*\n/);
-      if (close >= 0 && blank < 0) {
-        i = close + run.length;
-        continue;
-      }
-      i += run.length;
+      let len = 1;
+      while (text[i + len] === "`") len++;
+      const close = text.indexOf("`".repeat(len), i + len);
+      const blank = nextBlank(i);
+      i = close >= 0 && (blank < 0 || blank > close) ? close + len : i + len;
       continue;
     }
     let opener = "";
@@ -131,7 +155,7 @@ export function findFormulas(text: string, opts: { comments?: boolean } = {}): F
       i++;
       continue;
     }
-    const span = formulaFrom(text, i, opener, comments);
+    const span = formulaFrom(text, i, opener, comments, nextBlank);
     if (span) out.push(span);
     i = span ? span.to : i + opener.length;
   }
@@ -139,26 +163,32 @@ export function findFormulas(text: string, opts: { comments?: boolean } = {}): F
 }
 
 /** The formula opened by `opener` at `at`, or null when it isn't closed within its paragraph. */
-function formulaFrom(text: string, at: number, opener: string, comments: boolean): FormulaSpan | null {
+function formulaFrom(
+  text: string,
+  at: number,
+  opener: string,
+  comments: boolean,
+  nextBlank: (from: number) => number,
+): FormulaSpan | null {
   const start = at + opener.length;
   const pandoc = opener === "$" && !comments;
   if (pandoc && /^\s|^$/.test(text.slice(start, start + 1))) return null;
   // a formula ends with its paragraph; in Markdown a $…$ one even ends with its line ($10 …\n… $x$)
-  const blank = text.slice(start).search(pandoc ? /\n/ : /\n[ \t]*\n/);
-  const para = text.slice(start, blank < 0 ? undefined : start + blank);
+  const blank = pandoc ? text.indexOf("\n", start) : nextBlank(start);
+  const stop = blank < 0 ? text.length : blank;
   const { closer, env } = closerFor(opener);
-  for (let from = 0; from < para.length; ) {
-    const k = findCloser(para.slice(from), closer, comments);
-    if (k < 0) return null;
-    const end = from + k;
-    if (pandoc && (/\s/.test(para[end - 1]) || /\d/.test(para[end + 1] ?? ""))) {
+  const endRe = endPattern(closer);
+  for (let from = start; from < stop; ) {
+    const end = findCloser(text, closer, comments, from, stop);
+    if (end < 0) return null;
+    if (pandoc && (/\s/.test(text[end - 1]) || /\d/.test(text[end + 1] ?? ""))) {
       from = end + 1;
       continue;
     }
-    const len = endPattern(closer)?.exec(para.slice(end))?.[0].length ?? closer.length;
-    const latex = para.slice(0, end);
+    const len = endRe?.exec(text.slice(end, end + closer.length + 16))?.[0].length ?? closer.length;
+    const latex = text.slice(start, end);
     if (!latex.trim()) return null;
-    return { from: at, to: start + end + len, latex, caret: 0, display: opener !== "$" && opener !== "\\(" && env !== "math", env };
+    return { from: at, to: end + len, latex, caret: 0, display: opener !== "$" && opener !== "\\(" && env !== "math", env };
   }
   return null;
 }

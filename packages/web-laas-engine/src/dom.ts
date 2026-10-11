@@ -15,6 +15,7 @@ export {
   CM6Adapter,
   ContentEditableAdapter,
   TextFieldAdapter,
+  undrawnParagraphs,
   type AdapterFactory,
   type CaretRect,
   type EditorAdapter,

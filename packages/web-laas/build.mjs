@@ -41,6 +41,7 @@ const builds = [
       "overlay-preview": "test/preview/src/overlay-preview.ts",
       "live-preview": "test/preview/src/live-preview.ts",
       "inline-render": "test/preview/src/inline-render.ts",
+      "inline-bench": "test/preview/src/inline-bench.ts",
     },
     outdir: "test/preview/dist",
   },

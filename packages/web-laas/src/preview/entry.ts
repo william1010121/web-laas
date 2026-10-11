@@ -17,21 +17,37 @@ if (!window.__webLaasPreviewAlive?.()) {
   // an extension update leaves the previous build's card in the page: take it down
   document.querySelectorAll("[data-web-laas-preview], [data-web-laas-render], [data-web-laas-mirror]").forEach((el) => el.remove());
   const preview = new LivePreview(document);
-  const rendered = new InlineRender(document);
+  // the main-world script reads CodeMirror's undrawn lines for us (events cross worlds synchronously)
+  const undrawn = (root: Element): string[] | null => {
+    let reply: string | null = null;
+    const onReply = (e: Event) => (reply = (e as CustomEvent<string>).detail);
+    root.addEventListener("web-laas:undrawn-reply", onReply);
+    root.dispatchEvent(new CustomEvent("web-laas:undrawn", { bubbles: true }));
+    root.removeEventListener("web-laas:undrawn-reply", onReply);
+    try {
+      return reply ? (JSON.parse(reply) as string[]) : null;
+    } catch {
+      return null;
+    }
+  };
+  const rendered = new InlineRender(document, { undrawn });
   let mode: PreviewMode | "off" = "above";
 
   const apply = async () => {
     const { prefs, enabled, disabledHosts, configText } = await loadState();
     if (!alive()) return rendered.destroy();
     const host = location.hostname;
-    const on = enabled && !disabledHosts.some((p) => hostMatches(host, p));
+    let config = null;
+    try {
+      config = compileConfig(configText).config;
+    } catch {}
+    // off where the engine is off: the toolbar's list, and the config's own disabledSites
+    const on =
+      enabled && ![...disabledHosts, ...(config?.disabledSites ?? [])].some((p) => hostMatches(host, p));
     mode = on ? prefs.preview : "off";
     if (mode === "off") preview.hide();
     else preview.setMode(mode);
-    let comments = false;
-    try {
-      comments = compileConfig(configText).config.latexCommentSites.some((p) => hostMatches(host, p));
-    } catch {}
+    const comments = !!config?.latexCommentSites.some((p) => hostMatches(host, p));
     rendered.set({ on: on && prefs.inlineRender, comments });
   };
   void apply();

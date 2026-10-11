@@ -134,3 +134,16 @@ describe("findFormulas", () => {
     expect(spans("$x$$y$").map((f) => f[1])).toEqual(["x", "y"]);
   });
 });
+
+describe("findFormulas on long text", () => {
+  it("handles a long run without blank lines (each paragraph scanned once)", () => {
+    const line = "a $x_1$ and $$\\sum_k k$$ b \\(y\\)\n";
+    const text = line.repeat(20000);
+    const t = performance.now();
+    const fs = findFormulas(text, { comments: true });
+    expect(fs).toHaveLength(60000);
+    expect(fs[59999].latex).toBe("y");
+    // linear: well under a second for 700k characters (it was minutes when quadratic)
+    expect(performance.now() - t).toBeLessThan(2000);
+  });
+});

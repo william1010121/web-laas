@@ -1,7 +1,7 @@
 // Rendered formulas in place: every formula the caret isn't in is covered by
 // its typeset version, drawn on a layer above the editor (the editor's own text
 // can't change). Move the caret into one, or click it, and the source shows.
-import { findFormulas } from "web-laas-engine";
+import { findFormulas, type FormulaSpan } from "web-laas-engine";
 import { renderMath } from "../shared/math";
 import { prepareLatex } from "./preview";
 
@@ -28,7 +28,7 @@ const CSS = `
 :host { all: initial; }
 .layer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
 .box {
-  position: absolute; box-sizing: border-box;
+  position: absolute; left: 0; top: 0; box-sizing: border-box;
   display: flex; align-items: center; justify-content: center;
   border-radius: 2px; white-space: nowrap;
 }
@@ -46,7 +46,6 @@ interface Rect {
 
 /** A formula to draw: where it goes and what it looks like. */
 interface Item {
-  key: string;
   html: string;
   box: Rect;
   clip: Rect;
@@ -64,45 +63,55 @@ interface DomText {
 }
 
 export function domText(root: Element): DomText {
-  let text = "";
+  // built from parts, joined once: asking a long string being built up for its
+  // last character makes it copy itself every time
+  const parts: string[] = [];
+  let len = 0;
+  let last = "";
+  const add = (str: string) => {
+    parts.push(str);
+    len += str.length;
+    last = str[str.length - 1];
+  };
   const segs: DomText["segs"] = [];
   const resumes: number[] = [];
   const walk = (el: Element) => {
     for (let n = el.firstChild; n; n = n.nextSibling) {
       if (n.nodeType === Node.TEXT_NODE) {
         const data = (n as Text).data;
-        if (!data || /^​+$/.test(data)) continue; // CodeMirror 5's empty-line filler
-        segs.push({ node: n as Text, start: text.length });
-        text += data;
+        if (!data || /^\u200b+$/.test(data)) continue; // CodeMirror 5's empty-line filler
+        segs.push({ node: n as Text, start: len });
+        add(data);
         continue;
       }
       if (n.nodeType !== Node.ELEMENT_NODE) continue;
       const e = n as HTMLElement;
-      if (e.classList.contains("cm-gap")) {
+      const cls = e.classList;
+      if (cls.contains("cm-gap")) {
         // CodeMirror 6 leaves far-off lines out: what follows starts a fresh paragraph
-        text += "\n\n";
-        resumes.push(text.length);
+        add("\n\n");
+        resumes.push(len);
         continue;
       }
-      if (SKIP.has(e.tagName) || SKIP_CLASSES.some((c) => e.classList.contains(c))) continue;
+      if (SKIP.has(e.tagName) || SKIP_CLASSES.some((c) => cls.contains(c))) continue;
       if (e.tagName === "BR") {
-        if (e.nextSibling) text += "\n"; // a trailing <br> only holds an empty line open
+        if (e.nextSibling) add("\n"); // a trailing <br> only holds an empty line open
         continue;
       }
       if (e.getAttribute("contenteditable") === "false" || e.tagName === "IMG") {
-        text += "￼"; // a widget: nothing to read, but it isn't nothing
+        add("\ufffc"); // a widget: nothing to read, but it isn't nothing
         continue;
       }
-      const block = BLOCKS.has(e.tagName) || e.classList.contains("cm-line");
-      if (block && text && !text.endsWith("\n")) text += "\n";
-      const before = text.length;
+      const block = BLOCKS.has(e.tagName) || cls.contains("cm-line");
+      if (block && len && last !== "\n") add("\n");
+      const before = len;
       walk(e);
       // an empty block is an empty line
-      if (block && (!text.endsWith("\n") || text.length === before)) text += "\n";
+      if (block && (last !== "\n" || len === before)) add("\n");
     }
   };
   walk(root);
-  return { text, segs, resumes };
+  return { text: parts.join(""), segs, resumes };
 }
 
 /** The DOM point at a text offset (the start of a range when !end). */
@@ -126,19 +135,27 @@ function point(t: DomText, pos: number, end: boolean): [Text, number] | null {
   return [seg.node, off];
 }
 
-/** Formulas in `text`, leaving out a paragraph that may have lost its start. */
-export function formulasIn(text: string, comments: boolean, resumes: number[]) {
+/**
+ * Formulas in `text`, which resumes after undrawn stretches at `resumes`. The
+ * paragraph right after one may begin inside a formula: with its undrawn start
+ * (`undrawn[i]` for `resumes[i]`) it's read from there; without, it's left out.
+ */
+export function formulasIn(text: string, comments: boolean, resumes: number[], undrawn?: (string | undefined)[]) {
   const from = [0, ...resumes];
   return from.flatMap((start, i) => {
-    let s = start;
-    if (i > 0) {
-      // the paragraph right after an undrawn stretch may begin inside a formula
-      const blank = text.slice(s).search(/\n[ \t]*\n/);
-      if (blank < 0) return [];
-      s += blank;
-    }
     const end = from[i + 1] ?? text.length;
-    return findFormulas(text.slice(s, end), { comments }).map((f) => ({ ...f, from: f.from + s, to: f.to + s }));
+    const head = i > 0 ? undrawn?.[i - 1] : "";
+    if (head === undefined) {
+      const blank = text.slice(start, end).search(/\n[ \t]*\n/);
+      if (blank < 0) return [];
+      const s = start + blank;
+      return findFormulas(text.slice(s, end), { comments }).map((f) => ({ ...f, from: f.from + s, to: f.to + s }));
+    }
+    // a formula that starts in the undrawn part isn't drawn here
+    const shift = start - head.length;
+    return findFormulas(head + text.slice(start, end), { comments })
+      .filter((f) => f.from >= head.length)
+      .map((f) => ({ ...f, from: f.from + shift, to: f.to + shift }));
   });
 }
 
@@ -176,14 +193,21 @@ function backgroundOf(el: Element | null): string {
   return [...layers.map((l) => `linear-gradient(${l}, ${l})`), "Canvas"].join(", ");
 }
 
-/** The part of the window where `el`'s content can show (scroll containers cut it off). */
-function visibleArea(el: Element): Rect {
-  const view = el.ownerDocument.defaultView!;
-  let r: Rect = { left: 0, top: 0, right: view.innerWidth, bottom: view.innerHeight };
+/** The elements that cut off what of `el` shows: scroll containers around it, and itself if it scrolls. */
+export function clippersOf(el: Element): Element[] {
+  const out: Element[] = [];
   for (let a: Element | null = el; a && a !== el.ownerDocument.documentElement; a = a.parentElement) {
     const cs = getComputedStyle(a);
-    if (a !== el && cs.overflowX === "visible" && cs.overflowY === "visible") continue;
-    if (a === el && !(a instanceof HTMLTextAreaElement)) continue;
+    const scrolls = [cs.overflowX, cs.overflowY, cs.overflow].some((v) => v && v !== "visible");
+    if (a instanceof HTMLTextAreaElement || scrolls) out.push(a);
+  }
+  return out;
+}
+
+/** The part of the window where content inside all of `clippers` can show. */
+function visibleArea(view: Window, clippers: Element[]): Rect {
+  let r: Rect = { left: 0, top: 0, right: view.innerWidth, bottom: view.innerHeight };
+  for (const a of clippers) {
     const b = a.getBoundingClientRect();
     const left = b.left + a.clientLeft;
     const top = b.top + a.clientTop;
@@ -204,29 +228,133 @@ function zIndexFor(el: Element): number {
   return z;
 }
 
+/** Index of the first of `n` top-to-bottom items whose bottom reaches `top`. */
+function firstReaching(n: number, bottomOf: (i: number) => number, top: number): number {
+  let lo = 0;
+  let hi = n;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (bottomOf(mid) < top) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/** Formulas this far outside the visible area are drawn too, so a scroll doesn't show them late. */
+const MARGIN = 120;
+/** How often (ms) an unchanged editor's scroll containers and stacking are looked at again. */
+const RECHECK = 1000;
+/** An editor whose text takes longer than this (ms) to read is read at most every READ_EVERY ms while it changes. */
+const SLOW_READ = 12;
+const READ_EVERY = 200;
+
+/** A hidden copy of a text field's text, in pieces of a few lines each. */
+interface Mirror {
+  el: HTMLElement;
+  sig: string;
+  value: string;
+  pieces: { start: number; text: Text }[];
+}
+
+/** Lines per piece of a text field's mirror. */
+const PIECE_LINES = 32;
+
+/** `text` cut after every PIECE_LINES-th line break (a line break that ends a piece ends its block too). */
+export function splitPieces(text: string): string[] {
+  const out: string[] = [];
+  let start = 0;
+  let lines = 0;
+  for (let i = text.indexOf("\n"); i >= 0; i = text.indexOf("\n", i + 1)) {
+    if (++lines === PIECE_LINES) {
+      out.push(text.slice(start, i + 1));
+      start = i + 1;
+      lines = 0;
+    }
+  }
+  if (start < text.length || !out.length) out.push(text.slice(start));
+  return out;
+}
+
+/** What is known about an editor between frames. Only its content changing makes it stale. */
+interface RootState {
+  stale: boolean;
+  /** rich editors: the text and its nodes */
+  dom: DomText | null;
+  /** text fields: the value the formulas come from */
+  value: string | null;
+  formulas: FormulaSpan[];
+  /** rendered MathML per formula, filled in as formulas come into view */
+  html: (string | null | undefined)[];
+  clippers: Element[];
+  z: number;
+  checked: number;
+  generation: number;
+  /** how long reading the text took last time, and when that was */
+  cost: number;
+  readAt: number;
+  /** the boxes drawn for it last frame (kept as they are while a slow read waits) */
+  drawn: { html: string; box: HTMLElement }[];
+}
+
+/** Per-frame measurements of the editor itself. */
+interface Frame {
+  area: Rect;
+  contentLeft: number;
+  contentRight: number;
+  color: string;
+  fontSize: string;
+}
+
 export class InlineRender {
   private on = false;
   private comments = false;
+  /** bumped when the rules for finding formulas change: every editor's formulas are stale */
+  private generation = 0;
   private frame = 0;
   private timer = 0;
+  private laterTimer = 0;
   private layers = new Map<number, HTMLElement>();
-  private boxes = new Map<string, HTMLElement>();
-  private ids = new WeakMap<Element, number>();
-  private nextId = 1;
-  private mirrors = new Map<HTMLTextAreaElement, { el: HTMLElement; text: Text; sig: string }>();
+  /** boxes on screen, by the MathML they show (a box moves with its formula as text is typed before it) */
+  private boxes = new Map<string, HTMLElement[]>();
+  private states = new WeakMap<Element, RootState>();
+  private mirrors = new Map<HTMLTextAreaElement, Mirror>();
   private observer: MutationObserver;
+  // per-frame memos of computed styles
+  private backgrounds = new Map<Element, string>();
+  private lineHeights = new Map<Element, number>();
+  private toFit: { math: HTMLElement; w: number; h: number }[] = [];
 
-  constructor(private doc: Document) {
-    this.observer = new MutationObserver(this.schedule);
+  constructor(
+    private doc: Document,
+    private opts: {
+      /** for a CodeMirror element, the text before each place its drawn lines resume (see undrawnParagraphs) */
+      undrawn?: (root: Element) => string[] | null;
+    } = {},
+  ) {
+    this.observer = new MutationObserver((records) => {
+      // only an editor whose content changed has to read its text again
+      const seen = new Set<Node>();
+      for (const r of records) {
+        for (let n: Node | null = r.target; n && !seen.has(n); n = n.parentNode) {
+          seen.add(n);
+          const st = this.states.get(n as Element);
+          if (st) {
+            st.stale = true;
+            break;
+          }
+        }
+      }
+      this.schedule();
+    });
   }
 
   set(opts: { on: boolean; comments: boolean }) {
-    const changed = opts.comments !== this.comments;
-    this.comments = opts.comments;
-    if (opts.on === this.on) {
-      if (changed) this.schedule();
-      return;
+    if (opts.comments !== this.comments) {
+      this.comments = opts.comments;
+      this.generation++;
+      this.schedule();
     }
+    if (opts.on === this.on) return;
     this.on = opts.on;
     const doc = this.doc;
     const view = doc.defaultView!;
@@ -258,6 +386,8 @@ export class InlineRender {
     view.removeEventListener("resize", this.schedule);
     this.observer.disconnect();
     view.clearInterval(this.timer);
+    view.clearTimeout(this.laterTimer);
+    this.laterTimer = 0;
     cancelAnimationFrame(this.frame);
     this.frame = 0;
     for (const host of this.layers.values()) host.remove();
@@ -265,6 +395,7 @@ export class InlineRender {
     this.layers.clear();
     this.boxes.clear();
     this.mirrors.clear();
+    this.states = new WeakMap();
   }
 
   readonly schedule = () => {
@@ -277,29 +408,21 @@ export class InlineRender {
 
   /** Redraw now (also what every scheduled frame does). */
   update() {
-    const seen = new Set<string>();
+    const old = this.boxes;
+    this.boxes = new Map();
+    this.backgrounds.clear();
+    this.lineHeights.clear();
     if (this.doc.visibilityState !== "hidden") {
       for (const root of this.roots()) {
-        let items: Item[];
         try {
-          items = root instanceof HTMLTextAreaElement ? this.fieldItems(root) : this.domItems(root);
+          this.drawRoot(root, old);
         } catch {
-          continue; // an editor mid-update: try again next frame
-        }
-        if (!items.length) continue;
-        const layer = this.layer(zIndexFor(root));
-        for (const item of items) {
-          seen.add(item.key);
-          this.draw(layer, item);
+          // an editor mid-update: try again next frame
         }
       }
     }
-    for (const [key, box] of this.boxes) {
-      if (!seen.has(key)) {
-        box.remove();
-        this.boxes.delete(key);
-      }
-    }
+    this.fitAll();
+    for (const list of old.values()) for (const box of list) box.remove();
     for (const [ta, m] of this.mirrors) {
       if (!ta.isConnected) {
         m.el.remove();
@@ -326,10 +449,108 @@ export class InlineRender {
     return out;
   }
 
-  private rootId(root: Element) {
-    let id = this.ids.get(root);
-    if (!id) this.ids.set(root, (id = this.nextId++));
-    return id;
+  /**
+   * The editor's formulas, read again only when its content changed; null while
+   * a long text that keeps changing (typing) waits for its next read.
+   */
+  private state(root: Element): RootState | null {
+    let st = this.states.get(root);
+    if (!st) {
+      st = {
+        stale: true, dom: null, value: null, formulas: [], html: [], clippers: [], z: 0, checked: -Infinity, generation: -1,
+        cost: 0, readAt: -Infinity, drawn: [],
+      };
+      this.states.set(root, st);
+    }
+    const ta = root instanceof HTMLTextAreaElement ? root : null;
+    // (a text field's value changes without DOM mutations)
+    if (st.generation !== this.generation || (ta && st.value !== ta.value)) st.stale = true;
+    const now = performance.now();
+    if (st.stale || now - st.checked > RECHECK) {
+      st.clippers = clippersOf(root);
+      st.z = zIndexFor(root);
+      st.checked = now;
+    }
+    if (!st.stale) return st;
+    if (st.cost > SLOW_READ && now - st.readAt < READ_EVERY) {
+      this.later(st.readAt + READ_EVERY - now);
+      return null;
+    }
+    st.stale = false;
+    st.readAt = now;
+    try {
+      this.read(root, st, ta);
+    } finally {
+      st.cost = performance.now() - now;
+    }
+    return st;
+  }
+
+  private read(root: Element, st: RootState, ta: HTMLTextAreaElement | null) {
+    st.generation = this.generation;
+    st.html = [];
+    if (ta) {
+      st.value = ta.value;
+      st.formulas = findFormulas(st.value, { comments: this.comments });
+      return;
+    }
+    st.dom = domText(root);
+    // CodeMirror 5 draws only the lines near the window; the first one drawn may be mid-paragraph
+    const mover = root.classList.contains("CodeMirror-code") ? root.closest(".CodeMirror-lines")?.parentElement : null;
+    if (mover && parseFloat(mover.style.top || "0") > 0) st.dom.resumes.unshift(0);
+    let undrawn: string[] | null = null;
+    if (st.dom.resumes.length) {
+      try {
+        undrawn = this.opts.undrawn?.(root) ?? null;
+      } catch {}
+      if (undrawn?.length !== st.dom.resumes.length) undrawn = null; // drawn since: don't guess
+    }
+    st.formulas = formulasIn(st.dom.text, this.comments, st.dom.resumes, undrawn ?? undefined);
+  }
+
+  /** Run an update after `ms` (one pending at a time). */
+  private later(ms: number) {
+    if (this.laterTimer) return;
+    this.laterTimer = this.doc.defaultView!.setTimeout(() => {
+      this.laterTimer = 0;
+      this.schedule();
+    }, Math.max(0, ms));
+  }
+
+  private drawRoot(root: Element, old: Map<string, HTMLElement[]>) {
+    const st = this.state(root);
+    if (!st) {
+      // keep last frame's boxes until the text is read again
+      const prev = this.states.get(root)!;
+      for (const { html, box } of prev.drawn) {
+        const list = old.get(html);
+        const i = list ? list.indexOf(box) : -1;
+        if (i < 0) continue;
+        list!.splice(i, 1);
+        let keep = this.boxes.get(html);
+        if (!keep) this.boxes.set(html, (keep = []));
+        keep.push(box);
+      }
+      return;
+    }
+    st.drawn = [];
+    if (!st.formulas.length) return;
+    const area = visibleArea(this.doc.defaultView!, st.clippers);
+    if (empty(area)) return;
+    const r = root.getBoundingClientRect();
+    const cs = getComputedStyle(root);
+    const contentLeft = r.left + root.clientLeft;
+    const frame: Frame = {
+      area,
+      contentLeft,
+      contentRight: contentLeft + root.clientWidth - parseFloat(cs.paddingRight || "0"),
+      color: cs.color,
+      fontSize: cs.fontSize,
+    };
+    const items = root instanceof HTMLTextAreaElement ? this.fieldItems(root, st, frame) : this.domItems(root, st, frame);
+    if (!items.length) return;
+    const layer = this.layer(st.z);
+    for (const item of items) st.drawn.push({ html: item.html, box: this.draw(layer, item, old) });
   }
 
   /** Is the editor focused (its caret is the one that counts)? */
@@ -339,96 +560,113 @@ export class InlineRender {
     return !!active && (active === root || root.contains(active));
   }
 
-  private domItems(root: Element): Item[] {
-    const t = domText(root);
-    // CodeMirror 5 draws only the lines near the window; the first one drawn may be mid-paragraph
-    const cm5 = root.classList.contains("CodeMirror-code");
-    const mover = cm5 ? root.closest(".CodeMirror-lines")?.parentElement : null; // offset by the undrawn lines
-    if (mover && parseFloat(mover.style.top || "0") > 0) t.resumes.unshift(0);
-    const formulas = formulasIn(t.text, this.comments, t.resumes);
-    if (!formulas.length) return [];
-    const area = visibleArea(root);
-    if (empty(area)) return [];
+  /** The rendered MathML of formula `i`, worked out once per content change. */
+  private htmlOf(st: RootState, i: number): string | null {
+    let html = st.html[i];
+    if (html === undefined) {
+      const f = st.formulas[i];
+      html = st.html[i] = renderMath(prepareLatex({ latex: f.latex, caret: 0, env: f.env }, "").plain, f.display);
+    }
+    return html;
+  }
+
+  private domItems(root: Element, st: RootState, frame: Frame): Item[] {
+    const t = st.dom!;
+    const fs = st.formulas;
+    const range = (i: number) => {
+      const a = point(t, fs[i].from, false);
+      const b = point(t, fs[i].to, true);
+      if (!a || !b) return null;
+      const rg = this.doc.createRange();
+      rg.setStart(...a);
+      rg.setEnd(...b);
+      return rg;
+    };
+    // only the formulas near the visible area: found by bisection, as they run top to bottom
+    const { area } = frame;
+    const first = firstReaching(fs.length, (i) => range(i)?.getBoundingClientRect().bottom ?? -Infinity, area.top - MARGIN);
     const focused = this.focused(root);
-    const sel = this.doc.getSelection();
-    const selRange = focused && sel && sel.rangeCount && root.contains(sel.anchorNode) ? sel.getRangeAt(0) : null;
+    const sel = focused ? this.doc.getSelection() : null;
+    const selRange = sel && sel.rangeCount && root.contains(sel.anchorNode) ? sel.getRangeAt(0) : null;
     // CodeMirror 5 draws its own caret and selection instead of the DOM's
     const cm5Marks =
-      focused && cm5
+      focused && root.classList.contains("CodeMirror-code")
         ? [...root.closest(".CodeMirror")!.querySelectorAll(".CodeMirror-cursor, .CodeMirror-selected")].map((e) => e.getBoundingClientRect())
         : [];
-    const style = getComputedStyle(root);
-    const id = this.rootId(root);
     const items: Item[] = [];
-    for (const f of formulas) {
-      const a = point(t, f.from, false);
-      const b = point(t, f.to, true);
-      if (!a || !b) continue;
-      const range = this.doc.createRange();
-      range.setStart(...a);
-      range.setEnd(...b);
-      if (selRange && range.comparePoint(selRange.startContainer, selRange.startOffset) <= 0 && range.comparePoint(selRange.endContainer, selRange.endOffset) >= 0) {
+    for (let i = first; i < fs.length; i++) {
+      const rg = range(i);
+      if (!rg) continue;
+      const rects = [...rg.getClientRects()].filter((r) => r.width > 0 || r.height > 0);
+      if (!rects.length) continue;
+      if (Math.min(...rects.map((r) => r.top)) > area.bottom + MARGIN) break;
+      if (selRange && rg.comparePoint(selRange.startContainer, selRange.startOffset) <= 0 && rg.comparePoint(selRange.endContainer, selRange.endOffset) >= 0) {
         continue; // the caret (or selection) is in it: show the source
       }
-      const rects = [...range.getClientRects()].filter((r) => r.width > 0 || r.height > 0);
-      if (!rects.length) continue;
-      const host = a[0].parentElement;
-      const box = this.boxFor(rects, f.display, root, lineHeightOf(host ?? root));
+      const host = rg.startContainer.parentElement ?? root;
+      const box = this.boxFor(rects, fs[i].display, frame, this.lineHeightOf(host));
       if (!box) continue;
       if (cm5Marks.some((m) => m.right >= box.left && m.left <= box.right && m.bottom > box.top && m.top < box.bottom)) continue;
-      const html = this.html(f.latex, f.display, f.env);
+      const html = this.htmlOf(st, i);
       if (!html) continue;
-      items.push({
-        key: `${id}:${f.from}:${html}`,
-        html,
-        box,
-        clip: area,
-        color: style.color,
-        background: backgroundOf(host),
-        fontSize: style.fontSize,
-      });
+      items.push({ html, box, clip: area, color: frame.color, background: this.backgroundOf(host), fontSize: frame.fontSize });
     }
     return items;
   }
 
-  private fieldItems(ta: HTMLTextAreaElement): Item[] {
-    const value = ta.value;
-    const formulas = findFormulas(value, { comments: this.comments });
-    if (!formulas.length) return [];
-    const area = visibleArea(ta);
-    if (empty(area)) return [];
-    const { el: mirror, text } = this.mirror(ta);
-    const m = mirror.getBoundingClientRect();
+  private fieldItems(ta: HTMLTextAreaElement, st: RootState, frame: Frame): Item[] {
+    const fs = st.formulas;
+    const mirror = this.mirror(ta, st.value!);
+    const m = mirror.el.getBoundingClientRect();
     const t = ta.getBoundingClientRect();
     const dx = t.left - m.left - ta.scrollLeft;
     const dy = t.top - m.top - ta.scrollTop;
+    const pieces = mirror.pieces;
+    // the piece holding offset `pos` (the start of a range, or its end when `end`)
+    const at = (pos: number, end: boolean): [Text, number] => {
+      let lo = 0;
+      let hi = pieces.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (end ? pieces[mid].start < pos : pieces[mid].start <= pos) lo = mid;
+        else hi = mid - 1;
+      }
+      const p = pieces[lo];
+      return [p.text, Math.min(Math.max(0, pos - p.start), p.text.data.length)];
+    };
+    const range = (i: number) => {
+      const rg = this.doc.createRange();
+      rg.setStart(...at(fs[i].from, false));
+      rg.setEnd(...at(fs[i].to, true));
+      return rg;
+    };
+    const { area } = frame;
+    const first = firstReaching(fs.length, (i) => range(i).getBoundingClientRect().bottom + dy, area.top - MARGIN);
     const focused = this.doc.activeElement === ta;
-    const style = getComputedStyle(ta);
-    const id = this.rootId(ta);
-    const background = backgroundOf(ta);
+    const background = this.backgroundOf(ta);
+    const lineHeight = this.lineHeightOf(ta);
     const items: Item[] = [];
-    for (const f of formulas) {
-      if (focused && ta.selectionStart <= f.to && ta.selectionEnd >= f.from) continue;
-      const range = this.doc.createRange();
-      range.setStart(text, f.from);
-      range.setEnd(text, f.to);
-      const rects = [...range.getClientRects()]
+    for (let i = first; i < fs.length; i++) {
+      const f = fs[i];
+      const rects = [...range(i).getClientRects()]
         .filter((r) => r.width > 0 || r.height > 0)
         .map((r) => new DOMRect(r.left + dx, r.top + dy, r.width, r.height));
       if (!rects.length) continue;
-      const box = this.boxFor(rects, f.display, ta, lineHeightOf(ta));
-      const html = box && this.html(f.latex, f.display, f.env);
+      if (Math.min(...rects.map((r) => r.top)) > area.bottom + MARGIN) break;
+      if (focused && ta.selectionStart <= f.to && ta.selectionEnd >= f.from) continue;
+      const box = this.boxFor(rects, f.display, frame, lineHeight);
+      const html = box && this.htmlOf(st, i);
       if (!box || !html) continue;
-      items.push({ key: `${id}:${f.from}:${html}`, html, box, clip: area, color: style.color, background, fontSize: style.fontSize });
+      items.push({ html, box, clip: area, color: frame.color, background, fontSize: frame.fontSize });
     }
     return items;
   }
 
   /** A hidden copy of the field's text, laid out the same way, to measure where formulas are. */
-  private mirror(ta: HTMLTextAreaElement) {
+  private mirror(ta: HTMLTextAreaElement, value: string): Mirror {
     const cs = getComputedStyle(ta);
     const wraps = ta.getAttribute("wrap") !== "off" && !/^pre$|nowrap/.test(cs.whiteSpace);
-    const sig = [ta.value, ta.clientWidth, cs.font, cs.padding, wraps].join("\u0000");
+    const sig = [ta.clientWidth, cs.font, cs.padding, cs.letterSpacing, cs.tabSize, wraps].join("\u0000");
     let m = this.mirrors.get(ta);
     if (!m || m.sig !== sig || !m.el.isConnected) {
       m?.el.remove();
@@ -444,32 +682,73 @@ export class InlineRender {
         height: "auto",
         overflow: "hidden",
         whiteSpace: wraps ? "pre-wrap" : "pre",
+        // its layout doesn't touch the page's
+        contain: "layout style",
       });
       if (ta.clientWidth > 0) {
         el.style.boxSizing = "border-box";
         el.style.width = `${ta.clientWidth + parseFloat(cs.borderLeftWidth || "0") + parseFloat(cs.borderRightWidth || "0")}px`;
       }
       el.setAttribute("data-web-laas-mirror", "");
-      const text = this.doc.createTextNode(ta.value + " ");
-      el.append(text);
       (this.doc.body ?? this.doc.documentElement).append(el);
-      m = { el, text, sig };
+      m = { el, sig, value: "", pieces: [] };
       this.mirrors.set(ta, m);
     }
+    if (m.value !== value) this.syncMirror(m, value);
     return m;
   }
 
+  /**
+   * Bring the mirror's text up to `value`. It is kept in pieces of a few dozen
+   * lines, and only the pieces an edit touched are replaced: typing in a long
+   * field lays out a few lines again, not all of them.
+   */
+  private syncMirror(m: Mirror, value: string) {
+    const old = m.value;
+    const pieces = m.pieces;
+    // the edit: what's the same at the start and at the end
+    const max = Math.min(old.length, value.length);
+    let pre = 0;
+    while (pre < max && old.charCodeAt(pre) === value.charCodeAt(pre)) pre++;
+    let suf = 0;
+    while (suf < max - pre && old.charCodeAt(old.length - 1 - suf) === value.charCodeAt(value.length - 1 - suf)) suf++;
+    // pieces [a, b) cover the edit; those from b on only move
+    let a = pieces.length;
+    for (let i = 0; i < pieces.length; i++) {
+      if (pieces[i].start + pieces[i].text.data.length > pre) {
+        a = i;
+        break;
+      }
+    }
+    // (an edit at the very end belongs to the last piece)
+    if (a === pieces.length && a > 0) a--;
+    let b = pieces.length;
+    for (let i = pieces.length - 1; i > a && pieces[i].start >= old.length - suf; i--) b = i;
+    const delta = value.length - old.length;
+    const from = pieces[a]?.start ?? 0;
+    const to = b < pieces.length ? pieces[b].start + delta : value.length;
+    const made = splitPieces(value.slice(from, to)).map((text, i, all) => {
+      const div = this.doc.createElement("div");
+      const node = this.doc.createTextNode(text);
+      div.append(node);
+      return { start: from + all.slice(0, i).reduce((n, t) => n + t.length, 0), text: node };
+    });
+    const block = (t: Text) => t.parentNode as HTMLElement;
+    const next = pieces[b] ? block(pieces[b].text) : null;
+    for (const p of pieces.slice(a, b)) block(p.text).remove();
+    for (const p of made) m.el.insertBefore(block(p.text), next);
+    for (const p of pieces.slice(b)) p.start += delta;
+    pieces.splice(a, b - a, ...made);
+    m.value = value;
+  }
+
   /** Where the rendered formula goes, given the source's line boxes; null to leave it be. */
-  private boxFor(rects: DOMRect[], display: boolean, root: Element, lineHeight: number): Rect | null {
-    const r = root.getBoundingClientRect();
-    const cs = getComputedStyle(root);
-    const contentLeft = r.left + root.clientLeft;
-    const contentRight = contentLeft + root.clientWidth - parseFloat(cs.paddingRight || "0");
+  private boxFor(rects: DOMRect[], display: boolean, frame: Frame, lineHeight: number): Rect | null {
     const box: Rect = {
       // (CodeMirror 5's line elements reach into its gutter)
-      left: Math.max(contentLeft, Math.min(...rects.map((r) => r.left))) - 1,
+      left: Math.max(frame.contentLeft, Math.min(...rects.map((r) => r.left))) - 1,
       top: Math.min(...rects.map((r) => r.top)),
-      right: Math.min(contentRight, Math.max(...rects.map((r) => r.right))) + 1,
+      right: Math.min(frame.contentRight, Math.max(...rects.map((r) => r.right))) + 1,
       bottom: Math.max(...rects.map((r) => r.bottom)),
     };
     const textHeight = Math.min(...rects.map((r) => r.height));
@@ -482,11 +761,19 @@ export class InlineRender {
     // inline math wrapped onto two lines: a box around both would hide the text beside it
     if (!display) return null;
     // display math on lines of its own: cover them to the editor's right edge, the formula centred
-    return { ...box, right: Math.max(box.right, contentRight) };
+    return { ...box, right: Math.max(box.right, frame.contentRight) };
   }
 
-  private html(latex: string, display: boolean, env?: string): string | null {
-    return renderMath(prepareLatex({ latex, caret: 0, env }, "").plain, display);
+  private backgroundOf(el: Element): string {
+    let bg = this.backgrounds.get(el);
+    if (bg === undefined) this.backgrounds.set(el, (bg = backgroundOf(el)));
+    return bg;
+  }
+
+  private lineHeightOf(el: Element): number {
+    let h = this.lineHeights.get(el);
+    if (h === undefined) this.lineHeights.set(el, (h = lineHeightOf(el)));
+    return h;
   }
 
   private layer(z: number): HTMLElement {
@@ -507,22 +794,23 @@ export class InlineRender {
     return layer;
   }
 
-  private draw(layer: HTMLElement, item: Item) {
-    let box = this.boxes.get(item.key);
-    if (!box || box.parentElement !== layer) {
-      box?.remove();
+  private draw(layer: HTMLElement, item: Item, old: Map<string, HTMLElement[]>): HTMLElement {
+    // reuse a box showing the same formula: no new MathML, no measuring
+    let box = old.get(item.html)?.pop();
+    if (!box) {
       box = this.doc.createElement("div");
       box.className = "box";
       box.innerHTML = `<span class="m">${item.html}</span>`;
-      layer.append(box);
-      this.boxes.set(item.key, box);
     }
+    if (box.parentElement !== layer) layer.append(box);
+    let list = this.boxes.get(item.html);
+    if (!list) this.boxes.set(item.html, (list = []));
+    list.push(box);
     const { left, top, right, bottom } = item.box;
     const w = right - left;
     const h = bottom - top;
     const s = box.style;
-    s.left = `${left}px`;
-    s.top = `${top}px`;
+    s.transform = `translate(${left}px, ${top}px)`;
     s.width = `${w}px`;
     s.height = `${h}px`;
     s.color = item.color;
@@ -532,19 +820,27 @@ export class InlineRender {
     // cut off only by the editor's visible area: a formula may reach a little past its line
     s.clipPath = `inset(${c.top - top}px ${right - c.right}px ${bottom - c.bottom}px ${c.left - left}px)`;
     s.visibility = empty(intersect(item.box, c)) ? "hidden" : "";
-    // shrink a formula bigger than its source to fit
+    // a formula bigger than its source is shrunk to fit, once its size is known (see fitAll)
     const size = `${Math.round(w)}x${Math.round(h)}:${item.fontSize}`;
     if (box.dataset.size !== size) {
       box.dataset.size = size;
       const math = box.firstElementChild as HTMLElement | null;
-      if (math) {
-        math.style.zoom = "1";
-        const mw = math.getBoundingClientRect().width;
-        const mh = math.getBoundingClientRect().height;
-        // a little taller than the line is fine: ink rarely reaches the next line's text
-        const zoom = Math.min(1, mw ? (w - 2) / mw : 1, mh ? (h * 1.2) / mh : 1);
-        if (zoom < 1) math.style.zoom = String(Math.max(zoom, 0.05));
-      }
+      if (math) this.toFit.push({ math, w, h });
     }
+    return box;
+  }
+
+  /** Shrink the formulas waiting for it, measuring all of them in one layout pass. */
+  private fitAll() {
+    const fits = this.toFit;
+    this.toFit = [];
+    for (const f of fits) f.math.style.zoom = "1";
+    const sizes = fits.map((f) => f.math.getBoundingClientRect());
+    fits.forEach(({ math, w, h }, i) => {
+      const mr = sizes[i];
+      // a little taller than the line is fine: ink rarely reaches the next line's text
+      const zoom = Math.min(1, mr.width ? (w - 2) / mr.width : 1, mr.height ? (h * 1.2) / mr.height : 1);
+      if (zoom < 1) math.style.zoom = String(Math.max(zoom, 0.05));
+    });
   }
 }

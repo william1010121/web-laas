@@ -10,7 +10,7 @@ import { DOMParser } from "prosemirror-model";
 import { schema } from "prosemirror-schema-basic";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap } from "prosemirror-commands";
-import { LaasController } from "web-laas-engine/dom";
+import { LaasController, undrawnParagraphs } from "web-laas-engine/dom";
 import { InlineRender } from "../../../src/preview/inline";
 import { LivePreview } from "../../../src/preview/preview";
 
@@ -40,7 +40,7 @@ const pmDoc = document.createElement("div");
 pmDoc.innerHTML = LATEX.split("\n").map((l) => `<p>${l.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</p>`).join("");
 new PMView($("pm"), { state: EditorState.create({ doc: DOMParser.fromSchema(schema).parse(pmDoc), plugins: [keymap(baseKeymap)] }) });
 
-const rendered = new InlineRender(document);
+const rendered = new InlineRender(document, { undrawn: undrawnParagraphs });
 rendered.set({ on: q.get("off") === null, comments: q.has("comments") });
 const preview = new LivePreview(document);
 const controller = new LaasController({ onFormula: (f) => preview.update(f) });

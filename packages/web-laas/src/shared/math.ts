@@ -57,7 +57,8 @@ const cache = new Map<string, string | null>();
 export function renderMath(latex: string, display = false): string | null {
   const key = (display ? "D" : "I") + latex;
   if (!cache.has(key)) {
-    if (cache.size > 500) cache.clear();
+    // forget the oldest, not everything: a long document keeps scrolling back to formulas it showed
+    if (cache.size >= 2000) cache.delete(cache.keys().next().value!);
     try {
       cache.set(
         key,
