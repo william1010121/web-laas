@@ -1007,8 +1007,9 @@ export class InlineRender {
       boxes.className = "boxes";
       frame.append(boxes);
       shadow.append(style, frame);
-      // last in its context: of equal z-index, the later one paints on top
-      context.append(host);
+      // last in its context: of equal z-index, the later one paints on top. A shadow host shows
+      // its shadow tree, not its own children: there the layer goes in the shadow root
+      (context.shadowRoot ?? context).append(host);
       layer = { host, frame, el: boxes, left: 0, top: 0, sx: 1, sy: 1 };
       byZ.set(z, layer);
     }

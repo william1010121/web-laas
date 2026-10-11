@@ -171,6 +171,13 @@ describe("findFormulas edge cases", () => {
     expect(latex("~~~ a`b\n$a$\n~~~\n$c$", false)).toEqual(["c"]); // a tilde fence's info may have them
   });
 
+  it("an indented code block (after a blank line) holds no math", () => {
+    expect(latex("text\n\n    $a$ code\n\tmore $b$\n\n    $c$\nafter $d$", false)).toEqual(["d"]);
+    expect(latex("    $a$\n$b$", false)).toEqual(["b"]); // at the very start too
+    expect(latex("para\n    $a$ continues it", false)).toEqual(["a"]); // can't interrupt a paragraph
+    expect(latex("\n\n    $a$", true)).toEqual(["a"]); // LaTeX: indentation means nothing
+  });
+
   it("an empty pair is passed over, closer and all", () => {
     expect(latex("$ $ and $x$")).toEqual(["x"]);
     expect(latex("$$  $$ then $$y$$")).toEqual(["y"]);

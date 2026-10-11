@@ -96,6 +96,14 @@ export function formulaAt(before: string, after: string, opts: { comments?: bool
 
 const BLANK_LINE = /\n[ \t]*\n/g;
 
+/** Is the line starting at `i` the first of the text, or after a blank line? */
+function blankBefore(text: string, i: number): boolean {
+  if (i === 0) return true;
+  let k = i - 2; // text[i - 1] is the line break
+  while (k >= 0 && (text[k] === " " || text[k] === "\t")) k--;
+  return k < 0 || text[k] === "\n";
+}
+
 /** Index of the first match of the global `re` at or after `from`, or -1 (without copying the text). */
 function indexFrom(text: string, re: RegExp, from: number): number {
   re.lastIndex = from;
@@ -133,6 +141,25 @@ export function findFormulas(text: string, opts: { comments?: boolean } = {}): F
       if (nl < 0) break;
       i = nl;
       continue;
+    }
+    // an indented code block: lines of 4+ spaces (or a tab) after a blank line, up to the next unindented one
+    if (!comments && (c === " " || c === "\t") && (i === 0 || text[i - 1] === "\n") && blankBefore(text, i)) {
+      const line = /^(?: {4}|\t)[^\n]*/.exec(text.slice(i, i + 4096));
+      if (line && line[0].trim()) {
+        let j = i;
+        for (;;) {
+          const eol = text.indexOf("\n", j);
+          if (eol < 0) {
+            j = n;
+            break;
+          }
+          const next = text.slice(eol + 1, text.indexOf("\n", eol + 1) < 0 ? n : text.indexOf("\n", eol + 1));
+          j = eol + 1;
+          if (next.trim() && !/^(?: {4}|\t)/.test(next)) break;
+        }
+        i = j;
+        continue;
+      }
     }
     // a fenced code block (``` or ~~~ opening a line) runs to its closing fence, blank lines and all
     if ((c === "`" || c === "~") && !comments && /^ {0,3}$/.test(text.slice(text.lastIndexOf("\n", i - 1) + 1, i))) {
