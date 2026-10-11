@@ -1,7 +1,7 @@
 // Isolated-world bridge: reads settings from chrome.storage and forwards them
 // to the main-world script as a JSON string (objects don't cross worlds).
 // The top frame also shows shortcut toasts. (The cheat sheet lives in
-// cheatsheet.js, injected on demand, to keep KaTeX out of every frame.)
+// cheatsheet.js, injected on demand, to keep MathJax out of every frame.)
 import { alive } from "../shared/alive";
 import { matchesChord, parseShortcut, type Chord } from "../shared/shortcut";
 import {

@@ -77,6 +77,28 @@ only has the lines near the window in the page); a read that takes longer than
 12 ms happens at most every 200 ms while typing goes on. For scale, the
 textarea's own layout after a keystroke at this size is about 50 ms.
 
+### With SVG rendering (MathJax), 240k characters
+
+The tables above were measured when formulas were drawn as MathML by the
+browser (KaTeX's MathML output). They are now SVG from MathJax, which looks
+like LaTeX in any browser (Chrome's own MathML misdraws radicals and accents)
+at a cost: about 0.55 ms per new formula instead of under 0.1 ms. A frame
+renders new formulas for at most 8 ms and leaves the rest to the next ones
+(formulas come in over a few frames after a jump), and formulas just off
+screen are rendered ahead while the page is idle. Box styles are written only
+when they change. Here each column is the longest frame after the action.
+
+| editor | cold | scroll jump | wheel | typing | boxes |
+|---|---:|---:|---:|---:|---:|
+| CodeMirror 6 | 13 | 19.9 / 35.8 | 7.6 / 19.3 | 0.0 / 0.8 | 36 |
+| CodeMirror 5 | 29 | 14.0 / 18.2 | 7.2 / 24.8 | 0.0 / 0.0 | 35 |
+| ProseMirror | 18 | 23.5 / 43.8 | 12.9 / 21.6 | 7.1 / 30.3 | 56 |
+| contenteditable | 25 | 27.9 / 62.5 | 19.4 / 39.6 | 4.0 / 23.7 | 61 |
+| textarea | 45 | 27.8 / 54.4 | 14.8 / 48.2 | 9.4 / 23.4 | 40 |
+
+The benchmark scrolls every other frame, leaving little idle time to render
+ahead; ordinary scrolling finds more formulas ready.
+
 ### Finding the formulas (`findFormulas`, Node)
 
 | text | before | after |

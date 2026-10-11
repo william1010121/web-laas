@@ -14,6 +14,8 @@ const common = {
   define: { __WEB_LAAS_BUILD__: JSON.stringify(Date.now().toString(36)) },
   logLevel: "info",
   sourcemap: watch ? "inline" : false,
+  // MathJax's SVG glyph tables are most of preview.js / cheatsheet.js: minified they're 1.9 MB, not 2.7
+  minify: !watch,
 };
 
 await rm("dist", { recursive: true, force: true });

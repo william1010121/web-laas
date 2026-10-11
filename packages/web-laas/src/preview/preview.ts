@@ -1,6 +1,6 @@
 // The live LaTeX preview: a small floating card that renders the formula under
 // the caret, marks where the caret is, and stays out of the way of the mouse.
-import { MATH_FONT_CSS, renderMath } from "../shared/math";
+import { MATH_CSS, renderMath } from "../shared/math";
 import { accentColor, themeCss } from "../shared/theme";
 
 export type PreviewMode = "above" | "below" | "corner";
@@ -44,29 +44,17 @@ export function prepareLatex(f: Pick<PreviewFormula, "latex" | "caret" | "env">,
   }
   // not in the middle of a \command name, nor right after a lone backslash
   const midCommand = /\\[A-Za-z]*$/.test(before) && (/^[A-Za-z]/.test(after) || /\\$/.test(before));
-  // a solid bar, wider than a \\vert so it reads as the caret at a glance
-  // (fixCaretMark moves it down to sit on the text line)
-  const mark = `{\\color{${accent}}\\rule{${MARK_WIDTH}}{1em}}`;
+  // a solid bar, wider than a \\vert so it reads as the caret at a glance, from descender to ascender
+  const mark = `{\\color{${accent}}\\rule[-0.25em]{0.09em}{1.05em}}`;
   return {
     withCaret: midCommand ? null : wrap(fill(before) + mark + fill(after)),
     plain: wrap(fill(body)),
   };
 }
 
-// an odd width singles the caret rule out in the MathML
-const MARK_WIDTH = "0.0901em";
-
-/** KaTeX gives \rule a zero-height box above the baseline; make the caret span ascender to descender. */
-export function fixCaretMark(mathml: string): string {
-  return mathml.replace(
-    new RegExp(`<mpadded[^>]*>(<mspace mathbackground="[^"]*") width="${MARK_WIDTH}" height="1em"></mspace></mpadded>`),
-    `$1 width="0.09em" height="0.8em" depth="0.25em"></mspace>`,
-  );
-}
-
 const CSS = `
 ${themeCss(".lw-preview")}
-${MATH_FONT_CSS}
+${MATH_CSS}
 :host { all: initial; }
 .lw-preview {
   position: fixed; left: 0; top: 0; z-index: 2147483646;
@@ -89,8 +77,7 @@ ${MATH_FONT_CSS}
   overflow: hidden;
 }
 .math { font-size: 22px; white-space: nowrap; transition: opacity .12s ease; }
-.math math { color: inherit; }
-.math math[display="block"] { margin: 2px 0; }
+.math mjx-container[display="true"] { display: block; margin: 2px 0; }
 .stale .math { opacity: .5; }
 .badge {
   display: none; position: absolute; top: 6px; right: 8px;
@@ -185,8 +172,7 @@ export class LivePreview {
       this.dismissed = null;
     }
     const { withCaret, plain } = prepareLatex(f, accentColor());
-    const marked = withCaret && renderMath(withCaret, f.display);
-    const html = marked ? fixCaretMark(marked) : renderMath(plain, f.display);
+    const html = (withCaret && renderMath(withCaret, f.display)) || renderMath(plain, f.display);
     if (html) {
       if (html !== this.shownHtml) {
         this.math.innerHTML = html;

@@ -5,7 +5,7 @@
   "description": "Chrome extension: Emacs laas-style LaTeX auto-activating snippets on Overleaf, ChatGPT, Claude, Notion, HackMD, Jupyter, …",
   "type": "module",
   "dependencies": {
-    "katex": "^0.19.0",
+    "mathjax-full": "3.2.2",
     "web-laas-engine": "0.5.0"
   },
   "scripts": {

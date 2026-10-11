@@ -2,7 +2,7 @@
 // its typeset version, drawn on a layer above the editor (the editor's own text
 // can't change). Move the caret into one, or click it, and the source shows.
 import { findFormulas, type FormulaSpan } from "web-laas-engine";
-import { MATH_FONT_CSS, renderMath } from "../shared/math";
+import { isRendered, MATH_CSS, renderMath } from "../shared/math";
 import { prepareLatex } from "./preview";
 
 const EDITORS = ".cm-content, .CodeMirror-code, textarea, input[type=text], input[type=search], input:not([type]), [contenteditable]";
@@ -32,7 +32,7 @@ const MIRRORED = [
 
 const CSS = `
 :host { all: initial; }
-${MATH_FONT_CSS}
+${MATH_CSS}
 .layer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
 .layer > .boxes { position: absolute; left: 0; top: 0; }
 .box {
@@ -41,8 +41,7 @@ ${MATH_FONT_CSS}
   border-radius: 2px; white-space: nowrap;
 }
 .m { display: inline-block; line-height: normal; }
-.box math { color: inherit; }
-.box math[display="block"] { margin: 0; }
+
 `;
 
 interface Rect {
@@ -330,6 +329,27 @@ const MARGIN = 120;
 const RECHECK = 1000;
 /** An editor whose text takes longer than this (ms) to read is read at most every READ_EVERY ms while it changes. */
 const SLOW_READ = 12;
+/** The style values last written to each box. */
+const written = new WeakMap<HTMLElement, Record<string, string>>();
+
+/** Set inline styles on `el`, skipping those that already have the value. */
+function setStyles(el: HTMLElement, styles: Record<string, string>) {
+  let prev = written.get(el);
+  if (!prev) written.set(el, (prev = {}));
+  const st = el.style as unknown as Record<string, string>;
+  for (const k in styles) {
+    if (prev[k] !== styles[k]) {
+      st[k] = styles[k];
+      prev[k] = styles[k];
+    }
+  }
+}
+
+/** Formulas rendered ahead (when idle) on each side of the ones on screen. */
+const PREFETCH = 40;
+const range = (from: number, to: number) => Array.from({ length: Math.max(0, to - from) }, (_, k) => from + k);
+/** Time (ms) a frame may spend rendering formulas it hasn't drawn before. */
+const RENDER_BUDGET = 8;
 /** How often (ms) the page is searched for new open shadow roots. */
 const SHADOW_SCAN = 2000;
 const READ_EVERY = 200;
@@ -369,7 +389,7 @@ interface RootState {
   /** text fields: the value the formulas come from */
   value: string | null;
   formulas: FormulaSpan[];
-  /** rendered MathML per formula, filled in as formulas come into view */
+  /** rendered SVG per formula, filled in as formulas come into view */
   html: (string | null | undefined)[];
   clippers: Element[];
   stacking: { context: Element; z: number };
@@ -380,6 +400,8 @@ interface RootState {
   readAt: number;
   /** the boxes drawn for it last frame (kept as they are while a slow read waits) */
   drawn: { html: string; box: HTMLElement }[];
+  /** the formulas drawn last frame, [from, to): their neighbours are rendered ahead when idle */
+  near: [number, number];
 }
 
 /** Where boxes are drawn: a host element placed in the page's stacking, with a shadow root. */
@@ -418,7 +440,7 @@ export class InlineRender {
   private laterTimer = 0;
   /** layers by the stacking context they're in, then z-index */
   private layers = new Map<Element, Map<number, Layer>>();
-  /** boxes on screen, by the MathML they show (a box moves with its formula as text is typed before it) */
+  /** boxes on screen, by the SVG they show (a box moves with its formula as text is typed before it) */
   private boxes = new Map<string, HTMLElement[]>();
   private states = new WeakMap<Element, RootState>();
   private mirrors = new Map<Field, Mirror>();
@@ -427,6 +449,12 @@ export class InlineRender {
   private backgrounds = new Map<Element, string>();
   private lineHeights = new Map<Element, number>();
   private toFit: { math: HTMLElement; w: number; h: number }[] = [];
+  /** new formulas are rendered until then in a frame; the rest wait for the next one */
+  private renderUntil = 0;
+  private unfinished = false;
+  /** editors drawn last frame, and the idle callback rendering their formulas ahead */
+  private drawnStates: RootState[] = [];
+  private idle = 0;
   /** open shadow roots on the page (editors can live in them), looked for every SHADOW_SCAN ms */
   private shadows = new Set<ShadowRoot>();
   private shadowScan = -Infinity;
@@ -502,6 +530,8 @@ export class InlineRender {
     this.laterTimer = 0;
     cancelAnimationFrame(this.frame);
     this.frame = 0;
+    (view as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(this.idle);
+    this.idle = 0;
     for (const byZ of this.layers.values()) for (const l of byZ.values()) l.host.remove();
     for (const m of this.mirrors.values()) m.el.remove();
     this.layers.clear();
@@ -544,6 +574,9 @@ export class InlineRender {
   update() {
     if (this.opts.alive && !this.opts.alive()) return this.destroy();
     this.findShadows();
+    this.renderUntil = performance.now() + RENDER_BUDGET;
+    this.unfinished = false;
+    this.drawnStates = [];
     const old = this.boxes;
     this.boxes = new Map();
     this.backgrounds.clear();
@@ -558,6 +591,8 @@ export class InlineRender {
       }
     }
     this.fitAll();
+    if (this.unfinished) this.schedule();
+    else this.prefetch();
     for (const list of old.values()) for (const box of list) box.remove();
     for (const [ta, m] of this.mirrors) {
       if (!ta.isConnected) {
@@ -596,7 +631,7 @@ export class InlineRender {
     if (!st) {
       st = {
         stale: true, dom: null, value: null, formulas: [], html: [], clippers: [], stacking: { context: root.ownerDocument.documentElement, z: 0 }, checked: -Infinity, generation: -1,
-        cost: 0, readAt: -Infinity, drawn: [],
+        cost: 0, readAt: -Infinity, drawn: [], near: [0, 0],
       };
       this.states.set(root, st);
     }
@@ -657,6 +692,7 @@ export class InlineRender {
 
   private drawRoot(root: Element, old: Map<string, HTMLElement[]>) {
     const st = this.state(root);
+    if (st) this.drawnStates.push(st);
     if (!st) {
       // keep last frame's boxes until the text is read again
       const prev = this.states.get(root)!;
@@ -701,12 +737,21 @@ export class InlineRender {
     return !!active && (active === root || root.contains(active));
   }
 
-  /** The rendered MathML of formula `i`, worked out once per content change. */
+  /**
+   * The rendered SVG of formula `i`, worked out once per content change; null
+   * if it doesn't parse, or (for now) if this frame's rendering time is used up.
+   */
   private htmlOf(st: RootState, i: number): string | null {
     let html = st.html[i];
     if (html === undefined) {
       const f = st.formulas[i];
-      html = st.html[i] = renderMath(prepareLatex({ latex: f.latex, caret: 0, env: f.env }, "").plain, f.display);
+      const latex = prepareLatex({ latex: f.latex, caret: 0, env: f.env }, "").plain;
+      // rendering a screenful of new formulas takes a while: spread it over frames
+      if (!isRendered(latex, f.display) && performance.now() > this.renderUntil) {
+        this.unfinished = true;
+        return null;
+      }
+      html = st.html[i] = renderMath(latex, f.display);
     }
     return html;
   }
@@ -726,6 +771,7 @@ export class InlineRender {
     // only the formulas near the visible area: found by bisection, as they run top to bottom
     const { area } = frame;
     const first = firstReaching(fs.length, (i) => range(i)?.getBoundingClientRect().bottom ?? -Infinity, area.top - MARGIN);
+    st.near = [first, fs.length];
     const focused = this.focused(root);
     // (an editor in a shadow root has its selection there)
     const scope = scopeOf(root) as Document & { getSelection?: () => Selection | null };
@@ -742,7 +788,10 @@ export class InlineRender {
       if (!rg) continue;
       const rects = [...rg.getClientRects()].filter((r) => r.width > 0 || r.height > 0);
       if (!rects.length) continue;
-      if (Math.min(...rects.map((r) => r.top)) > area.bottom + MARGIN) break;
+      if (Math.min(...rects.map((r) => r.top)) > area.bottom + MARGIN) {
+        st.near = [first, i];
+        break;
+      }
       if (selRange && rg.comparePoint(selRange.startContainer, selRange.startOffset) <= 0 && rg.comparePoint(selRange.endContainer, selRange.endOffset) >= 0) {
         // the caret (or selection) is in it: show the source. A caret touching it from
         // outside counts too, on purpose (as in Obsidian): arrowing up to a formula
@@ -791,6 +840,7 @@ export class InlineRender {
     };
     const { area } = frame;
     const first = firstReaching(fs.length, (i) => toScreen(range(i).getBoundingClientRect()).bottom, area.top - MARGIN);
+    st.near = [first, fs.length];
     const focused = scopeOf(ta).activeElement === ta;
     const background = this.backgroundOf(ta);
     const lineHeight = this.lineHeightOf(ta);
@@ -801,7 +851,10 @@ export class InlineRender {
         .filter((r) => r.width > 0 || r.height > 0)
         .map(toScreen);
       if (!rects.length) continue;
-      if (Math.min(...rects.map((r) => r.top)) > area.bottom + MARGIN) break;
+      if (Math.min(...rects.map((r) => r.top)) > area.bottom + MARGIN) {
+        st.near = [first, i];
+        break;
+      }
       // (on purpose, a caret touching the delimiters counts too, as in Obsidian: see domItems)
       if (focused && (ta.selectionStart ?? -1) <= f.to && (ta.selectionEnd ?? -1) >= f.from) continue;
       const box = this.boxFor(rects, f.display, frame, lineHeight);
@@ -971,7 +1024,7 @@ export class InlineRender {
   }
 
   private draw(layer: Layer, item: Item, old: Map<string, HTMLElement[]>): HTMLElement {
-    // reuse a box showing the same formula: no new MathML, no measuring
+    // reuse a box showing the same formula: no new SVG, no measuring
     let box = old.get(item.html)?.pop();
     if (!box) {
       box = this.doc.createElement("div");
@@ -992,22 +1045,26 @@ export class InlineRender {
     const { left, top, right, bottom } = map(item.box);
     const w = right - left;
     const h = bottom - top;
-    const s = box.style;
-    s.transform = `translate(${left}px, ${top}px)`;
-    // inline math starts where its source does; display math is centred
-    s.justifyContent = item.inline ? "flex-start" : "center";
-    s.width = `${w}px`;
-    s.height = `${h}px`;
-    s.color = item.color;
-    s.background = item.background;
     // the editor's text as big as it shows: its own scale over the layer's (they differ when
     // the editor itself is transformed, as the layer sits beside it then)
     const fontSize = `${(parseFloat(item.fontSize) * item.scale) / layer.sy}px`;
-    s.fontSize = fontSize;
     const c = map(item.clip);
-    // cut off only by the editor's visible area: a formula may reach a little past its line
-    s.clipPath = `inset(${c.top - top}px ${right - c.right}px ${bottom - c.bottom}px ${c.left - left}px)`;
-    s.visibility = empty(intersect(item.box, item.clip)) ? "hidden" : "";
+    const inside = c.top <= top && c.left <= left && c.right >= right && c.bottom >= bottom;
+    // styles are written only when they change: parsing gradients and insets for every box on
+    // every frame of a scroll adds up
+    setStyles(box, {
+      transform: `translate(${left}px, ${top}px)`,
+      // inline math starts where its source does; display math is centred
+      justifyContent: item.inline ? "flex-start" : "center",
+      width: `${w}px`,
+      height: `${h}px`,
+      color: item.color,
+      background: item.background,
+      fontSize,
+      // cut off only by the editor's visible area (a formula may reach a little past its line)
+      clipPath: inside ? "" : `inset(${c.top - top}px ${right - c.right}px ${bottom - c.bottom}px ${c.left - left}px)`,
+      visibility: empty(intersect(item.box, item.clip)) ? "hidden" : "",
+    });
     // a formula bigger than its source is shrunk to fit, once its size is known (see fitAll)
     const size = `${Math.round(w)}x${Math.round(h)}:${fontSize}`;
     if (box.dataset.size !== size) {
@@ -1016,6 +1073,28 @@ export class InlineRender {
       if (math) this.toFit.push({ math, w, h });
     }
     return box;
+  }
+
+  /**
+   * When the page is idle, render the formulas just above and below the ones on
+   * screen, so that scrolling to them finds them ready.
+   */
+  private prefetch() {
+    const view = this.doc.defaultView as (Window & { requestIdleCallback?: (cb: (d: IdleDeadline) => void) => number }) | null;
+    if (!view?.requestIdleCallback || this.idle) return;
+    this.idle = view.requestIdleCallback((deadline) => {
+      this.idle = 0;
+      if (!this.on) return;
+      this.renderUntil = Infinity;
+      for (const st of this.drawnStates) {
+        const [from, to] = st.near;
+        const ahead = [...range(to, Math.min(st.formulas.length, to + PREFETCH)), ...range(Math.max(0, from - PREFETCH), from).reverse()];
+        for (const i of ahead) {
+          if (deadline.timeRemaining() < 2) return void this.prefetch();
+          if (st.html[i] === undefined) this.htmlOf(st, i);
+        }
+      }
+    });
   }
 
   /** Shrink the formulas waiting for it, measuring all of them in one layout pass. */

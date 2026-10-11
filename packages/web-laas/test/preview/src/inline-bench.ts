@@ -10,8 +10,10 @@ import CodeMirror from "codemirror5";
 import { undrawnParagraphs } from "web-laas-engine/dom";
 import { domText, formulasIn, InlineRender } from "../../../src/preview/inline";
 import { findFormulas } from "web-laas-engine";
+import { renderMath } from "../../../src/shared/math";
 (window as any).parts = { domText, formulasIn, findFormulas };
 (window as any).ir_ctor = InlineRender;
+(window as any).renderMath = renderMath;
 
 const q = new URLSearchParams(location.search);
 const kind = q.get("editor") ?? "cm6";
@@ -88,12 +90,13 @@ const stats = (xs: number[]) => {
     update();
     spent.push(performance.now() - t);
   };
-  // the work the next two frames did (one update, if any: scroll and mutation share a frame)
+  // the longest frame of the next two (one update per frame: scroll and mutation share it;
+  // new formulas may be rendered over a few frames)
   const settle = async () => {
     spent = [];
     await frame();
     await frame();
-    return spent.reduce((a, b) => a + b, 0);
+    return spent.length ? Math.max(...spent) : 0;
   };
   r.set({ on: true, comments: false });
   const cold = await settle();

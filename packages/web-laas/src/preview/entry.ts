@@ -1,5 +1,5 @@
 // preview.js: injected into a frame (by the background) the first time its
-// caret enters math, so KaTeX isn't loaded into pages that never need it.
+// caret enters math, so MathJax isn't loaded into pages that never need it.
 import { compileConfig, hostMatches } from "web-laas-engine";
 import { alive } from "../shared/alive";
 import { loadState, STORAGE_KEYS } from "../shared/storage";
