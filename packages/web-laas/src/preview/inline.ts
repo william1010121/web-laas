@@ -32,6 +32,7 @@ const MIRRORED = [
 const CSS = `
 :host { all: initial; }
 .layer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.layer > .boxes { position: absolute; left: 0; top: 0; }
 .box {
   position: absolute; left: 0; top: 0; box-sizing: border-box;
   display: flex; align-items: center; justify-content: center;
@@ -221,16 +222,57 @@ function visibleArea(view: Window, clippers: Element[]): Rect {
   return r;
 }
 
-/** The z-index that puts a layer just above `el` (the stacking context it paints in, its own included). */
-export function zIndexFor(el: Element): number {
-  let z = 0;
-  for (let a: Element | null = el; a; a = a.parentElement) {
-    const cs = getComputedStyle(a);
-    const parent = a.parentElement && getComputedStyle(a.parentElement).display;
-    const stacks = cs.position !== "static" || /flex|grid/.test(parent ?? "");
-    if (cs.zIndex !== "auto" && stacks) z = parseInt(cs.zIndex, 10) || 0; // the outermost one wins
+const set = (v: string) => !!v && v !== "none" && v !== "normal" && v !== "auto";
+
+/** Does `el` start a stacking context of its own? */
+function formsContext(el: Element, cs: CSSStyleDeclaration): boolean {
+  const flexItem = !!el.parentElement && /flex|grid/.test(getComputedStyle(el.parentElement).display);
+  return (
+    (cs.zIndex !== "auto" && !!cs.zIndex && (cs.position !== "static" || flexItem)) ||
+    cs.position === "fixed" ||
+    cs.position === "sticky" ||
+    parseFloat(cs.opacity) < 1 ||
+    set(cs.transform) ||
+    set(cs.filter) ||
+    set(cs.perspective) ||
+    cs.isolation === "isolate" ||
+    set(cs.mixBlendMode) ||
+    /\b(paint|layout|strict|content)\b/.test(cs.contain || "") ||
+    /transform|opacity|filter|perspective/.test(cs.willChange || "")
+  );
+}
+
+/**
+ * Where a layer over `el` goes so it paints just above it and below whatever
+ * paints above it (an autocomplete list, a dialog): the stacking context `el`
+ * paints in, at `el`'s level there. z-index only means something within one
+ * context, so the layer has to be in the same one.
+ */
+export function stackingFor(el: Element): { context: Element; z: number } {
+  const root = el.ownerDocument.documentElement;
+  const contextOf = (from: Element | null) => {
+    let a = from;
+    while (a && a !== root && !formsContext(a, getComputedStyle(a))) a = a.parentElement;
+    return a && a !== root ? a : root;
+  };
+  const own = contextOf(el);
+  if (own !== el) {
+    // inside a container's context: in it, above the editor's text. That text may sit on a
+    // level of its own there (CodeMirror 5's lines are z-index: 2): the outermost stacking
+    // context between some text of the editor and the editor gives it
+    let z = 0;
+    const text = el.ownerDocument.createTreeWalker(el, NodeFilter.SHOW_TEXT, (n) =>
+      (n as Text).data.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
+    ).nextNode();
+    for (let a = text?.parentElement ?? null; a && a !== own; a = a.parentElement) {
+      const cs = getComputedStyle(a);
+      if (formsContext(a, cs)) z = parseInt(cs.zIndex, 10) || 0;
+      if (a === el) break;
+    }
+    return { context: own, z };
   }
-  return z;
+  // the editor is a stacking context itself: beside it, at its level, in the one around it
+  return { context: contextOf(el.parentElement), z: parseInt(getComputedStyle(el).zIndex, 10) || 0 };
 }
 
 /** Index of the first of `n` top-to-bottom items whose bottom reaches `top`. */
@@ -291,7 +333,7 @@ interface RootState {
   /** rendered MathML per formula, filled in as formulas come into view */
   html: (string | null | undefined)[];
   clippers: Element[];
-  z: number;
+  stacking: { context: Element; z: number };
   checked: number;
   generation: number;
   /** how long reading the text took last time, and when that was */
@@ -299,6 +341,15 @@ interface RootState {
   readAt: number;
   /** the boxes drawn for it last frame (kept as they are while a slow read waits) */
   drawn: { html: string; box: HTMLElement }[];
+}
+
+/** Where boxes are drawn: a host element placed in the page's stacking, with a shadow root. */
+interface Layer {
+  host: HTMLElement;
+  /** fills the window (or the transformed context it is fixed to) */
+  frame: HTMLElement;
+  /** holds the boxes, offset so that window coordinates land in the right place */
+  el: HTMLElement;
 }
 
 /** Per-frame measurements of the editor itself. */
@@ -318,7 +369,8 @@ export class InlineRender {
   private frame = 0;
   private timer = 0;
   private laterTimer = 0;
-  private layers = new Map<number, HTMLElement>();
+  /** layers by the stacking context they're in, then z-index */
+  private layers = new Map<Element, Map<number, Layer>>();
   /** boxes on screen, by the MathML they show (a box moves with its formula as text is typed before it) */
   private boxes = new Map<string, HTMLElement[]>();
   private states = new WeakMap<Element, RootState>();
@@ -397,7 +449,7 @@ export class InlineRender {
     this.laterTimer = 0;
     cancelAnimationFrame(this.frame);
     this.frame = 0;
-    for (const host of this.layers.values()) host.remove();
+    for (const byZ of this.layers.values()) for (const l of byZ.values()) l.host.remove();
     for (const m of this.mirrors.values()) m.el.remove();
     this.layers.clear();
     this.boxes.clear();
@@ -466,7 +518,7 @@ export class InlineRender {
     let st = this.states.get(root);
     if (!st) {
       st = {
-        stale: true, dom: null, value: null, formulas: [], html: [], clippers: [], z: 0, checked: -Infinity, generation: -1,
+        stale: true, dom: null, value: null, formulas: [], html: [], clippers: [], stacking: { context: root.ownerDocument.documentElement, z: 0 }, checked: -Infinity, generation: -1,
         cost: 0, readAt: -Infinity, drawn: [],
       };
       this.states.set(root, st);
@@ -477,7 +529,7 @@ export class InlineRender {
     const now = performance.now();
     if (st.stale || now - st.checked > RECHECK) {
       st.clippers = clippersOf(root);
-      st.z = zIndexFor(root);
+      st.stacking = stackingFor(root);
       st.checked = now;
     }
     if (!st.stale) return st;
@@ -558,7 +610,7 @@ export class InlineRender {
     };
     const items = isField(root) ? this.fieldItems(root, st, frame) : this.domItems(root, st, frame);
     if (!items.length) return;
-    const layer = this.layer(st.z);
+    const layer = this.layer(st.stacking);
     for (const item of items) st.drawn.push({ html: item.html, box: this.draw(layer, item, old) });
   }
 
@@ -800,25 +852,36 @@ export class InlineRender {
     return h;
   }
 
-  private layer(z: number): HTMLElement {
-    let layer = this.layers.get(z);
-    if (!layer) {
+  /** The layer for a place in the page's stacking, made (and put there) the first time. */
+  private layer({ context, z }: { context: Element; z: number }): Layer {
+    let byZ = this.layers.get(context);
+    if (!byZ) this.layers.set(context, (byZ = new Map()));
+    let layer = byZ.get(z);
+    if (!layer || !layer.host.isConnected) {
       const host = this.doc.createElement("div");
       host.setAttribute("data-web-laas-render", "");
-      host.style.cssText = `all: initial; position: fixed; inset: 0; pointer-events: none; z-index: ${z};`;
+      host.style.cssText = `all: initial; position: fixed; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: ${z};`;
       const shadow = host.attachShadow({ mode: "closed" });
       const style = this.doc.createElement("style");
       style.textContent = CSS;
-      layer = this.doc.createElement("div");
-      layer.className = "layer";
-      shadow.append(style, layer);
-      this.doc.documentElement.append(host);
-      this.layers.set(z, layer);
+      const frame = this.doc.createElement("div");
+      frame.className = "layer";
+      const boxes = this.doc.createElement("div");
+      boxes.className = "boxes";
+      frame.append(boxes);
+      shadow.append(style, frame);
+      // last in its context: of equal z-index, the later one paints on top
+      context.append(host);
+      layer = { host, frame, el: boxes };
+      byZ.set(z, layer);
     }
+    // in a context with a transform, "fixed" is relative to it, not the window: offset back
+    const r = layer.frame.getBoundingClientRect();
+    layer.el.style.transform = r.left || r.top ? `translate(${-r.left}px, ${-r.top}px)` : "";
     return layer;
   }
 
-  private draw(layer: HTMLElement, item: Item, old: Map<string, HTMLElement[]>): HTMLElement {
+  private draw(layer: Layer, item: Item, old: Map<string, HTMLElement[]>): HTMLElement {
     // reuse a box showing the same formula: no new MathML, no measuring
     let box = old.get(item.html)?.pop();
     if (!box) {
@@ -826,7 +889,7 @@ export class InlineRender {
       box.className = "box";
       box.innerHTML = `<span class="m">${item.html}</span>`;
     }
-    if (box.parentElement !== layer) layer.append(box);
+    if (box.parentElement !== layer.el) layer.el.append(box);
     let list = this.boxes.get(item.html);
     if (!list) this.boxes.set(item.html, (list = []));
     list.push(box);

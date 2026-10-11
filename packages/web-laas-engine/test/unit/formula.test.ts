@@ -161,6 +161,14 @@ describe("findFormulas edge cases", () => {
     expect(latex("``a ` $x$ ``  $y$", false)).toEqual(["y"]);
   });
 
+  it("a fenced code block is skipped to its closing fence, blank lines and all", () => {
+    expect(latex("```tex\n$a$\n\n$b$\n```\n$c$", false)).toEqual(["c"]);
+    expect(latex("  ~~~~\n$a$\n~~~\n$b$\n~~~~\n$c$", false)).toEqual(["c"]); // a shorter fence doesn't close it
+    expect(latex("````\n$a$\n\n", false)).toEqual([]); // unclosed: to the end
+    expect(latex("text ``` $a$ ``` $b$", false)).toEqual(["b"]); // mid-line: an inline code span
+    expect(latex("```\n$a$\n```\n$b$", true)).toEqual(["a", "b"]); // LaTeX has no fences
+  });
+
   it("an empty pair is passed over, closer and all", () => {
     expect(latex("$ $ and $x$")).toEqual(["x"]);
     expect(latex("$$  $$ then $$y$$")).toEqual(["y"]);

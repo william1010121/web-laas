@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { clippersOf, domText, formulasIn, InlineRender, splitPieces, zIndexFor } from "../../src/preview/inline";
+import { clippersOf, domText, formulasIn, InlineRender, splitPieces, stackingFor } from "../../src/preview/inline";
 
 const html = (s: string) => {
   const el = document.createElement("div");
@@ -113,16 +113,29 @@ describe("text field mirror", () => {
   });
 });
 
-describe("zIndexFor", () => {
-  it("counts the editor's own stacking context, and the outermost one wins", () => {
-    const outer = html('<textarea style="position:relative;z-index:3"></textarea>');
-    document.body.append(outer);
-    const ta = outer.querySelector("textarea")!;
-    expect(zIndexFor(ta)).toBe(3);
-    outer.style.position = "relative";
-    outer.style.zIndex = "7";
-    expect(zIndexFor(ta)).toBe(7);
-    outer.remove();
+describe("stackingFor", () => {
+  it("places the layer in the stacking context the editor paints in", () => {
+    const wrap = html('<textarea style="position:relative;z-index:3"></textarea>');
+    document.body.append(wrap);
+    const ta = wrap.querySelector("textarea")!;
+    // the editor is a context of its own: beside it, at its level, in the page's context
+    expect(stackingFor(ta)).toEqual({ context: document.documentElement, z: 3 });
+    // ... or in its container's
+    wrap.style.cssText = "position:relative;z-index:7";
+    expect(stackingFor(ta)).toEqual({ context: wrap, z: 3 });
+    // a plain editor in a dialog: inside the dialog, under the dialog's own popups
+    ta.style.cssText = "";
+    wrap.style.cssText = "position:fixed;z-index:1000";
+    expect(stackingFor(ta)).toEqual({ context: wrap, z: 0 });
+    // text on a level of its own inside the editor (CodeMirror 5's lines): above that level
+    const ed = html('<div class="ed"><pre style="position:relative;z-index:2"><span>line</span></pre></div>');
+    wrap.append(ed);
+    expect(stackingFor(ed.firstElementChild!)).toEqual({ context: wrap, z: 2 });
+    ed.remove();
+    // nothing anywhere: the page's context
+    wrap.style.cssText = "";
+    expect(stackingFor(ta)).toEqual({ context: document.documentElement, z: 0 });
+    wrap.remove();
   });
 });
 

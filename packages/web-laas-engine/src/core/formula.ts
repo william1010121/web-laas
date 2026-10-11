@@ -134,6 +134,19 @@ export function findFormulas(text: string, opts: { comments?: boolean } = {}): F
       i = nl;
       continue;
     }
+    // a fenced code block (``` or ~~~ opening a line) runs to its closing fence, blank lines and all
+    if ((c === "`" || c === "~") && !comments && /^ {0,3}$/.test(text.slice(text.lastIndexOf("\n", i - 1) + 1, i))) {
+      let len = 0;
+      while (text[i + len] === c) len++;
+      if (len >= 3) {
+        const mark = c === "`" ? "`" : "~";
+        const closer = new RegExp(`\\n {0,3}${mark}{${len},}[ \\t]*(?=\\n|$)`, "g");
+        closer.lastIndex = i + len;
+        const m = closer.exec(text);
+        i = m ? m.index + m[0].length : n; // an unclosed fence runs to the end
+        continue;
+      }
+    }
     if (c === "`" && !comments) {
       let len = 1;
       while (text[i + len] === "`") len++;
