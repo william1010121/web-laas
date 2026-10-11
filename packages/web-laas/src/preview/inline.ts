@@ -267,6 +267,20 @@ function visibleArea(view: Window, clippers: Element[]): Rect {
 
 const set = (v: string) => !!v && v !== "none" && v !== "normal" && v !== "auto";
 
+/** Is `el` (or what holds it) rotated, skewed or flipped, so a box can't be placed over it by its bounding rectangle? */
+function turned(el: Element): boolean {
+  if (typeof DOMMatrixReadOnly === "undefined") return false;
+  for (let a: Element | null = el; a; a = up(a)) {
+    const t = getComputedStyle(a).transform;
+    if (!set(t)) continue;
+    try {
+      const m = new DOMMatrixReadOnly(t);
+      if (m.b || m.c || m.a < 0 || m.d < 0 || (!m.is2D && (m.m13 || m.m23 || m.m31 || m.m32))) return true;
+    } catch {}
+  }
+  return false;
+}
+
 /** Does `el` start a stacking context of its own? */
 function formsContext(el: Element, cs: CSSStyleDeclaration): boolean {
   const parent = up(el);
@@ -278,11 +292,15 @@ function formsContext(el: Element, cs: CSSStyleDeclaration): boolean {
     parseFloat(cs.opacity) < 1 ||
     set(cs.transform) ||
     set(cs.filter) ||
+    set(cs.backdropFilter) ||
     set(cs.perspective) ||
+    set(cs.clipPath) ||
+    set(cs.maskImage) ||
+    set(cs.getPropertyValue("-webkit-mask-image")) ||
     cs.isolation === "isolate" ||
     set(cs.mixBlendMode) ||
     /\b(paint|layout|strict|content)\b/.test(cs.contain || "") ||
-    /transform|opacity|filter|perspective/.test(cs.willChange || "")
+    /transform|opacity|filter|perspective|clip-path|mask/.test(cs.willChange || "")
   );
 }
 
@@ -411,6 +429,8 @@ interface RootState {
   stacking: { context: Element; z: number };
   /** the stacking of text in its elements (a rich editor's text may sit on several levels) */
   levels: Map<Element, { context: Element; z: number }>;
+  /** the editor is rotated, skewed or flipped: boxes can't be placed over its text, none are drawn */
+  turned: boolean;
   checked: number;
   generation: number;
   /** how long reading the text took last time, and when that was */
@@ -648,7 +668,7 @@ export class InlineRender {
     let st = this.states.get(root);
     if (!st) {
       st = {
-        stale: true, dom: null, value: null, formulas: [], html: [], clippers: [], stacking: { context: root.ownerDocument.documentElement, z: 0 }, levels: new Map(), checked: -Infinity, generation: -1,
+        stale: true, dom: null, value: null, formulas: [], html: [], clippers: [], stacking: { context: root.ownerDocument.documentElement, z: 0 }, levels: new Map(), turned: false, checked: -Infinity, generation: -1,
         cost: 0, readAt: -Infinity, drawn: [], near: [0, 0],
       };
       this.states.set(root, st);
@@ -661,6 +681,7 @@ export class InlineRender {
       st.clippers = clippersOf(root);
       st.stacking = stackingFor(root);
       st.levels = new Map();
+      st.turned = turned(root);
       st.checked = now;
     }
     if (!st.stale) return st;
@@ -727,7 +748,7 @@ export class InlineRender {
       return;
     }
     st.drawn = [];
-    if (!st.formulas.length) return;
+    if (!st.formulas.length || st.turned) return;
     const area = visibleArea(this.doc.defaultView!, st.clippers);
     if (empty(area)) return;
     const r = root.getBoundingClientRect();
@@ -745,7 +766,15 @@ export class InlineRender {
     };
     const items = isField(root) ? this.fieldItems(root, st, frame) : this.domItems(root, st, frame);
     if (!items.length) return;
-    for (const item of items) st.drawn.push({ html: item.html, box: this.draw(this.layer(item.stacking ?? st.stacking), item, old) });
+    // every layer measured before any box is written (one layout), each once
+    const layers = new Map<object, Layer>();
+    const layerOf = (at: { context: Element; z: number }) => {
+      let layer = layers.get(at);
+      if (!layer) layers.set(at, (layer = this.layer(at)));
+      return layer;
+    };
+    const placed = items.map((item) => [item, layerOf(item.stacking ?? st.stacking)] as const);
+    for (const [item, layer] of placed) st.drawn.push({ html: item.html, box: this.draw(layer, item, old) });
   }
 
   /** Is the editor focused (its caret is the one that counts)? */

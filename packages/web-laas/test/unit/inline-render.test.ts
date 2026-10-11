@@ -149,6 +149,9 @@ describe("stackingFor", () => {
     expect(stackingFor(rich)).toEqual({ context: wrap, z: 0 });
     expect(stackingFor(rich, rich.querySelector("span"))).toEqual({ context: wrap, z: 2 });
     rich.remove();
+    // clip-path makes a context too (the boxes must be clipped with the editor)
+    wrap.style.cssText = "clip-path: inset(0)";
+    expect(stackingFor(ta).context).toBe(wrap);
     wrap.style.cssText = "";
     wrap.remove();
   });

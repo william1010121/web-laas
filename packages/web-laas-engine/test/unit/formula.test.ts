@@ -235,6 +235,12 @@ describe("the formula open where CodeMirror's drawn lines resume", async () => {
     expect(latex("\\verb|a\n$z$")).toEqual(["z"]);
   });
 
+  it("an indented code block may start with spaces then a tab", () => {
+    const latex = (s: string) => findFormulas(s, { comments: false }).map((f) => f.latex);
+    expect(latex("a\n\n \t$not$\n  \t$no$\n\n$x$")).toEqual(["x"]);
+    expect(latex("a\n\n   $y$")).toEqual(["y"]); // 3 spaces: not code
+  });
+
   it("verbatim-style environments are literal text", () => {
     const latex = (s: string) => findFormulas(s, { comments: true }).map((f) => f.latex);
     expect(latex("\\begin{verbatim}\n$not$\n\n$math$\n\\end{verbatim} $x$")).toEqual(["x"]);

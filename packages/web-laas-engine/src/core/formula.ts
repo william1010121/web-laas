@@ -148,9 +148,10 @@ export function findFormulas(text: string, opts: { comments?: boolean } = {}): F
       i = nl;
       continue;
     }
-    // an indented code block: lines of 4+ spaces (or a tab) after a blank line, up to the next unindented one
+    // an indented code block: lines indented 4+ columns after a blank line, up to the next unindented one
     if (!comments && (c === " " || c === "\t") && (i === 0 || text[i - 1] === "\n") && blankBefore(text, i)) {
-      const line = /^(?: {4}|\t)[^\n]*/.exec(text.slice(i, i + 4096));
+      // (indented 4 columns: a tab reaches the next stop, so " \t" counts as well as "    ")
+      const line = /^(?: {0,3}\t| {4})[^\n]*/.exec(text.slice(i, i + 4096));
       if (line && line[0].trim()) {
         let j = i;
         for (;;) {
@@ -161,7 +162,7 @@ export function findFormulas(text: string, opts: { comments?: boolean } = {}): F
           }
           const next = text.slice(eol + 1, text.indexOf("\n", eol + 1) < 0 ? n : text.indexOf("\n", eol + 1));
           j = eol + 1;
-          if (next.trim() && !/^(?: {4}|\t)/.test(next)) break;
+          if (next.trim() && !/^(?: {0,3}\t| {4})/.test(next)) break;
         }
         i = j;
         continue;
