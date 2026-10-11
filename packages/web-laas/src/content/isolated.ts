@@ -21,6 +21,17 @@ declare global {
 
 // The background re-injects this script into tabs that were open before the
 // extension was (re)loaded; skip if a live copy is already here.
+const MATH_HINT = /\$|\\[([]|\\begin\s*\{/;
+
+/** Does any editor on the page contain something that looks like math? */
+function editorsHaveMath(): boolean {
+  for (const el of document.querySelectorAll<HTMLElement>(".cm-content, .CodeMirror-code, textarea, [contenteditable]")) {
+    const text = el instanceof HTMLTextAreaElement ? el.value : el.isContentEditable || el.classList.contains("CodeMirror-code") ? el.textContent : "";
+    if (text && MATH_HINT.test(text)) return true;
+  }
+  return false;
+}
+
 if (!window.__webLaasIsolatedAlive?.()) {
   window.__webLaasIsolatedAlive = alive;
   start();
@@ -32,6 +43,8 @@ function start() {
   document.querySelectorAll("[data-web-laas-preview]").forEach((el) => el.remove());
   async function send() {
     const state = await loadState();
+    renderWanted = state.enabled && state.prefs.inlineRender;
+    if (renderWanted) checkForMath();
     document.dispatchEvent(new CustomEvent("web-laas:state", { detail: JSON.stringify(state) }));
   }
   // A main-world script from a build before the versioned hand-over can't be
@@ -42,11 +55,27 @@ function start() {
 
   // The first time the caret is in math here, load the live preview into this frame.
   let previewRequested = false;
-  document.addEventListener("web-laas:formula", (e) => {
-    if (previewRequested || !alive() || (e as CustomEvent<string>).detail === "null") return;
+  const loadPreview = () => {
+    if (previewRequested || !alive()) return;
     previewRequested = true;
     chrome.runtime.sendMessage({ type: "load-preview" } satisfies BackgroundMessage).catch(() => (previewRequested = false));
+  };
+  document.addEventListener("web-laas:formula", (e) => {
+    if ((e as CustomEvent<string>).detail !== "null") loadPreview();
   });
+  // Rendering formulas in place needs it too, as soon as an editor holds math.
+  let renderWanted = false;
+  let checkTimer = 0;
+  const checkForMath = () => {
+    clearTimeout(checkTimer);
+    checkTimer = window.setTimeout(() => {
+      if (renderWanted && !previewRequested && editorsHaveMath()) loadPreview();
+    }, 300);
+  };
+  for (const type of ["focusin", "input"]) document.addEventListener(type, checkForMath, true);
+  // editors in web apps show up (and fill) a while after the page loads
+  let checks = 0;
+  const poll = window.setInterval(() => (previewRequested || ++checks > 20 ? clearInterval(poll) : checkForMath()), 3000);
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && Object.keys(changes).some((k) => (STORAGE_KEYS as readonly string[]).includes(k))) void send();
   });

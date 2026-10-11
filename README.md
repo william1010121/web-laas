@@ -44,8 +44,10 @@ one-to-one from the Emacs packages, not approximated — and the same <kbd>Tab</
 - **See what you're editing.** A small floating preview renders the formula under the caret as you type, with the caret
   marked and empty fields shown as □ — above the caret, below it, or in the corner (your choice). It follows your
   light/dark theme; <kbd>Esc</kbd> hides it until you type again.
+- **Read it typeset.** Formulas the caret isn't in are drawn rendered, right over their LaTeX source; move the caret
+  into one (or click it) and the source is back. Turn it off in the settings page.
 - **Your delimiters, per site.** Pick what ` mk` and ` dm` insert right in the toolbar popup — `$…$` or `\(…\)`,
-  `$$…$$`, `\[…\]`, `equation*` or `align` — and each site remembers its own choice.
+  `$$…$$`, `\[…\]`, `equation*` or `align*` — and each site remembers its own choice.
 - **A cheat sheet one key away.** <kbd>⌥</kbd><kbd>⇧</kbd><kbd>K</kbd> shows every snippet available on the current site,
   searchable, with the math rendered.
 - **Yours to configure.** Write snippets like an Emacs config, try them in a live playground, turn sets on and off.

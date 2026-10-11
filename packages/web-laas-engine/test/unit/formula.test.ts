@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formulaAt } from "../../src/core/formula";
+import { findFormulas, formulaAt } from "../../src/core/formula";
 
 /** "|" marks the caret; returns the formula with the caret re-inserted */
 const at = (s: string, opts?: { comments?: boolean }) => {
@@ -87,5 +87,50 @@ describe("formulaAt", () => {
     expect(at("plain |text")).toBeNull();
     expect(at("$a$ |b")).toBeNull();
     expect(at("$\\text{wo|rd}$")).toBeNull();
+  });
+});
+
+describe("findFormulas", () => {
+  const spans = (s: string, opts?: { comments?: boolean }) =>
+    findFormulas(s, opts).map((f) => [s.slice(f.from, f.to), f.latex, f.display, f.env]);
+
+  it("finds every kind of delimiter", () => {
+    const s = "a $x$ b \\(y\\) $$z$$ \\[w\\]\n\\begin{align*}\na &= b\n\\end {align*} \\begin{math}m\\end{math}";
+    expect(spans(s)).toEqual([
+      ["$x$", "x", false, undefined],
+      ["\\(y\\)", "y", false, undefined],
+      ["$$z$$", "z", true, undefined],
+      ["\\[w\\]", "w", true, undefined],
+      ["\\begin{align*}\na &= b\n\\end {align*}", "\na &= b\n", true, "align*"],
+      ["\\begin{math}m\\end{math}", "m", false, "math"],
+    ]);
+  });
+
+  it("skips escapes, non-math environments and unclosed openers", () => {
+    expect(spans("\\$5 \\\\ \\begin{itemize} $a$ \\end{itemize}")).toEqual([["$a$", "a", false, undefined]]);
+    expect(spans("open $a\n\nnext $b$")).toEqual([["$b$", "b", false, undefined]]);
+    expect(spans("$$\n\n$$")).toEqual([]);
+  });
+
+  it("Markdown: prices stay text, code spans are skipped", () => {
+    expect(spans("costs $5 and $10 today")).toEqual([]);
+    expect(spans("$ x$ and $5 or $y $ z")).toEqual([]);
+    expect(spans("a $x$, $y$.")).toHaveLength(2);
+    expect(spans("costs $10.\nThen $a^2$ ok")).toEqual([["$a^2$", "a^2", false, undefined]]);
+    expect(spans("$a\nb$", { comments: true })).toHaveLength(1); // LaTeX allows it
+    expect(spans("`$a$` and ``x ` $b$`` then $c$")).toEqual([["$c$", "c", false, undefined]]);
+  });
+
+  it("LaTeX: comments hide delimiters, $ x $ is math", () => {
+    expect(spans("% $a$\n$ b $", { comments: true })).toEqual([["$ b $", " b ", false, undefined]]);
+    expect(spans("$x$ % $y$", { comments: true })).toEqual([["$x$", "x", false, undefined]]);
+  });
+
+  it("text arguments inside math don't end it", () => {
+    expect(spans("$a \\text{ $b$ } c$ d")).toEqual([["$a \\text{ $b$ } c$", "a \\text{ $b$ } c", false, undefined]]);
+  });
+
+  it("$x$$y$ is two formulas", () => {
+    expect(spans("$x$$y$").map((f) => f[1])).toEqual(["x", "y"]);
   });
 });

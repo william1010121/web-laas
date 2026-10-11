@@ -22,6 +22,16 @@ describe("prepareLatex", () => {
     expect(prep("x^{2|}").withCaret).toBe(`x^{2${MARK}}`);
   });
 
+  it("keeps the mark out of a command's argument list", () => {
+    expect(prep("\\frac|{1}{2}").withCaret).toBe(`\\frac{${MARK}1}{2}`);
+    expect(prep("\\frac{1}|{2}").withCaret).toBe(`\\frac{1}{${MARK}2}`);
+    expect(prep("x^|{2}").withCaret).toBe(`x^{${MARK}2}`);
+  });
+
+  it("leaves empty groups alone without an accent (finished formulas)", () => {
+    expect(prepareLatex({ latex: "{}^{14}C", caret: 0 }, "").plain).toBe("{}^{14}C");
+  });
+
   it("never splits a command name", () => {
     expect(prep("\\alp|ha").withCaret).toBeNull();
     expect(prep("a + \\|").withCaret).toBeNull();

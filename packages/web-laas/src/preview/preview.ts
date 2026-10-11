@@ -19,9 +19,9 @@ const ALIGNED = /^(align|flalign|eqnarray|split)\*?$/;
 const ALIGNAT = /^(x?x?alignat)\*?$/;
 const GATHERED = /^(gather|multline)\*?$/;
 
-/** LaTeX to render: with a caret mark (when it can sit there) and without. */
+/** LaTeX to render: with a caret mark (when it can sit there) and without. An empty `accent` leaves {} unmarked. */
 export function prepareLatex(f: Pick<PreviewFormula, "latex" | "caret" | "env">, accent: string) {
-  const fill = (s: string) => s.replace(/\{\}/g, `{\\color{${accent}}\\square}`);
+  const fill = (s: string) => (accent ? s.replace(/\{\}/g, `{\\color{${accent}}\\square}`) : s);
   // alignat's {n} column count belongs to the alignedat wrapper, not the body
   const cols = f.env && ALIGNAT.test(f.env) ? /^\s*\{\s*\d+\s*\}/.exec(f.latex)?.[0] ?? "" : "";
   if (cols && f.caret < cols.length) f = { ...f, caret: cols.length };
@@ -35,8 +35,13 @@ export function prepareLatex(f: Pick<PreviewFormula, "latex" | "caret" | "env">,
       : f.env && GATHERED.test(f.env)
         ? `\\begin{gathered}${s}\\end{gathered}`
         : s;
-  const before = body.slice(0, caret);
-  const after = body.slice(caret);
+  let before = body.slice(0, caret);
+  let after = body.slice(caret);
+  // \frac|{1}{2}, \frac{1}|{2}, x^|{2}: a mark here would become the argument; put it inside the group
+  if (after.startsWith("{") && /(\\[A-Za-z]+\*?|[}\]^_])$/.test(before)) {
+    before += "{";
+    after = after.slice(1);
+  }
   // not in the middle of a \command name, nor right after a lone backslash
   const midCommand = /\\[A-Za-z]*$/.test(before) && (/^[A-Za-z]/.test(after) || /\\$/.test(before));
   // a solid bar, wider than a \\vert so it reads as the caret at a glance

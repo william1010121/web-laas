@@ -40,6 +40,7 @@ const builds = [
     entryPoints: {
       "overlay-preview": "test/preview/src/overlay-preview.ts",
       "live-preview": "test/preview/src/live-preview.ts",
+      "inline-render": "test/preview/src/inline-render.ts",
     },
     outdir: "test/preview/dist",
   },

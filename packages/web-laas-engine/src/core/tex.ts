@@ -10,7 +10,7 @@ export interface MathContext {
   openLen?: number;
 }
 
-const MATH_ENVS = new Set([
+export const MATH_ENVS = new Set([
   "equation", "equation*", "align", "align*", "gather", "gather*",
   "multline", "multline*", "flalign", "flalign*", "alignat", "alignat*", "xalignat", "xalignat*", "xxalignat",
   "eqnarray", "eqnarray*", "displaymath", "math", "dmath", "dmath*",

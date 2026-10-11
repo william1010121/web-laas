@@ -1,0 +1,24 @@
+<!doctype html>
+<!-- Formulas rendered over their source in five kinds of editors. -->
+<html><head><meta charset="utf-8"><title>inline render</title>
+<link rel="stylesheet" href="dist/inline-render.css">
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 24px 40px; background: #f7f7f5; color: #222; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  h2 { font-size: 14px; margin: 0 0 6px; color: #666; }
+  .cm-editor, .CodeMirror, textarea, #ce, #pm .ProseMirror { background: #fff; border: 1px solid #ccc; border-radius: 6px; }
+  .cm-editor { height: 300px; } .CodeMirror { height: 300px; font: 13px/1.5 ui-monospace, Menlo, monospace; }
+  textarea { box-sizing: border-box; width: 100%; height: 300px; font: 13px/1.5 ui-monospace, Menlo, monospace; padding: 8px; }
+  #ce, #pm .ProseMirror { padding: 8px; height: 300px; overflow: auto; white-space: pre-wrap; }
+  #pm p { margin: 0; }
+</style></head>
+<body>
+<div class="grid">
+  <div><h2>CodeMirror 6 (Overleaf)</h2><div id="cm6"></div></div>
+  <div><h2>CodeMirror 5 (HackMD)</h2><div id="cm5"></div></div>
+  <div><h2>textarea</h2><textarea id="ta" spellcheck="false"></textarea></div>
+  <div><h2>contenteditable (Notion)</h2><div id="ce" contenteditable="true" spellcheck="false"></div></div>
+  <div><h2>ProseMirror (ChatGPT / Claude)</h2><div id="pm"></div></div>
+</div>
+<script src="dist/inline-render.js"></script>
+</body></html>
