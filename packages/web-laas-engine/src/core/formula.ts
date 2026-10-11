@@ -47,6 +47,9 @@ function findCloser(text: string, closer: string, comments: boolean, from = 0, t
   for (let i = from; i < to; i++) {
     const c = text[i];
     if (c !== "%" && c !== "\\" && c !== closer[0]) continue;
+    // in a run of backslashes only the last can start a command or a closer: go there at once,
+    // so a long run is walked twice in all, not once per backslash
+    if (c === "\\") while (i + 1 < to && text[i + 1] === "\\") i++;
     const unescaped = unescapedAt(text, i);
     if (comments && c === "%" && unescaped) {
       const nl = text.indexOf("\n", i);

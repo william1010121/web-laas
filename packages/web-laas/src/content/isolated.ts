@@ -60,6 +60,7 @@ function start() {
   async function send() {
     const state = await loadState();
     renderWanted = state.enabled && state.prefs.inlineRender;
+    siteOff = false; // the settings changed: ask again
     if (renderWanted) checkForMath();
     document.dispatchEvent(new CustomEvent("web-laas:state", { detail: JSON.stringify(state) }));
   }
@@ -71,10 +72,19 @@ function start() {
 
   // The first time the caret is in math here, load the live preview into this frame.
   let previewRequested = false;
+  // the engine is off on this site (the background said so): no looking for math until the settings change
+  let siteOff = false;
   const loadPreview = () => {
-    if (previewRequested || !alive()) return;
+    if (previewRequested || siteOff || !alive()) return;
     previewRequested = true;
-    chrome.runtime.sendMessage({ type: "load-preview" } satisfies BackgroundMessage).catch(() => (previewRequested = false));
+    chrome.runtime
+      .sendMessage({ type: "load-preview" } satisfies BackgroundMessage)
+      .then((loading: unknown) => {
+        if (loading !== false) return;
+        previewRequested = false;
+        siteOff = true;
+      })
+      .catch(() => (previewRequested = false));
   };
   document.addEventListener("web-laas:formula", (e) => {
     if ((e as CustomEvent<string>).detail !== "null") loadPreview();
@@ -83,6 +93,7 @@ function start() {
   let renderWanted = false;
   let checkTimer = 0;
   const checkForMath = () => {
+    if (!renderWanted || siteOff || previewRequested) return;
     clearTimeout(checkTimer);
     checkTimer = window.setTimeout(() => {
       if (renderWanted && !previewRequested && editorsHaveMath()) loadPreview();

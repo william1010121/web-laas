@@ -1,4 +1,4 @@
-import { hostMatches } from "web-laas-engine";
+import { compileConfig, hostMatches } from "web-laas-engine";
 import {
   loadState,
   saveState,
@@ -24,6 +24,21 @@ async function assignedShortcuts(): Promise<Partial<Record<CommandName, string>>
 
 async function shortcutLabel(command: CommandName): Promise<string> {
   return (await assignedShortcuts())[command] ?? FALLBACK_KEYS[command];
+}
+
+/** Is the engine on for the frame at `url` (not paused, not off by the toolbar or the config's disabledSites)? */
+async function previewWanted(url: string | undefined): Promise<boolean> {
+  const { enabled, disabledHosts, configText } = await loadState();
+  if (!enabled) return false;
+  let host = "";
+  try {
+    host = url ? new URL(url).hostname : "";
+  } catch {}
+  let disabledSites: string[] = [];
+  try {
+    disabledSites = compileConfig(configText).config?.disabledSites ?? [];
+  } catch {}
+  return ![...disabledHosts, ...disabledSites].some((p) => hostMatches(host, p));
 }
 
 // ── icon / badge ────────────────────────────────────────────────────────
@@ -138,11 +153,16 @@ chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, reply) => 
     })();
   } else if (msg?.type === "load-preview") {
     const tabId = sender.tab?.id;
-    if (tabId !== undefined) {
-      void chrome.scripting
+    if (tabId === undefined) return;
+    void (async () => {
+      // not where the engine is off (the preview would stay idle): replies whether it's loading
+      if (!(await previewWanted(sender.url))) return reply(false);
+      reply(true);
+      await chrome.scripting
         .executeScript({ target: { tabId, frameIds: [sender.frameId ?? 0] }, files: ["preview.js"], injectImmediately: true })
         .catch(() => {});
-    }
+    })();
+    return true; // async reply
   } else if (msg?.type === "shortcuts") {
     void assignedShortcuts().then(reply);
     return true; // async reply

@@ -146,6 +146,17 @@ describe("findFormulas on long text", () => {
     // linear: well under a second for 700k characters (it was minutes when quadratic)
     expect(performance.now() - t).toBeLessThan(2000);
   });
+
+  it("walks a long run of backslashes once, and still pairs escapes", () => {
+    const run = "\\".repeat(200000); // 200k backslashes: \\ pairs, so the $ after them closes
+    const t = performance.now();
+    const fs = findFormulas(`$a${run}$ b \\(c${run}\\) \\(d\\${run}\\) e`, { comments: true });
+    expect(performance.now() - t).toBeLessThan(500);
+    // the second \( is never closed: its \) is preceded by an even run, so the ) is escaped
+    expect(fs.map((f) => f.latex.length)).toEqual([run.length + 1, run.length + 1]);
+    // an odd run escapes what follows
+    expect(findFormulas(`$a\\\\\\$ b$`, { comments: true }).map((f) => f.latex)).toEqual(["a\\\\\\$ b"]);
+  });
 });
 
 describe("findFormulas edge cases", () => {
