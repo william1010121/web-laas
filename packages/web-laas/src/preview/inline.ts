@@ -247,7 +247,19 @@ function backgroundOf(el: Element | null): string {
 /** The elements that cut off what of `el` shows: scroll containers around it, and itself if it scrolls. */
 export function clippersOf(el: Element): Element[] {
   const out: Element[] = [];
-  for (let a: Element | null = el; a && a !== el.ownerDocument.documentElement; a = up(a)) {
+  const doc = el.ownerDocument;
+  // <body>'s overflow applies to the viewport (already the limit) when <html> leaves its own
+  // visible: then <body> clips nothing, and its box may even be 0 tall (JupyterLab)
+  const html = getComputedStyle(doc.documentElement);
+  const body = doc.body ? getComputedStyle(doc.body) : null;
+  // (containment on either stops the propagation: then <body> clips itself)
+  // (container-type: size / inline-size contains as well, with contain still none; scroll-state doesn't)
+  const contained = (cs: CSSStyleDeclaration | null) =>
+    (!!cs?.contain && cs.contain !== "none") || /\b(size|inline-size)\b/.test(cs?.containerType ?? "");
+  const bodyToViewport =
+    !!body && [html.overflow, html.overflowX, html.overflowY].every((v) => !v || v === "visible") && !contained(html) && !contained(body);
+  for (let a: Element | null = el; a && a !== doc.documentElement; a = up(a)) {
+    if (a === doc.body && bodyToViewport) continue;
     const cs = getComputedStyle(a);
     const scrolls = [cs.overflowX, cs.overflowY, cs.overflow].some((v) => v && v !== "visible");
     if (isField(a) || scrolls) out.push(a);
@@ -947,6 +959,7 @@ export class InlineRender {
       focused && root.classList.contains("CodeMirror-code")
         ? [...root.closest(".CodeMirror")!.querySelectorAll(".CodeMirror-cursor, .CodeMirror-selected")].map((e) => e.getBoundingClientRect())
         : [];
+    const code = root.classList.contains("cm-content") || root.classList.contains("CodeMirror-code");
     const items: Item[] = [];
     for (let i = first; i < fs.length; i++) {
       const rg = range(i);
@@ -968,8 +981,9 @@ export class InlineRender {
       let faded = st.faded.get(host);
       if (faded === undefined) st.faded.set(host, (faded = fadedWithin(host, root)));
       if (faded) continue;
-      // (a heading or a coloured span in a rich editor has its own size and colour)
-      const type = this.typographyOf(host);
+      // (a heading or a coloured span in a rich editor has its own size and colour; in a code
+      // editor the spans are syntax highlighting, so the editor's own colour and size count)
+      const type = code ? { ...this.typographyOf(host), color: frame.color, fontSize: frame.fontSize } : this.typographyOf(host);
       const box = this.boxFor(rects, fs[i].display, frame, type.lineHeight, () => aloneOnLine(t.text, fs[i]));
       if (!box) continue;
       if (cm5Marks.some((m) => m.right >= box.left && m.left <= box.right && m.bottom > box.top && m.top < box.bottom)) continue;
