@@ -234,4 +234,11 @@ describe("the formula open where CodeMirror's drawn lines resume", async () => {
     // unclosed on its line: just the command
     expect(latex("\\verb|a\n$z$")).toEqual(["z"]);
   });
+
+  it("verbatim-style environments are literal text", () => {
+    const latex = (s: string) => findFormulas(s, { comments: true }).map((f) => f.latex);
+    expect(latex("\\begin{verbatim}\n$not$\n\n$math$\n\\end{verbatim} $x$")).toEqual(["x"]);
+    expect(latex("\\begin{lstlisting}[language=TeX]\n\\[a\\]\n\\end {lstlisting}\n\\[y\\]")).toEqual(["y"]);
+    expect(latex("\\begin{minted}{tex}\n$a$\n\\end{minted}$b$ \\begin{verbatim*}$c$\\end{verbatim*}")).toEqual(["b"]);
+  });
 });

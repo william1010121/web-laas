@@ -141,6 +141,15 @@ describe("stackingFor", () => {
     // nothing anywhere: the page's context
     wrap.style.cssText = "";
     expect(stackingFor(ta)).toEqual({ context: document.documentElement, z: 0 });
+    // a rich editor's text on several levels: each formula's own text decides
+    const rich = document.createElement("div");
+    rich.innerHTML = '<p>low</p><p style="position: relative; z-index: 2"><span>high</span></p>';
+    wrap.style.cssText = "position: relative; z-index: 1";
+    wrap.append(rich);
+    expect(stackingFor(rich)).toEqual({ context: wrap, z: 0 });
+    expect(stackingFor(rich, rich.querySelector("span"))).toEqual({ context: wrap, z: 2 });
+    rich.remove();
+    wrap.style.cssText = "";
     wrap.remove();
   });
 });

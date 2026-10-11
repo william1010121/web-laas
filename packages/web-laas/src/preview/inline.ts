@@ -63,6 +63,8 @@ interface Item {
   color: string;
   background: string;
   fontSize: string;
+  /** where its layer goes, when not where the editor's is (text of a rich editor on a level of its own) */
+  stacking?: { context: Element; z: number };
 }
 
 /** The text of a rich editor, line by line, with the text nodes it came from. */
@@ -288,9 +290,10 @@ function formsContext(el: Element, cs: CSSStyleDeclaration): boolean {
  * Where a layer over `el` goes so it paints just above it and below whatever
  * paints above it (an autocomplete list, a dialog): the stacking context `el`
  * paints in, at `el`'s level there. z-index only means something within one
- * context, so the layer has to be in the same one.
+ * context, so the layer has to be in the same one. `text`: a node of the
+ * editor's text whose level counts (its first text by default).
  */
-export function stackingFor(el: Element): { context: Element; z: number } {
+export function stackingFor(el: Element, text?: Node | null): { context: Element; z: number } {
   const root = el.ownerDocument.documentElement;
   const contextOf = (from: Element | null) => {
     let a = from;
@@ -303,10 +306,11 @@ export function stackingFor(el: Element): { context: Element; z: number } {
     // level of its own there (CodeMirror 5's lines are z-index: 2): the outermost stacking
     // context between some text of the editor and the editor gives it
     let z = 0;
-    const text = el.ownerDocument.createTreeWalker(el, NodeFilter.SHOW_TEXT, (n) =>
+    text ??= el.ownerDocument.createTreeWalker(el, NodeFilter.SHOW_TEXT, (n) =>
       (n as Text).data.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
     ).nextNode();
-    for (let a: Element | null = text?.parentElement ?? null; a && a !== own; a = up(a)) {
+    const start = text instanceof Element ? text : (text?.parentElement ?? null);
+    for (let a: Element | null = start; a && a !== own; a = up(a)) {
       const cs = getComputedStyle(a);
       if (formsContext(a, cs)) z = parseInt(cs.zIndex, 10) || 0;
       if (a === el) break;
@@ -315,6 +319,12 @@ export function stackingFor(el: Element): { context: Element; z: number } {
   }
   // the editor is a stacking context itself: beside it, at its level, in the one around it
   return { context: contextOf(up(el)), z: parseInt(getComputedStyle(el).zIndex, 10) || 0 };
+}
+
+/** Is the formula alone on its line(s), nothing but spaces before and after it? */
+function aloneOnLine(text: string, f: { from: number; to: number }): boolean {
+  const eol = text.indexOf("\n", f.to);
+  return /^[ \t]*$/.test(text.slice(text.lastIndexOf("\n", f.from - 1) + 1, f.from)) && /^[ \t]*$/.test(text.slice(f.to, eol < 0 ? text.length : eol));
 }
 
 /** Index of the first of `n` top-to-bottom items whose bottom reaches `top`. */
@@ -399,6 +409,8 @@ interface RootState {
   html: (string | null | undefined)[];
   clippers: Element[];
   stacking: { context: Element; z: number };
+  /** the stacking of text in its elements (a rich editor's text may sit on several levels) */
+  levels: Map<Element, { context: Element; z: number }>;
   checked: number;
   generation: number;
   /** how long reading the text took last time, and when that was */
@@ -636,7 +648,7 @@ export class InlineRender {
     let st = this.states.get(root);
     if (!st) {
       st = {
-        stale: true, dom: null, value: null, formulas: [], html: [], clippers: [], stacking: { context: root.ownerDocument.documentElement, z: 0 }, checked: -Infinity, generation: -1,
+        stale: true, dom: null, value: null, formulas: [], html: [], clippers: [], stacking: { context: root.ownerDocument.documentElement, z: 0 }, levels: new Map(), checked: -Infinity, generation: -1,
         cost: 0, readAt: -Infinity, drawn: [], near: [0, 0],
       };
       this.states.set(root, st);
@@ -648,6 +660,7 @@ export class InlineRender {
     if (st.stale || now - st.checked > RECHECK) {
       st.clippers = clippersOf(root);
       st.stacking = stackingFor(root);
+      st.levels = new Map();
       st.checked = now;
     }
     if (!st.stale) return st;
@@ -732,8 +745,7 @@ export class InlineRender {
     };
     const items = isField(root) ? this.fieldItems(root, st, frame) : this.domItems(root, st, frame);
     if (!items.length) return;
-    const layer = this.layer(st.stacking);
-    for (const item of items) st.drawn.push({ html: item.html, box: this.draw(layer, item, old) });
+    for (const item of items) st.drawn.push({ html: item.html, box: this.draw(this.layer(item.stacking ?? st.stacking), item, old) });
   }
 
   /** Is the editor focused (its caret is the one that counts)? */
@@ -808,12 +820,14 @@ export class InlineRender {
       const host = rg.startContainer.parentElement ?? root;
       // (a heading or a coloured span in a rich editor has its own size and colour)
       const type = this.typographyOf(host);
-      const box = this.boxFor(rects, fs[i].display, frame, type.lineHeight);
+      const box = this.boxFor(rects, fs[i].display, frame, type.lineHeight, () => aloneOnLine(t.text, fs[i]));
       if (!box) continue;
       if (cm5Marks.some((m) => m.right >= box.left && m.left <= box.right && m.bottom > box.top && m.top < box.bottom)) continue;
       const html = this.htmlOf(st, i);
       if (!html) continue;
-      items.push({ html, inline: !fs[i].display, scale: frame.sy, box, clip: area, color: type.color, background: this.backgroundOf(host), fontSize: type.fontSize });
+      let stacking = st.levels.get(host);
+      if (!stacking) st.levels.set(host, (stacking = stackingFor(root, host)));
+      items.push({ html, inline: !fs[i].display, scale: frame.sy, box, clip: area, color: type.color, background: this.backgroundOf(host), fontSize: type.fontSize, stacking });
     }
     return items;
   }
@@ -865,7 +879,7 @@ export class InlineRender {
       }
       // (on purpose, a caret touching the delimiters counts too, as in Obsidian: see domItems)
       if (focused && (ta.selectionStart ?? -1) <= f.to && (ta.selectionEnd ?? -1) >= f.from) continue;
-      const box = this.boxFor(rects, f.display, frame, lineHeight);
+      const box = this.boxFor(rects, f.display, frame, lineHeight, () => aloneOnLine(st.value!, f));
       const html = box && this.htmlOf(st, i);
       if (!box || !html) continue;
       items.push({ html, inline: !f.display, scale: frame.sy, box, clip: area, color: frame.color, background, fontSize: frame.fontSize });
@@ -963,8 +977,11 @@ export class InlineRender {
     m.value = value;
   }
 
-  /** Where the rendered formula goes, given the source's line boxes; null to leave it be. */
-  private boxFor(rects: DOMRect[], display: boolean, frame: Frame, lineHeight: number): Rect | null {
+  /**
+   * Where the rendered formula goes, given the source's line boxes; null to leave it be.
+   * `alone`: whether the formula has its line(s) to itself.
+   */
+  private boxFor(rects: DOMRect[], display: boolean, frame: Frame, lineHeight: number, alone: () => boolean): Rect | null {
     const box: Rect = {
       // (CodeMirror 5's line elements reach into its gutter)
       left: Math.max(frame.contentLeft, Math.min(...rects.map((r) => r.left))) - 1,
@@ -977,7 +994,9 @@ export class InlineRender {
       // one line: take its full height (the text box is shorter than the line)
       // (plus a pixel: the top of a "$" can poke out of its text box)
       const grow = Math.max(1, (lineHeight * frame.sy - (box.bottom - box.top)) / 2);
-      return { ...box, top: box.top - grow, bottom: box.bottom + grow };
+      // (display math alone on its line: centred across the editor, as on several lines)
+      const right = display && alone() ? Math.max(box.right, frame.contentRight) : box.right;
+      return { ...box, top: box.top - grow, bottom: box.bottom + grow, right };
     }
     // inline math wrapped onto two lines: a box around both would hide the text beside it
     if (!display) return null;

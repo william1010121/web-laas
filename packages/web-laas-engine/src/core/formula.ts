@@ -99,6 +99,9 @@ export function formulaAt(before: string, after: string, opts: { comments?: bool
 
 const BLANK_LINE = /\n[ \t]*\n/g;
 
+/** Environments whose body is literal text. */
+const VERBATIM_ENVS = new Set(["verbatim", "verbatim*", "Verbatim", "Verbatim*", "BVerbatim", "LVerbatim", "lstlisting", "minted", "comment", "filecontents", "filecontents*"]);
+
 /** Is the line starting at `i` the first of the text, or after a blank line? */
 function blankBefore(text: string, i: number): boolean {
   if (i === 0) return true;
@@ -199,7 +202,12 @@ export function findFormulas(text: string, opts: { comments?: boolean } = {}): F
     if (c === "\\") {
       const m = /^\\(?:[()[\]]|begin\s*\{([^{}\n]*)\})/.exec(text.slice(i, i + 64));
       if (m && (m[1] === undefined || MATH_ENVS.has(m[1].trim()))) opener = m[0];
-      else {
+      else if (m && VERBATIM_ENVS.has(m[1]?.trim() ?? "")) {
+        // verbatim, lstlisting, minted…: literal text up to their \end, blank lines and all
+        const end = indexFrom(text, new RegExp(`\\\\end\\s*\\{\\s*${m[1]!.trim().replace(/\*/g, "\\*")}\\s*\\}`, "g"), i + m[0].length);
+        i = end < 0 ? n : end + 1;
+        continue;
+      } else {
         // \verb|$x$| is literal text up to the delimiter repeated (on the same line)
         const verb = /^\\verb\*?([^A-Za-z*\s])/.exec(text.slice(i, i + 8));
         const close = verb ? text.indexOf(verb[1], i + verb[0].length) : -1;
