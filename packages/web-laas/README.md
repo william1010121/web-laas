@@ -52,8 +52,9 @@ src/background.ts         commands, notifications, re-injection into open tabs a
 
 The build bundles the engine's TypeScript source (the `source` export condition), so engine changes need no separate build.
 
-Permissions: `storage` (settings), `scripting` + `<all_urls>` (inject into tabs that were open before an update),
-`notifications` (when a page can't show a toast), `activeTab`.
+Permissions: `storage` (settings); `scripting` + `<all_urls>` (load the preview and cheat sheet into the
+page that needs them, inject into tabs that were open before an update, read a tab's host to honour
+per-site settings); `notifications` (when a page can't show a toast, such as `chrome://` pages).
 
 ## Previews
 

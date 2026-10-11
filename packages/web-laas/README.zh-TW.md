@@ -41,7 +41,7 @@ npm run build
 - 除了瀏覽器的快捷鍵，content script 也會在頁面內監聽預設的 `Alt+Shift+K`／`Alt+Shift+L`，以及瀏覽器實際指派的組合（例如改成 `⌘K`）。這樣即使在 **Arc** 這類不會轉交擴充功能快捷鍵的瀏覽器，或 Chrome 沒有指派新快捷鍵時，一般網頁上仍然可以使用。瀏覽器自己處理的按鍵不會傳到頁面；background 也會忽略 400ms 內重複送來的同一個指令，所以不會觸發兩次。
 - 擴充功能安裝或更新後，已經開著的分頁會自動注入 content script，不必手動重新整理。每次 build 都有版本 ID；新版注入時會卸下頁面裡的舊版引擎再接手（MAIN world 的程式在擴充功能重新載入後不會自己消失）。更早的版本無法卸下，會透過舊的事件名稱收到 `enabled: false` 而停用。
 
-權限：`storage`（設定）、`scripting`＋`<all_urls>`（把 content script 注入已開啟的分頁）、`notifications`（無法顯示頁面通知時使用）、`activeTab`。
+權限：`storage`（設定）；`scripting`＋`<all_urls>`（在需要的頁面載入預覽與 cheat sheet、把 content script 注入已開啟的分頁、讀取分頁網域以套用各網站設定）；`notifications`（頁面無法顯示通知時使用，例如 `chrome://` 頁面）。
 
 ## 設定頁
 
