@@ -174,3 +174,26 @@ describe("findFormulas edge cases", () => {
     expect(latex("$$  $$ then $$y$$")).toEqual(["y"]);
   });
 });
+
+describe("the formula open where CodeMirror's drawn lines resume", async () => {
+  const { openAt } = await import("../../src/dom/adapters/codemirror");
+  const open = (text: string, pos: number, comments = true) =>
+    openAt({}, 1, (a, b) => text.slice(a, b), text.length, pos, comments);
+
+  it("reads back to the paragraph's real start, however far", () => {
+    const text = "intro\n\n$" + "a".repeat(30000) + "$ after";
+    expect(open(text, 25000)).toBe(text.slice(7, 25000)); // from the opener, 25k back
+    expect(open(text, text.length - 3)).toBe(""); // past its closer
+  });
+
+  it("finds paragraph bounds across read chunks", () => {
+    const text = "x".repeat(100000) + "\n\n" + "y".repeat(50000) + "$$" + "z".repeat(40000) + "$$\n\n$w$";
+    const opener = 100002 + 50000;
+    expect(open(text, opener + 30000)).toBe(text.slice(opener, opener + 30000));
+    expect(open(text, opener - 10)).toBe("");
+  });
+
+  it("text outside any formula needs nothing", () => {
+    expect(open("$a$ then text and $b$", 8)).toBe("");
+  });
+});

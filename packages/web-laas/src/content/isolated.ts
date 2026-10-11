@@ -26,7 +26,12 @@ const MATH_HINT = /\$|\\[([]|\\begin\s*\{/;
 /** Does any editor on the page contain something that looks like math? */
 function editorsHaveMath(): boolean {
   const editors = ".cm-content, .CodeMirror-code, textarea, input[type=text], input[type=search], input:not([type]), [contenteditable]";
-  for (const el of document.querySelectorAll<HTMLElement>(editors)) {
+  // (editors in open shadow roots too)
+  const scopes: (Document | ShadowRoot)[] = [document];
+  for (let i = 0; i < scopes.length; i++) {
+    for (const el of scopes[i].querySelectorAll("*")) if (el.shadowRoot) scopes.push(el.shadowRoot);
+  }
+  for (const el of scopes.flatMap((sc) => [...sc.querySelectorAll<HTMLElement>(editors)])) {
     const field = el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement;
     const text = field ? el.value : el.isContentEditable || el.classList.contains("CodeMirror-code") ? el.textContent : "";
     if (text && MATH_HINT.test(text)) return true;

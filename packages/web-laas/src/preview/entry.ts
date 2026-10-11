@@ -23,11 +23,11 @@ if (!window.__webLaasPreviewAlive?.()) {
   document.querySelectorAll("[data-web-laas-preview], [data-web-laas-render], [data-web-laas-mirror]").forEach((el) => el.remove());
   const preview = new LivePreview(document);
   // the main-world script reads CodeMirror's undrawn lines for us (events cross worlds synchronously)
-  const undrawn = (root: Element): string[] | null => {
+  const undrawn = (root: Element, comments: boolean): string[] | null => {
     let reply: string | null = null;
     const onReply = (e: Event) => (reply = (e as CustomEvent<string>).detail);
     root.addEventListener("web-laas:undrawn-reply", onReply);
-    root.dispatchEvent(new CustomEvent("web-laas:undrawn", { bubbles: true }));
+    root.dispatchEvent(new CustomEvent("web-laas:undrawn", { bubbles: true, detail: comments ? "comments" : "" }));
     root.removeEventListener("web-laas:undrawn-reply", onReply);
     try {
       return reply ? (JSON.parse(reply) as string[]) : null;

@@ -54,6 +54,8 @@ interface Rect {
 /** A formula to draw: where it goes and what it looks like. */
 interface Item {
   html: string;
+  /** inline math (left-aligned in its box); display math is centred */
+  inline: boolean;
   box: Rect;
   clip: Rect;
   color: string;
@@ -180,6 +182,17 @@ function lineHeightOf(el: Element): number {
   return parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2 || 0;
 }
 
+/** The element above `el`, stepping out of a shadow root to its host. */
+function up(el: Element): Element | null {
+  return el.parentElement ?? ((el.parentNode as ShadowRoot | null)?.host ?? null);
+}
+
+/** The document or shadow root `el` is in (where its focus and selection live). */
+function scopeOf(el: Element): Document | ShadowRoot {
+  const r = el.getRootNode();
+  return r instanceof ShadowRoot ? r : el.ownerDocument;
+}
+
 const intersect = (a: Rect, b: Rect): Rect => ({
   left: Math.max(a.left, b.left),
   top: Math.max(a.top, b.top),
@@ -199,7 +212,7 @@ function parseAlpha(color: string): number {
 /** The background behind `el`, see-through layers (an active-line tint) over the first solid one. */
 function backgroundOf(el: Element | null): string {
   const layers: string[] = [];
-  for (let a = el; a; a = a.parentElement) {
+  for (let a: Element | null = el; a; a = up(a)) {
     const c = getComputedStyle(a).backgroundColor;
     const alpha = parseAlpha(c);
     if (alpha >= 1) return [...layers.map((l) => `linear-gradient(${l}, ${l})`), c].join(", ");
@@ -211,7 +224,7 @@ function backgroundOf(el: Element | null): string {
 /** The elements that cut off what of `el` shows: scroll containers around it, and itself if it scrolls. */
 export function clippersOf(el: Element): Element[] {
   const out: Element[] = [];
-  for (let a: Element | null = el; a && a !== el.ownerDocument.documentElement; a = a.parentElement) {
+  for (let a: Element | null = el; a && a !== el.ownerDocument.documentElement; a = up(a)) {
     const cs = getComputedStyle(a);
     const scrolls = [cs.overflowX, cs.overflowY, cs.overflow].some((v) => v && v !== "visible");
     if (isField(a) || scrolls) out.push(a);
@@ -219,14 +232,25 @@ export function clippersOf(el: Element): Element[] {
   return out;
 }
 
+/** How much an ancestor's transform scales `el` on screen (1 almost always). */
+function scaleOf(el: Element, rect = el.getBoundingClientRect()): { sx: number; sy: number } {
+  const h = el as HTMLElement;
+  return {
+    sx: h.offsetWidth ? rect.width / h.offsetWidth : 1,
+    sy: h.offsetHeight ? rect.height / h.offsetHeight : 1,
+  };
+}
+
 /** The part of the window where content inside all of `clippers` can show. */
 function visibleArea(view: Window, clippers: Element[]): Rect {
   let r: Rect = { left: 0, top: 0, right: view.innerWidth, bottom: view.innerHeight };
   for (const a of clippers) {
     const b = a.getBoundingClientRect();
-    const left = b.left + a.clientLeft;
-    const top = b.top + a.clientTop;
-    r = intersect(r, { left, top, right: left + a.clientWidth, bottom: top + a.clientHeight });
+    // client sizes are in CSS px; the rect is on screen (a scaled ancestor shrinks it)
+    const { sx, sy } = scaleOf(a, b);
+    const left = b.left + a.clientLeft * sx;
+    const top = b.top + a.clientTop * sy;
+    r = intersect(r, { left, top, right: left + a.clientWidth * sx, bottom: top + a.clientHeight * sy });
   }
   return r;
 }
@@ -235,7 +259,8 @@ const set = (v: string) => !!v && v !== "none" && v !== "normal" && v !== "auto"
 
 /** Does `el` start a stacking context of its own? */
 function formsContext(el: Element, cs: CSSStyleDeclaration): boolean {
-  const flexItem = !!el.parentElement && /flex|grid/.test(getComputedStyle(el.parentElement).display);
+  const parent = up(el);
+  const flexItem = !!parent && /flex|grid/.test(getComputedStyle(parent).display);
   return (
     (cs.zIndex !== "auto" && !!cs.zIndex && (cs.position !== "static" || flexItem)) ||
     cs.position === "fixed" ||
@@ -261,7 +286,7 @@ export function stackingFor(el: Element): { context: Element; z: number } {
   const root = el.ownerDocument.documentElement;
   const contextOf = (from: Element | null) => {
     let a = from;
-    while (a && a !== root && !formsContext(a, getComputedStyle(a))) a = a.parentElement;
+    while (a && a !== root && !formsContext(a, getComputedStyle(a))) a = up(a);
     return a && a !== root ? a : root;
   };
   const own = contextOf(el);
@@ -273,7 +298,7 @@ export function stackingFor(el: Element): { context: Element; z: number } {
     const text = el.ownerDocument.createTreeWalker(el, NodeFilter.SHOW_TEXT, (n) =>
       (n as Text).data.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
     ).nextNode();
-    for (let a = text?.parentElement ?? null; a && a !== own; a = a.parentElement) {
+    for (let a: Element | null = text?.parentElement ?? null; a && a !== own; a = up(a)) {
       const cs = getComputedStyle(a);
       if (formsContext(a, cs)) z = parseInt(cs.zIndex, 10) || 0;
       if (a === el) break;
@@ -281,7 +306,7 @@ export function stackingFor(el: Element): { context: Element; z: number } {
     return { context: own, z };
   }
   // the editor is a stacking context itself: beside it, at its level, in the one around it
-  return { context: contextOf(el.parentElement), z: parseInt(getComputedStyle(el).zIndex, 10) || 0 };
+  return { context: contextOf(up(el)), z: parseInt(getComputedStyle(el).zIndex, 10) || 0 };
 }
 
 /** Index of the first of `n` top-to-bottom items whose bottom reaches `top`. */
@@ -302,6 +327,8 @@ const MARGIN = 120;
 const RECHECK = 1000;
 /** An editor whose text takes longer than this (ms) to read is read at most every READ_EVERY ms while it changes. */
 const SLOW_READ = 12;
+/** How often (ms) the page is searched for new open shadow roots. */
+const SHADOW_SCAN = 2000;
 const READ_EVERY = 200;
 
 /** A hidden copy of a text field's text, in pieces of a few lines each. */
@@ -357,13 +384,21 @@ interface Layer {
   host: HTMLElement;
   /** fills the window (or the transformed context it is fixed to) */
   frame: HTMLElement;
-  /** holds the boxes, offset so that window coordinates land in the right place */
+  /** holds the boxes */
   el: HTMLElement;
+  /** window coordinates → the layer's own: x' = (x - left) / sx (a transformed context moves and scales it) */
+  left: number;
+  top: number;
+  sx: number;
+  sy: number;
 }
 
 /** Per-frame measurements of the editor itself. */
 interface Frame {
   area: Rect;
+  /** the editor's on-screen scale (a transformed ancestor) */
+  sx: number;
+  sy: number;
   contentLeft: number;
   contentRight: number;
   color: string;
@@ -389,12 +424,15 @@ export class InlineRender {
   private backgrounds = new Map<Element, string>();
   private lineHeights = new Map<Element, number>();
   private toFit: { math: HTMLElement; w: number; h: number }[] = [];
+  /** open shadow roots on the page (editors can live in them), looked for every SHADOW_SCAN ms */
+  private shadows = new Set<ShadowRoot>();
+  private shadowScan = -Infinity;
 
   constructor(
     private doc: Document,
     private opts: {
-      /** for a CodeMirror element, the text before each place its drawn lines resume (see undrawnParagraphs) */
-      undrawn?: (root: Element) => string[] | null;
+      /** for a CodeMirror element, the formula left open at each place its drawn lines resume (see undrawnParagraphs) */
+      undrawn?: (root: Element, comments: boolean) => string[] | null;
       /** false once this script is orphaned (extension updated): it then stops for good */
       alive?: () => boolean;
     } = {},
@@ -453,6 +491,9 @@ export class InlineRender {
     doc.removeEventListener("focusout", this.schedule);
     view.removeEventListener("resize", this.schedule);
     this.observer.disconnect();
+    for (const sr of this.shadows) sr.removeEventListener("scroll", this.schedule, { capture: true });
+    this.shadows.clear();
+    this.shadowScan = -Infinity;
     view.clearInterval(this.timer);
     view.clearTimeout(this.laterTimer);
     this.laterTimer = 0;
@@ -474,9 +515,32 @@ export class InlineRender {
     });
   };
 
+  /** Find open shadow roots (new ones get watched like the document). */
+  private findShadows() {
+    const now = performance.now();
+    if (now - this.shadowScan < SHADOW_SCAN) return;
+    this.shadowScan = now;
+    const look = (scope: Document | ShadowRoot) => {
+      for (const el of scope.querySelectorAll("*")) {
+        const sr = el.shadowRoot;
+        if (!sr || el.hasAttribute("data-web-laas-render") || el.hasAttribute("data-web-laas-preview")) continue;
+        if (!this.shadows.has(sr)) {
+          this.shadows.add(sr);
+          // mutations and scrolling inside don't reach the document's listeners
+          this.observer.observe(sr, { childList: true, subtree: true, characterData: true });
+          sr.addEventListener("scroll", this.schedule, { capture: true, passive: true });
+        }
+        look(sr);
+      }
+    };
+    for (const sr of this.shadows) if (!sr.host.isConnected) this.shadows.delete(sr);
+    look(this.doc);
+  }
+
   /** Redraw now (also what every scheduled frame does). */
   update() {
     if (this.opts.alive && !this.opts.alive()) return this.destroy();
+    this.findShadows();
     const old = this.boxes;
     this.boxes = new Map();
     this.backgrounds.clear();
@@ -504,7 +568,8 @@ export class InlineRender {
   private roots(): Element[] {
     const view = this.doc.defaultView!;
     const out: Element[] = [];
-    for (const el of this.doc.querySelectorAll<HTMLElement>(EDITORS)) {
+    const scopes: (Document | ShadowRoot)[] = [this.doc, ...this.shadows];
+    for (const el of scopes.flatMap((sc) => [...sc.querySelectorAll<HTMLElement>(EDITORS)])) {
       if (el instanceof HTMLInputElement && !isField(el)) continue;
       if (isField(el)) {
         if (el.closest(".CodeMirror, .cm-editor, .monaco-editor") || el.disabled) continue;
@@ -571,7 +636,7 @@ export class InlineRender {
     let undrawn: string[] | null = null;
     if (st.dom.resumes.length) {
       try {
-        undrawn = this.opts.undrawn?.(root) ?? null;
+        undrawn = this.opts.undrawn?.(root, this.comments) ?? null;
       } catch {}
       if (undrawn?.length !== st.dom.resumes.length) undrawn = null; // drawn since: don't guess
     }
@@ -609,11 +674,14 @@ export class InlineRender {
     if (empty(area)) return;
     const r = root.getBoundingClientRect();
     const cs = getComputedStyle(root);
-    const contentLeft = r.left + root.clientLeft;
+    const { sx, sy } = scaleOf(root, r);
+    const contentLeft = r.left + root.clientLeft * sx;
     const frame: Frame = {
       area,
+      sx,
+      sy,
       contentLeft,
-      contentRight: contentLeft + root.clientWidth - parseFloat(cs.paddingRight || "0"),
+      contentRight: contentLeft + (root.clientWidth - parseFloat(cs.paddingRight || "0")) * sx,
       color: cs.color,
       fontSize: cs.fontSize,
     };
@@ -626,7 +694,7 @@ export class InlineRender {
   /** Is the editor focused (its caret is the one that counts)? */
   private focused(root: Element): boolean {
     if (root.classList.contains("CodeMirror-code")) return !!root.closest(".CodeMirror-focused");
-    const active = this.doc.activeElement;
+    const active = scopeOf(root).activeElement;
     return !!active && (active === root || root.contains(active));
   }
 
@@ -656,7 +724,9 @@ export class InlineRender {
     const { area } = frame;
     const first = firstReaching(fs.length, (i) => range(i)?.getBoundingClientRect().bottom ?? -Infinity, area.top - MARGIN);
     const focused = this.focused(root);
-    const sel = focused ? this.doc.getSelection() : null;
+    // (an editor in a shadow root has its selection there)
+    const scope = scopeOf(root) as Document & { getSelection?: () => Selection | null };
+    const sel = focused ? (scope.getSelection?.() ?? this.doc.getSelection()) : null;
     const selRange = sel && sel.rangeCount && root.contains(sel.anchorNode) ? sel.getRangeAt(0) : null;
     // CodeMirror 5 draws its own caret and selection instead of the DOM's
     const cm5Marks =
@@ -683,7 +753,7 @@ export class InlineRender {
       if (cm5Marks.some((m) => m.right >= box.left && m.left <= box.right && m.bottom > box.top && m.top < box.bottom)) continue;
       const html = this.htmlOf(st, i);
       if (!html) continue;
-      items.push({ html, box, clip: area, color: frame.color, background: this.backgroundOf(host), fontSize: frame.fontSize });
+      items.push({ html, inline: !fs[i].display, box, clip: area, color: frame.color, background: this.backgroundOf(host), fontSize: frame.fontSize });
     }
     return items;
   }
@@ -691,10 +761,12 @@ export class InlineRender {
   private fieldItems(ta: Field, st: RootState, frame: Frame): Item[] {
     const fs = st.formulas;
     const mirror = this.mirror(ta, st.value!);
+    // the mirror is laid out unscaled; the field may be shown scaled (a transformed ancestor)
     const m = mirror.el.getBoundingClientRect();
     const t = ta.getBoundingClientRect();
-    const dx = t.left - m.left - ta.scrollLeft;
-    const dy = t.top - m.top - ta.scrollTop;
+    const { sx, sy } = frame;
+    const toScreen = (r: DOMRect) =>
+      new DOMRect(t.left + (r.left - m.left - ta.scrollLeft) * sx, t.top + (r.top - m.top - ta.scrollTop) * sy, r.width * sx, r.height * sy);
     const pieces = mirror.pieces;
     // the piece holding offset `pos` (the start of a range, or its end when `end`)
     const at = (pos: number, end: boolean): [Text, number] => {
@@ -715,8 +787,8 @@ export class InlineRender {
       return rg;
     };
     const { area } = frame;
-    const first = firstReaching(fs.length, (i) => range(i).getBoundingClientRect().bottom + dy, area.top - MARGIN);
-    const focused = this.doc.activeElement === ta;
+    const first = firstReaching(fs.length, (i) => toScreen(range(i).getBoundingClientRect()).bottom, area.top - MARGIN);
+    const focused = scopeOf(ta).activeElement === ta;
     const background = this.backgroundOf(ta);
     const lineHeight = this.lineHeightOf(ta);
     const items: Item[] = [];
@@ -724,7 +796,7 @@ export class InlineRender {
       const f = fs[i];
       const rects = [...range(i).getClientRects()]
         .filter((r) => r.width > 0 || r.height > 0)
-        .map((r) => new DOMRect(r.left + dx, r.top + dy, r.width, r.height));
+        .map(toScreen);
       if (!rects.length) continue;
       if (Math.min(...rects.map((r) => r.top)) > area.bottom + MARGIN) break;
       // (on purpose, a caret touching the delimiters counts too, as in Obsidian: see domItems)
@@ -732,7 +804,7 @@ export class InlineRender {
       const box = this.boxFor(rects, f.display, frame, lineHeight);
       const html = box && this.htmlOf(st, i);
       if (!box || !html) continue;
-      items.push({ html, box, clip: area, color: frame.color, background, fontSize: frame.fontSize });
+      items.push({ html, inline: !f.display, box, clip: area, color: frame.color, background, fontSize: frame.fontSize });
     }
     return items;
   }
@@ -840,7 +912,7 @@ export class InlineRender {
     if (box.bottom - box.top <= textHeight * 1.5) {
       // one line: take its full height (the text box is shorter than the line)
       // (plus a pixel: the top of a "$" can poke out of its text box)
-      const grow = Math.max(1, (lineHeight - (box.bottom - box.top)) / 2);
+      const grow = Math.max(1, (lineHeight * frame.sy - (box.bottom - box.top)) / 2);
       return { ...box, top: box.top - grow, bottom: box.bottom + grow };
     }
     // inline math wrapped onto two lines: a box around both would hide the text beside it
@@ -881,12 +953,17 @@ export class InlineRender {
       shadow.append(style, frame);
       // last in its context: of equal z-index, the later one paints on top
       context.append(host);
-      layer = { host, frame, el: boxes };
+      layer = { host, frame, el: boxes, left: 0, top: 0, sx: 1, sy: 1 };
       byZ.set(z, layer);
     }
-    // in a context with a transform, "fixed" is relative to it, not the window: offset back
+    // in a context with a transform, "fixed" is relative to it and it moves and scales the layer:
+    // boxes are placed in the layer's own coordinates, worked out from where the frame ends up
     const r = layer.frame.getBoundingClientRect();
-    layer.el.style.transform = r.left || r.top ? `translate(${-r.left}px, ${-r.top}px)` : "";
+    const f = layer.frame;
+    layer.left = r.left;
+    layer.top = r.top;
+    layer.sx = f.offsetWidth ? r.width / f.offsetWidth : 1;
+    layer.sy = f.offsetHeight ? r.height / f.offsetHeight : 1;
     return layer;
   }
 
@@ -902,20 +979,29 @@ export class InlineRender {
     let list = this.boxes.get(item.html);
     if (!list) this.boxes.set(item.html, (list = []));
     list.push(box);
-    const { left, top, right, bottom } = item.box;
+    // into the layer's coordinates (the same as the window's, unless a transform is in the way)
+    const map = (r: Rect): Rect => ({
+      left: (r.left - layer.left) / layer.sx,
+      top: (r.top - layer.top) / layer.sy,
+      right: (r.right - layer.left) / layer.sx,
+      bottom: (r.bottom - layer.top) / layer.sy,
+    });
+    const { left, top, right, bottom } = map(item.box);
     const w = right - left;
     const h = bottom - top;
     const s = box.style;
     s.transform = `translate(${left}px, ${top}px)`;
+    // inline math starts where its source does; display math is centred
+    s.justifyContent = item.inline ? "flex-start" : "center";
     s.width = `${w}px`;
     s.height = `${h}px`;
     s.color = item.color;
     s.background = item.background;
     s.fontSize = item.fontSize;
-    const c = item.clip;
+    const c = map(item.clip);
     // cut off only by the editor's visible area: a formula may reach a little past its line
     s.clipPath = `inset(${c.top - top}px ${right - c.right}px ${bottom - c.bottom}px ${c.left - left}px)`;
-    s.visibility = empty(intersect(item.box, c)) ? "hidden" : "";
+    s.visibility = empty(intersect(item.box, item.clip)) ? "hidden" : "";
     // a formula bigger than its source is shrunk to fit, once its size is known (see fitAll)
     const size = `${Math.round(w)}x${Math.round(h)}:${item.fontSize}`;
     if (box.dataset.size !== size) {
@@ -931,7 +1017,8 @@ export class InlineRender {
     const fits = this.toFit;
     this.toFit = [];
     for (const f of fits) f.math.style.zoom = "1";
-    const sizes = fits.map((f) => f.math.getBoundingClientRect());
+    // (layout sizes, in the layer's own units like the boxes: not scaled by a transformed context)
+    const sizes = fits.map((f) => ({ width: f.math.offsetWidth, height: f.math.offsetHeight }));
     fits.forEach(({ math, w, h }, i) => {
       const mr = sizes[i];
       // a little taller than the line is fine: ink rarely reaches the next line's text

@@ -40,7 +40,11 @@ const pmDoc = document.createElement("div");
 pmDoc.innerHTML = LATEX.split("\n").map((l) => `<p>${l.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</p>`).join("");
 new PMView($("pm"), { state: EditorState.create({ doc: DOMParser.fromSchema(schema).parse(pmDoc), plugins: [keymap(baseKeymap)] }) });
 
-const rendered = new InlineRender(document, { undrawn: undrawnParagraphs });
+// a text field inside an open shadow root (web components)
+const sr = $("shadow-host").attachShadow({ mode: "open" });
+sr.innerHTML = `<textarea spellcheck="false" style="box-sizing:border-box;width:100%;height:70px;font:14px/1.5 ui-monospace,Menlo,monospace;padding:8px;border:1px solid #ccc;border-radius:6px">In a shadow root: $\\int_0^\\infty e^{-x}\\,dx = 1$ ok.</textarea>`;
+
+const rendered = new InlineRender(document, { undrawn: (root, comments) => undrawnParagraphs(root, { comments }) });
 rendered.set({ on: q.get("off") === null, comments: q.has("comments") });
 const preview = new LivePreview(document);
 const controller = new LaasController({ onFormula: (f) => preview.update(f) });

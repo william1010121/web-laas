@@ -72,7 +72,7 @@ const stats = (xs: number[]) => {
 (window as any).bench = async () => {
   await frame();
   await frame();
-  const r = new InlineRender(document, { undrawn: undrawnParagraphs });
+  const r = new InlineRender(document, { undrawn: (root, comments) => undrawnParagraphs(root, { comments }) });
   (window as any).ir = r;
   const boxes = () => [...((r as any).boxes as Map<string, unknown>).values()].reduce((n: number, l) => n + (Array.isArray(l) ? l.length : 1), 0);
   // time every update, whether a frame ran it (after a scroll, an edit…) or we did

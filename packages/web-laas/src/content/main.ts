@@ -50,7 +50,8 @@ if (current?.build !== __WEB_LAAS_BUILD__) {
   // hasn't drawn; whether drawn text starts inside a formula is answered here.
   const onUndrawn = (e: Event) => {
     const el = e.target instanceof Element ? e.target : null;
-    const paragraphs = el && undrawnParagraphs(el);
+    const comments = (e as CustomEvent<string>).detail === "comments";
+    const paragraphs = el && undrawnParagraphs(el, { comments });
     if (paragraphs) el.dispatchEvent(new CustomEvent(UNDRAWN_REPLY_EVENT, { detail: JSON.stringify(paragraphs) }));
   };
   document.addEventListener(STATE_EVENT, onState);
