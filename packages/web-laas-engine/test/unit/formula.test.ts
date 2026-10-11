@@ -231,6 +231,7 @@ describe("the formula open where CodeMirror's drawn lines resume", async () => {
     const latex = (s: string) => findFormulas(s, { comments: true }).map((f) => f.latex);
     expect(latex("\\verb|$not_math$| and $x$")).toEqual(["x"]);
     expect(latex("\\verb*+$a$+ \\verb!b! $y$")).toEqual(["y"]);
+    expect(latex("\\verb**$not$* and $w$")).toEqual(["w"]);
     // unclosed on its line: just the command
     expect(latex("\\verb|a\n$z$")).toEqual(["z"]);
   });

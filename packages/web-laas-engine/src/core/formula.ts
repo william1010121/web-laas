@@ -210,8 +210,9 @@ export function findFormulas(text: string, opts: { comments?: boolean } = {}): F
         continue;
       } else {
         // \verb|$x$| is literal text up to the delimiter repeated (on the same line)
-        const verb = /^\\verb\*?([^A-Za-z*\s])/.exec(text.slice(i, i + 8));
-        const close = verb ? text.indexOf(verb[1], i + verb[0].length) : -1;
+        // (after \verb* the delimiter may be a * too: \verb**x*)
+        const verb = /^\\verb(?:\*([^A-Za-z\s])|([^A-Za-z*\s]))/.exec(text.slice(i, i + 8));
+        const close = verb ? text.indexOf(verb[1] ?? verb[2], i + verb[0].length) : -1;
         if (verb && close >= 0 && !text.slice(i + verb[0].length, close).includes("\n")) {
           i = close + 1;
           continue;

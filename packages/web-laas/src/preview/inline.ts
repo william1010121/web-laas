@@ -107,6 +107,8 @@ export function domText(root: Element): DomText {
         continue;
       }
       if (SKIP.has(e.tagName) || SKIP_CLASSES.some((c) => cls.contains(c))) continue;
+      // hidden text isn't source (its own style, not computed: that would cost a style lookup per element)
+      if (e.hidden || e.style.display === "none") continue;
       if (e.tagName === "BR") {
         if (e.nextSibling) add("\n"); // a trailing <br> only holds an empty line open
         continue;
@@ -271,7 +273,11 @@ const set = (v: string) => !!v && v !== "none" && v !== "normal" && v !== "auto"
 function turned(el: Element): boolean {
   if (typeof DOMMatrixReadOnly === "undefined") return false;
   for (let a: Element | null = el; a; a = up(a)) {
-    const t = getComputedStyle(a).transform;
+    const cs = getComputedStyle(a);
+    // the individual properties apply on top of transform: a turn or a negative scale
+    if (set(cs.rotate) && parseFloat(cs.rotate.split(" ").pop()!) % 360 !== 0) return true;
+    if (set(cs.scale) && cs.scale.split(" ").some((v) => parseFloat(v) < 0)) return true;
+    const t = cs.transform;
     if (!set(t)) continue;
     try {
       const m = new DOMMatrixReadOnly(t);
@@ -1042,8 +1048,9 @@ export class InlineRender {
       const right = display && alone() ? Math.max(box.right, frame.contentRight) : box.right;
       return { ...box, top: box.top - grow, bottom: box.bottom + grow, right };
     }
-    // inline math wrapped onto two lines: a box around both would hide the text beside it
-    if (!display) return null;
+    // math on several lines beside other text (inline math wrapped, or "a $$x\ny$$ b"):
+    // a box around them all would hide that text
+    if (!display || !alone()) return null;
     // display math on lines of its own: cover them to the editor's right edge, the formula centred
     return { ...box, right: Math.max(box.right, frame.contentRight) };
   }

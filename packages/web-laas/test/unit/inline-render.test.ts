@@ -26,6 +26,11 @@ describe("domText", () => {
     expect(domText(html('<pre class="CodeMirror-line"><span>$a$</span></pre>')).text).toBe("$a$\n");
   });
 
+  it("hidden text isn't read", () => {
+    const t = domText(html('<p><span style="display:none">$</span>$x$ <span hidden>$</span>and $y$</p>'));
+    expect(formulasIn(t.text, false, t.resumes).map((f) => f.latex)).toEqual(["x", "y"]);
+  });
+
   it("nested blocks don't add blank lines", () => {
     expect(domText(html("<ul><li><p>a</p></li><li><p>b</p></li></ul>")).text).toBe("a\nb\n");
   });
