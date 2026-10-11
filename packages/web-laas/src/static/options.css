@@ -94,7 +94,7 @@ textarea { width: 100%; border: 0; outline: none; resize: none; background: tran
 /* sites */
 .add-site { display: flex; gap: 8px; padding: 8px; margin-bottom: 12px; }
 .add-site input { flex: 1; border: 0; outline: none; background: transparent; color: var(--fg); font: 14px var(--mono); padding: 0 8px; }
-#siteList:empty::before { content: "目前沒有停用的網站"; display: block; padding: 18px; color: var(--muted); text-align: center; }
+#siteList:empty::before { content: "No sites are turned off"; display: block; padding: 18px; color: var(--muted); text-align: center; }
 .site-host { font-family: var(--mono); }
 
 /* about */

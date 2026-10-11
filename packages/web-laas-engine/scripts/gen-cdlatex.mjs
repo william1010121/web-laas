@@ -24,13 +24,13 @@ for (const [ch, levels] of d.symbol) {
     sym = nil(sym);
     if (!sym) return;
     const trigger = "`".repeat(i + 1) + ch;
-    const desc = i ? `, description: ${q(`第 ${i + 1} 層`)}` : "";
+    const desc = i ? `, description: ${q(`level ${i + 1}`)}` : "";
     symbols.push(`{ trigger: ${q(trigger)}, replacement: ${q(cursor(sym).replace(/\$0$/, ""))}${desc} }`);
     // outside math cdlatex adds the dollars (cdlatex-ensure-math)
     symbolsText.push(`{ trigger: ${q(trigger)}, replacement: ${q("$" + cursor(sym) + "$")} }`);
   });
 }
-group("cdlatex · ` 數學符號", "mA", symbols);
+group("cdlatex · ` Math symbols", "mA", symbols);
 
 // ── ' math modify (cdlatex-math-modify-alist) ──
 const modify = [];
@@ -41,14 +41,14 @@ for (const [ch, math, text, acc, rmdot] of d.modify) {
   if (nil(math)) modify.push(spec(math));
   if (nil(text)) modifyText.push(spec(text));
 }
-group("cdlatex · ' 修飾（重音、字型）", "mA", modify);
+group("cdlatex · ' Modifiers (accents, fonts)", "mA", modify);
 
 // ── _ ^ (cdlatex-sub-superscript), twice → \mathrm ──
-group("cdlatex · _ ^ 上下標", "mA", [
+group("cdlatex · _ ^ Subscripts and superscripts", "mA", [
   `{ trigger: "_", replacement: "_{$0}", preview: "x_{\\\\square}" }`,
   `{ trigger: "^", replacement: "^{$0}", preview: "x^{\\\\square}" }`,
-  `{ trigger: "_{_", replacement: "_{\\\\mathrm{$0}", preview: "x_{\\\\mathrm{a}}", description: "連按兩次 _ → 正體下標" }`,
-  `{ trigger: "^{^", replacement: "^{\\\\mathrm{$0}", preview: "x^{\\\\mathrm{a}}", description: "連按兩次 ^ → 正體上標" }`,
+  `{ trigger: "_{_", replacement: "_{\\\\mathrm{$0}", preview: "x_{\\\\mathrm{a}}", description: "_ twice → upright subscript" }`,
+  `{ trigger: "^{^", replacement: "^{\\\\mathrm{$0}", preview: "x^{\\\\mathrm{a}}", description: "^ twice → upright superscript" }`,
 ]);
 
 // ── Tab commands (cdlatex-command-alist) ──
@@ -86,14 +86,14 @@ for (const [key, doc, repl, hook, args, textOk, mathOk] of d.command) {
   if (nil(mathOk) && key !== "it") mathCmds.push(item);
   if (nil(textOk)) textCmds.push(item);
 }
-group("cdlatex · Tab 指令（數學）", "mw", mathCmds);
-group("cdlatex · Tab 指令（文件）", "tw", textCmds, `\n      sites: ${OVERLEAF},`);
-group("cdlatex · ' 修飾（文字模式）", "tA", modifyText, `\n      sites: ${OVERLEAF},`);
-group("cdlatex · ` 符號（文字模式，自動加 $）", "tA", symbolsText, `\n      sites: ${OVERLEAF},`);
+group("cdlatex · Tab commands (math)", "mw", mathCmds);
+group("cdlatex · Tab commands (document)", "tw", textCmds, `\n      sites: ${OVERLEAF},`);
+group("cdlatex · ' Modifiers (text mode)", "tA", modifyText, `\n      sites: ${OVERLEAF},`);
+group("cdlatex · ` Symbols (text mode, adds $)", "tA", symbolsText, `\n      sites: ${OVERLEAF},`);
 
-const header = `// cdlatex（Carsten Dominik）的預設表，由 scripts/gen-cdlatex.mjs 從 cdlatex.el 產生，請勿手動修改。
-// 文件類指令與文字模式的 ' \` 只在 Overleaf 開啟（其他網站的一般文字會誤觸）。
-// 未移植（需要 reftex／互動輸入）：${skipped.join("、")}
+const header = `// cdlatex's (Carsten Dominik) default tables, generated from cdlatex.el by scripts/gen-cdlatex.mjs. Don't edit by hand.
+// Document commands and text-mode ' \` are on in Overleaf only (they'd trigger in ordinary text elsewhere).
+// Not ported (they need reftex or interactive input): ${skipped.join(", ")}
 `;
 await writeFile(new URL("../src/core/cdlatex.laas", here), `${header}{\n  snippets: [\n${out.join("\n")}\n  ],\n}\n`);
 console.log(`symbols ${symbols.length}, modify ${modify.length}+${modifyText.length}, tab math ${mathCmds.length}, tab text ${textCmds.length}, skipped ${skipped.join(" ")}`);

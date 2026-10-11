@@ -119,7 +119,7 @@ export class LivePreview {
     this.math.className = "math";
     const badge = doc.createElement("span");
     badge.className = "badge";
-    badge.textContent = "未完成";
+    badge.textContent = "incomplete";
     this.card.append(this.math, badge);
     this.root.append(this.card);
     shadow.append(style, this.root);

@@ -285,8 +285,8 @@ describe("cheat sheet", () => {
     expect(by("mk").preview).toBeNull();
     expect(by("mk").mode).toBe("text");
     const groups = groupCheatsheet(entries).map((g) => g.group);
-    expect(groups[0]).toBe("laas · 基本符號");
-    expect(groups).toContain("Web 擴充 · 結構");
+    expect(groups[0]).toBe("laas · Basic symbols");
+    expect(groups).toContain("Web extras · Structure");
   });
 });
 

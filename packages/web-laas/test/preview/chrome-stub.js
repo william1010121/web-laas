@@ -16,8 +16,8 @@
     },
     commands: {
       getAll: async () => [
-        { name: "toggle-enabled", description: "開關 LaTeX 自動 snippet", shortcut: "⌥⇧L" },
-        { name: "toggle-cheatsheet", description: "開關 snippet cheat sheet", shortcut: "⌥⇧K" },
+        { name: "toggle-enabled", description: "Turn LaTeX auto-snippets on or off", shortcut: "⌥⇧L" },
+        { name: "toggle-cheatsheet", description: "Open or close the snippet cheat sheet", shortcut: "⌥⇧K" },
       ],
     },
     runtime: { getManifest: () => ({ version: "0.2.0" }), sendMessage: async () => {}, openOptionsPage() {} },

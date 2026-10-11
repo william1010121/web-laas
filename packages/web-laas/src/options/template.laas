@@ -1,45 +1,45 @@
-// 我的 LaTeX snippet 設定（語法：JavaScript 物件字面值，可以寫註解）
-// 行為開關（Tab、自動空白、Web 擴充…）在「一般」頁面設定。
+// My LaTeX snippet config (syntax: a JavaScript object literal; comments allowed)
+// Behaviour switches (Tab, automatic space, Web extras…) are on the General page.
 {
-  // true：在內建 snippet（laas + Web 擴充）之上加入／覆寫；false：只用下面自己寫的
+  // true: add to / override the built-in snippets (laas + Web extras); false: only the ones below
   useDefaults: true,
 
-  // 不想要的內建 snippet，填 trigger（字串或 /regex/）
+  // built-in snippets you don't want, by trigger (a string or /regex/)
   removeDefaults: [
     // "**",
   ],
 
-  // 在這些網站完全停用（包含子網域）
+  // fully off on these sites (subdomains included)
   disabledSites: [
     // "mail.google.com",
   ],
 
-  // 可以在 regex trigger 裡用 ${NAME} 引用
+  // usable as ${NAME} in regex triggers
   variables: {},
 
   snippets: [
-    // 群組：名稱會顯示在 cheat sheet；options 會傳給裡面每個 snippet
+    // a group: its name shows in the cheat sheet; its options pass to every snippet inside
     // {
-    //   group: "我的常用",
+    //   group: "My favourites",
     //   options: "mA",
     //   snippets: [
     //     { trigger: "qq", replacement: `\quad` },
-    //     { trigger: "EE", replacement: `\mathbb{E}`, description: "期望值" },
+    //     { trigger: "EE", replacement: `\mathbb{E}`, description: "expectation" },
     //   ],
     // },
 
-    // 文字模式自動展開；`…` 是 raw string，不用把反斜線寫兩次
+    // auto-expands in text mode; `…` is a raw string, so backslashes aren't doubled
     // { trigger: "beg", replacement: `\begin{$1}
     // 	$0
     // \end{$1}`, options: "tA" },
 
-    // 數學模式、Tab 才展開（沒有 A）
+    // math mode, expands on Tab (no A)
     // { trigger: "mat", replacement: `\begin{matrix} $1 \end{matrix}$0`, options: "m" },
 
-    // regex：[[0]] 是第一個括號群組
+    // regex: [[0]] is the first capture group
     // { trigger: /([a-zA-Z])tld/, replacement: `\tilde{[[0]]}`, options: "mA", description: "xtld → \\tilde{x}" },
 
-    // 作用在左邊物件上：x'o → \operatorname{x}
+    // acts on the object to the left: x'o → \operatorname{x}
     // { trigger: "'o", replacement: `\operatorname{${PREV}}`, options: "mAo" },
   ],
 }

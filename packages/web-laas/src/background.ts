@@ -48,7 +48,7 @@ async function updateIcon() {
   await chrome.action.setIcon({ path: { 16: `icons/${v}-16.png`, 32: `icons/${v}-32.png` } });
   await chrome.action.setBadgeText({ text: enabled ? "" : "OFF" });
   await chrome.action.setBadgeBackgroundColor({ color: "#8e8e93" });
-  await chrome.action.setTitle({ title: enabled ? "web-laas：已啟用" : "web-laas：已暫停" });
+  await chrome.action.setTitle({ title: enabled ? "web-laas: on" : "web-laas: paused" });
 }
 
 // ── content scripts ─────────────────────────────────────────────────────
@@ -115,15 +115,15 @@ async function runCommand(command: CommandName, tab?: chrome.tabs.Tab) {
     const key = await shortcutLabel(command);
     await notify(
       tabId,
-      enabled ? "LaTeX 自動展開已啟用" : "LaTeX 自動展開已暫停",
+      enabled ? "LaTeX auto-expand is on" : "LaTeX auto-expand is paused",
       enabled ? "on" : "off",
-      siteOff ? "但此網站已單獨停用" : `${key} 切換`,
+      siteOff ? "but it is off for this site" : `${key} to switch`,
     );
     return;
   }
 
   if (!state.prefs.cheatsheet) {
-    await notify(tabId, "Cheat sheet 已關閉", "info", "可在擴充功能設定中開啟");
+    await notify(tabId, "The cheat sheet is turned off", "info", "Turn it on in the extension's settings");
     return;
   }
   const loaded =
@@ -134,7 +134,7 @@ async function runCommand(command: CommandName, tab?: chrome.tabs.Tab) {
       .then(() => true)
       .catch(() => false));
   if (!loaded) {
-    await notify(undefined, "這個頁面無法顯示 cheat sheet", "info", "chrome:// 等頁面不允許擴充功能");
+    await notify(undefined, "The cheat sheet can't open on this page", "info", "Extensions aren't allowed on chrome:// pages and the like");
     return;
   }
   await send(tabId, { type: "toggle-cheatsheet", shortcut: await shortcutLabel(command) }).catch(() => {});

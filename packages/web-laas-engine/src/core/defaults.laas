@@ -1,13 +1,13 @@
-// 內建預設 snippet：逐條對照 Emacs laas.el（tecosaur/LaTeX-auto-activating-snippets）。
-// 語法與使用者設定相同；群組 { group, options, snippets: [...] } 會把 options／sites 傳給裡面的 snippet。
+// Built-in default snippets, ported entry by entry from Emacs laas.el (tecosaur/LaTeX-auto-activating-snippets).
+// Same syntax as the user config; a group { group, options, snippets: [...] } passes its options / sites to the snippets inside.
 {
   disabledSites: [],
-  // 這些網站把 % 視為 LaTeX 註解（影響數學模式判斷）
+  // on these sites % starts a LaTeX comment (it affects detecting math mode)
   latexCommentSites: ["overleaf.com"],
 
   snippets: [
     {
-      group: "laas · 基本符號",
+      group: "laas · Basic symbols",
       options: "mA",
       snippets: [
         { trigger: "!=", replacement: "\\neq" },
@@ -41,7 +41,7 @@
       ],
     },
     {
-      group: "laas · 函數與運算子",
+      group: "laas · Functions and operators",
       options: "mA",
       snippets: [
         { trigger: "arccos", replacement: "\\arccos" },
@@ -67,8 +67,8 @@
       ],
     },
     {
-      // laas 輸出 \CC 等巨集（需要在導言區定義）；網頁上的 KaTeX/MathJax 沒有這些巨集，改用 \mathbb{}
-      group: "laas · 黑板粗體",
+      // laas emits macros like \CC (defined in the preamble); KaTeX / MathJax on the web don't have them, so \mathbb{} is used
+      group: "laas · Blackboard bold",
       options: "mA",
       snippets: [
         {
@@ -100,7 +100,7 @@
       ],
     },
     {
-      group: "laas · ; 希臘字母與符號",
+      group: "laas · ; Greek letters and symbols",
       options: "mA",
       snippets: [
         { trigger: ";a", replacement: "\\alpha" },
@@ -210,30 +210,30 @@
       ],
     },
     {
-      // laas-subscript-snippets：前面是單一字母時自動下標；已有下標時再打數字會補上大括號
-      group: "laas · 自動下標",
+      // laas-subscript-snippets: a digit after a single letter becomes its subscript; another digit after a subscript adds the braces
+      group: "laas · Automatic subscripts",
       options: "mA",
       snippets: [
         { trigger: /(?<![A-Za-z])([A-Za-z])(\d)/, replacement: "[[0]]_[[1]]", description: "x1 → x_1", preview: "x_1" },
-        { trigger: /([_^])([A-Za-z0-9])(\d)/, replacement: "[[0]]{[[1]][[2]]}", description: "x_1 再打 2 → x_{12}", preview: "x_{12}" },
+        { trigger: /([_^])([A-Za-z0-9])(\d)/, replacement: "[[0]]{[[1]][[2]]}", description: "x_1 then 2 → x_{12}", preview: "x_{12}" },
         { trigger: /(?<![A-Za-z])([A-Za-z])([ijkn])\2/, replacement: "[[0]]_[[1]]", description: "xii / xjj / xkk / xnn → x_i", preview: "x_i" },
-        { trigger: /([_^])([A-Za-z0-9])([ijkn])\3/, replacement: "[[0]]{[[1]][[2]]}", description: "x_1 再打 ii → x_{1i}", preview: "x_{1i}" },
-        { trigger: /(?<![A-Za-z])([A-Za-z])([ijkn])p1/, replacement: "[[0]]_{[[1]]+1}", description: "xip1 → x_{i+1}（j、k、n 同理）", preview: "x_{i+1}" },
-        { trigger: /(?<![A-Za-z])([A-Za-z])([ijkn])m1/, replacement: "[[0]]_{[[1]]-1}", description: "xim1 → x_{i-1}（j、k、n 同理）", preview: "x_{i-1}" },
+        { trigger: /([_^])([A-Za-z0-9])([ijkn])\3/, replacement: "[[0]]{[[1]][[2]]}", description: "x_1 then ii → x_{1i}", preview: "x_{1i}" },
+        { trigger: /(?<![A-Za-z])([A-Za-z])([ijkn])p1/, replacement: "[[0]]_{[[1]]+1}", description: "xip1 → x_{i+1} (likewise j, k, n)", preview: "x_{i+1}" },
+        { trigger: /(?<![A-Za-z])([A-Za-z])([ijkn])m1/, replacement: "[[0]]_{[[1]]-1}", description: "xim1 → x_{i-1} (likewise j, k, n)", preview: "x_{i-1}" },
       ],
     },
     {
-      // laas-frac-snippet：// 產生空分數；左邊有物件時把它包成分子（外層括號會拿掉）
-      group: "laas · 分數",
+      // laas-frac-snippet: // makes an empty fraction; with something to its left, that becomes the numerator (outer parentheses dropped)
+      group: "laas · Fractions",
       options: "mA",
       snippets: [
         { trigger: "//", replacement: "\\frac{$1}{$2}$0" },
-        { trigger: "/", replacement: "\\frac{${PREV_INNER}}{$1}$0", options: "mAo", description: "ab/ → \\frac{ab}{}，(a+b)/ → \\frac{a+b}{}" },
+        { trigger: "/", replacement: "\\frac{${PREV_INNER}}{$1}$0", options: "mAo", description: "ab/ → \\frac{ab}{}, (a+b)/ → \\frac{a+b}{}" },
       ],
     },
     {
-      // laas-accent-snippets：包住左邊的物件
-      group: "laas · 重音與字型",
+      // laas-accent-snippets: wrap the object to the left
+      group: "laas · Accents and fonts",
       options: "mAo",
       snippets: [
         { trigger: "'r", replacement: "\\mathrm{${PREV}}" },
@@ -274,8 +274,8 @@
       ],
     },
     {
-      // laas 在 LaTeX 文字模式也能用 'r 'i 'b 'e 'y 'f 'l；網頁上只在 Overleaf 開啟，避免英文縮寫（they'r…）誤觸
-      group: "laas · 文字字型（Overleaf）",
+      // laas also has 'r 'i 'b 'e 'y 'f 'l in LaTeX text mode; on the web they're on in Overleaf only, so English contractions (they'r…) don't trigger them
+      group: "laas · Text fonts (Overleaf)",
       options: "tAo",
       sites: ["overleaf.com"],
       snippets: [

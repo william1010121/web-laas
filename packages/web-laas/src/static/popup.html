@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <link rel="stylesheet" href="theme.css">
@@ -29,26 +29,26 @@
       <div class="name">web-laas</div>
       <div class="sub" id="sub">LaTeX Auto Snippets</div>
     </div>
-    <label class="switch" title="全域開關（Alt+Shift+L）"><input type="checkbox" id="enabled"><span></span></label>
+    <label class="switch" title="On / off everywhere (Alt+Shift+L)"><input type="checkbox" id="enabled"><span></span></label>
   </div>
   <div class="wrap">
     <div class="card">
       <label class="row site">
         <div class="text">
-          <div class="title">在此網站啟用</div>
+          <div class="title">On for this site</div>
           <div class="host" id="host"></div>
         </div>
         <span class="switch"><input type="checkbox" id="site"><span></span></span>
       </label>
     </div>
     <div class="card delims" id="delims" hidden>
-      <div class="head2"><span>此網站的 mk / dm 要插入哪一種數學環境</span></div>
-      <div class="row"><span class="title">mk</span><div class="seg" id="inline" role="group" aria-label="mk 行內數學"></div></div>
-      <div class="row"><span class="title">dm</span><div class="seg" id="display" role="group" aria-label="dm 區塊數學"></div></div>
+      <div class="head2"><span>What mk / dm insert on this site</span></div>
+      <div class="row"><span class="title">mk</span><div class="seg" id="inline" role="group" aria-label="mk inline math"></div></div>
+      <div class="row"><span class="title">dm</span><div class="seg" id="display" role="group" aria-label="dm display math"></div></div>
     </div>
     <div class="actions">
       <button class="btn" id="cheatsheet">∑ Cheat sheet <kbd id="csKey">Alt+Shift+K</kbd></button>
-      <button class="btn secondary" id="options" title="設定">設定</button>
+      <button class="btn secondary" id="options" title="Settings">Settings</button>
     </div>
   </div>
   <script src="popup.js"></script>

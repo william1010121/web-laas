@@ -15,8 +15,7 @@ Type <code>;a</code> → <code>\alpha</code>, <code>x/</code> → <code>\frac{x}
   <a href="#what-you-get">What you get</a> ·
   <a href="#keys">Keys</a> ·
   <a href="#your-own-snippets">Your own snippets</a> ·
-  <a href="packages/web-laas-engine">Engine (npm)</a> ·
-  <a href="README.zh-TW.md">繁體中文</a>
+  <a href="packages/web-laas-engine">Engine (npm)</a>
 </p>
 
 <p align="center">

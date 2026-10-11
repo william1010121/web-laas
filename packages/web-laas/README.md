@@ -2,7 +2,6 @@
 
 The Chromium extension (Chrome, Arc, Edge, Brave) built on [`web-laas-engine`](../web-laas-engine).
 See the [project README](../../README.md) for what it does; this file covers the extension itself.
-[繁體中文說明](README.zh-TW.md)
 
 ## Build & load
 

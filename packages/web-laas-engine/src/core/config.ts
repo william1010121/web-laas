@@ -197,7 +197,7 @@ export function compileConfig(
 
   const variables = { ...(laas.variables ?? {}), ...(extras.variables ?? {}), ...(user.variables ?? {}) };
   const userRaw = flatten(user.snippets ?? [], {}, issues, "config snippets");
-  const snippets = compileSnippets(userRaw, variables, issues, 0, "user", "我的 snippet");
+  const snippets = compileSnippets(userRaw, variables, issues, 0, "user", "My snippets");
 
   if (user.useDefaults !== false) {
     const removed = new Set((user.removeDefaults ?? []).map(triggerKey));
@@ -260,12 +260,12 @@ export interface MathDelimiters {
 }
 
 const MATH_DELIMITERS: Record<string, [replacement: string, description: string]> = {
-  dollar: ["$$1$$0", "行內數學 $…$"],
-  paren: ["\\($1\\)$0", "行內數學 \\(…\\)"],
-  ddollar: ["$$\n$1\n$$$0", "區塊數學 $$…$$"],
-  bracket: ["\\[\n\t$1\n\\]$0", "區塊數學 \\[…\\]"],
-  equation: ["\\begin{equation*}\n\t$1\n\\end{equation*}$0", "區塊數學 equation*"],
-  align: ["\\begin{align*}\n\t$1\n\\end{align*}$0", "區塊數學 align*"],
+  dollar: ["$$1$$0", "Inline math $…$"],
+  paren: ["\\($1\\)$0", "Inline math \\(…\\)"],
+  ddollar: ["$$\n$1\n$$$0", "Display math $$…$$"],
+  bracket: ["\\[\n\t$1\n\\]$0", "Display math \\[…\\]"],
+  equation: ["\\begin{equation*}\n\t$1\n\\end{equation*}$0", "Display math equation*"],
+  align: ["\\begin{align*}\n\t$1\n\\end{align*}$0", "Display math align*"],
 };
 
 /** The built-in mk / dm snippets rewritten to insert the chosen delimiters (your own mk / dm are left alone). */
