@@ -281,6 +281,18 @@ function turned(el: Element): boolean {
   return false;
 }
 
+/** Does `el` fade, filter, clip or mask what it paints (which a layer outside it doesn't get)? */
+function ownEffects(el: Element): boolean {
+  const cs = getComputedStyle(el);
+  return (
+    parseFloat(cs.opacity) < 1 ||
+    set(cs.filter) ||
+    set(cs.clipPath) ||
+    set(cs.maskImage) ||
+    set(cs.getPropertyValue("-webkit-mask-image"))
+  );
+}
+
 /** Does `el` start a stacking context of its own? */
 function formsContext(el: Element, cs: CSSStyleDeclaration): boolean {
   const parent = up(el);
@@ -429,8 +441,11 @@ interface RootState {
   stacking: { context: Element; z: number };
   /** the stacking of text in its elements (a rich editor's text may sit on several levels) */
   levels: Map<Element, { context: Element; z: number }>;
-  /** the editor is rotated, skewed or flipped: boxes can't be placed over its text, none are drawn */
-  turned: boolean;
+  /**
+   * no boxes over this editor: it is rotated, skewed or flipped (they can't be placed over its
+   * text), or it fades, filters, clips or masks itself (the layer beside it wouldn't be)
+   */
+  skip: boolean;
   checked: number;
   generation: number;
   /** how long reading the text took last time, and when that was */
@@ -668,7 +683,7 @@ export class InlineRender {
     let st = this.states.get(root);
     if (!st) {
       st = {
-        stale: true, dom: null, value: null, formulas: [], html: [], clippers: [], stacking: { context: root.ownerDocument.documentElement, z: 0 }, levels: new Map(), turned: false, checked: -Infinity, generation: -1,
+        stale: true, dom: null, value: null, formulas: [], html: [], clippers: [], stacking: { context: root.ownerDocument.documentElement, z: 0 }, levels: new Map(), skip: false, checked: -Infinity, generation: -1,
         cost: 0, readAt: -Infinity, drawn: [], near: [0, 0],
       };
       this.states.set(root, st);
@@ -681,7 +696,7 @@ export class InlineRender {
       st.clippers = clippersOf(root);
       st.stacking = stackingFor(root);
       st.levels = new Map();
-      st.turned = turned(root);
+      st.skip = turned(root) || ownEffects(root);
       st.checked = now;
     }
     if (!st.stale) return st;
@@ -748,7 +763,7 @@ export class InlineRender {
       return;
     }
     st.drawn = [];
-    if (!st.formulas.length || st.turned) return;
+    if (!st.formulas.length || st.skip) return;
     const area = visibleArea(this.doc.defaultView!, st.clippers);
     if (empty(area)) return;
     const r = root.getBoundingClientRect();
@@ -1053,6 +1068,8 @@ export class InlineRender {
     if (!layer || !layer.host.isConnected) {
       const host = this.doc.createElement("div");
       host.setAttribute("data-web-laas-render", "");
+      // only a picture of the source, which stays where it is for screen readers
+      host.setAttribute("aria-hidden", "true");
       host.style.cssText = `all: initial; position: fixed; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: ${z};`;
       const shadow = host.attachShadow({ mode: "closed" });
       const style = this.doc.createElement("style");
