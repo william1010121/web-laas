@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { clippersOf, domText, formulasIn, InlineRender, splitPieces } from "../../src/preview/inline";
+import { clippersOf, domText, formulasIn, InlineRender, splitPieces, zIndexFor } from "../../src/preview/inline";
 
 const html = (s: string) => {
   const el = document.createElement("div");
@@ -110,5 +110,18 @@ describe("text field mirror", () => {
     value = "";
     check();
     m.el.remove();
+  });
+});
+
+describe("zIndexFor", () => {
+  it("counts the editor's own stacking context, and the outermost one wins", () => {
+    const outer = html('<textarea style="position:relative;z-index:3"></textarea>');
+    document.body.append(outer);
+    const ta = outer.querySelector("textarea")!;
+    expect(zIndexFor(ta)).toBe(3);
+    outer.style.position = "relative";
+    outer.style.zIndex = "7";
+    expect(zIndexFor(ta)).toBe(7);
+    outer.remove();
   });
 });

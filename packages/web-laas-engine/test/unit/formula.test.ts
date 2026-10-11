@@ -147,3 +147,17 @@ describe("findFormulas on long text", () => {
     expect(performance.now() - t).toBeLessThan(2000);
   });
 });
+
+describe("findFormulas edge cases", () => {
+  const latex = (s: string, comments = true) => findFormulas(s, { comments }).map((f) => f.latex);
+
+  it("an escaped percent is text, not a comment", () => {
+    expect(latex("50\\% and $x$")).toEqual(["x"]);
+    expect(latex("a \\\\% comment $no$\n$y$")).toEqual(["y"]); // \\ is a line break: this % does comment
+  });
+
+  it("an empty pair is passed over, closer and all", () => {
+    expect(latex("$ $ and $x$")).toEqual(["x"]);
+    expect(latex("$$  $$ then $$y$$")).toEqual(["y"]);
+  });
+});

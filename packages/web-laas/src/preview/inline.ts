@@ -221,10 +221,10 @@ function visibleArea(view: Window, clippers: Element[]): Rect {
   return r;
 }
 
-/** The z-index that puts a layer just above `el` (the stacking context it paints in). */
-function zIndexFor(el: Element): number {
+/** The z-index that puts a layer just above `el` (the stacking context it paints in, its own included). */
+export function zIndexFor(el: Element): number {
   let z = 0;
-  for (let a = el.parentElement; a; a = a.parentElement) {
+  for (let a: Element | null = el; a; a = a.parentElement) {
     const cs = getComputedStyle(a);
     const parent = a.parentElement && getComputedStyle(a.parentElement).display;
     const stacks = cs.position !== "static" || /flex|grid/.test(parent ?? "");

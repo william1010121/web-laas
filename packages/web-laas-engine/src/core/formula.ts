@@ -156,20 +156,24 @@ export function findFormulas(text: string, opts: { comments?: boolean } = {}): F
       continue;
     }
     const span = formulaFrom(text, i, opener, comments, nextBlank);
-    if (span) out.push(span);
+    if (span && "latex" in span) out.push(span);
+    // an empty pair ($ $) is no formula, but its closer is no opener either
     i = span ? span.to : i + opener.length;
   }
   return out;
 }
 
-/** The formula opened by `opener` at `at`, or null when it isn't closed within its paragraph. */
+/**
+ * The formula opened by `opener` at `at`; just its end when it's empty; null
+ * when it isn't closed within its paragraph.
+ */
 function formulaFrom(
   text: string,
   at: number,
   opener: string,
   comments: boolean,
   nextBlank: (from: number) => number,
-): FormulaSpan | null {
+): FormulaSpan | { to: number } | null {
   const start = at + opener.length;
   const pandoc = opener === "$" && !comments;
   if (pandoc && /^\s|^$/.test(text.slice(start, start + 1))) return null;
@@ -187,7 +191,7 @@ function formulaFrom(
     }
     const len = endRe?.exec(text.slice(end, end + closer.length + 16))?.[0].length ?? closer.length;
     const latex = text.slice(start, end);
-    if (!latex.trim()) return null;
+    if (!latex.trim()) return { to: end + len };
     return { from: at, to: end + len, latex, caret: 0, display: opener !== "$" && opener !== "\\(" && env !== "math", env };
   }
   return null;
