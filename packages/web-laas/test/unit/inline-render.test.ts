@@ -194,6 +194,21 @@ describe("text field mirror", () => {
   });
 });
 
+describe("clippersOf and <body>", () => {
+  it("skips <body> when its overflow goes to the viewport", () => {
+    const ta = document.createElement("textarea");
+    document.body.append(ta);
+    document.body.style.overflow = "hidden";
+    expect(clippersOf(ta)).not.toContain(document.body);
+    // with <html> setting its own overflow, <body> clips for real
+    document.documentElement.style.overflow = "hidden";
+    expect(clippersOf(ta)).toContain(document.body);
+    document.documentElement.style.overflow = "";
+    document.body.style.overflow = "";
+    ta.remove();
+  });
+});
+
 describe("stackingFor", () => {
   it("places the layer in the stacking context the editor paints in", () => {
     const wrap = html('<textarea style="position:relative;z-index:3"></textarea>');
