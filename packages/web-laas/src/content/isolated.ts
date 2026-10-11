@@ -6,6 +6,7 @@ import { alive } from "../shared/alive";
 import { matchesChord, parseShortcut, type Chord } from "../shared/shortcut";
 import {
   loadState,
+  stateForSite,
   STORAGE_KEYS,
   type BackgroundMessage,
   type CommandName,
@@ -62,7 +63,10 @@ function start() {
     renderWanted = state.enabled && state.prefs.inlineRender;
     siteOff = false; // the settings changed: ask again
     if (renderWanted) checkForMath();
-    document.dispatchEvent(new CustomEvent("web-laas:state", { detail: JSON.stringify(state) }));
+    // The main-world script gets this through a page event, which the page's own scripts can
+    // hear too: send only what this site needs, not the settings of every other site
+    const forThisSite = stateForSite(state, location.hostname);
+    document.dispatchEvent(new CustomEvent("web-laas:state", { detail: JSON.stringify(forThisSite) }));
   }
   // A main-world script from a build before the versioned hand-over can't be
   // replaced; switch it off through its old event so it doesn't keep running.
