@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { clippersOf, domText, formulasIn, InlineRender, splitPieces, stackingFor } from "../../src/preview/inline";
+import { clippersOf, domText, formulasIn, InlineRender, oneWayScaled, splitPieces, stackingFor } from "../../src/preview/inline";
 
 const html = (s: string) => {
   const el = document.createElement("div");
@@ -44,6 +44,61 @@ describe("domText", () => {
     expect(st.stale).toBe(true);
     r.destroy();
     ce.remove();
+  });
+
+  it("draws again at once when visibility changes anywhere", async () => {
+    const wrap = document.createElement("div");
+    document.body.append(wrap);
+    const r = new InlineRender(document) as any;
+    let scheduled = 0;
+    r.schedule = () => scheduled++;
+    r.set({ on: true, comments: false });
+    scheduled = 0;
+    wrap.style.visibility = "hidden";
+    await new Promise((res) => setTimeout(res, 0));
+    expect(scheduled).toBe(1);
+    // inside an editor, it forgets which of its elements it found hidden
+    const ce = document.createElement("div");
+    ce.innerHTML = "<span>$x$</span>";
+    wrap.append(ce);
+    const st = { stale: false, faded: new Map([[ce.firstElementChild, false]]) };
+    r.states.set(ce, st);
+    (ce.firstElementChild as HTMLElement).style.visibility = "hidden";
+    await new Promise((res) => setTimeout(res, 0));
+    expect(st.faded.size).toBe(0);
+    scheduled = 1;
+    // a visibility given as var(): only a change of the whole value counts
+    wrap.style.cssText = "visibility: var(--v)";
+    await new Promise((res) => setTimeout(res, 0));
+    scheduled = 1;
+    wrap.style.transform = "translateX(1px)";
+    await new Promise((res) => setTimeout(res, 0));
+    expect(scheduled).toBe(1);
+    // other style changes outside an editor need nothing
+    wrap.style.color = "red";
+    await new Promise((res) => setTimeout(res, 0));
+    expect(scheduled).toBe(1);
+    r.destroy();
+    wrap.remove();
+  });
+
+  it("watches the same attributes inside shadow roots", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const sr = host.attachShadow({ mode: "open" });
+    sr.innerHTML = '<div contenteditable="true"><p>a <span hidden>$x$</span></p></div>';
+    const ce = sr.firstElementChild!;
+    const r = new InlineRender(document) as any;
+    r.schedule = () => {};
+    r.set({ on: true, comments: false });
+    r.findShadows?.();
+    const st = { stale: false };
+    r.states.set(ce, st);
+    sr.querySelector("span")!.hidden = false;
+    await new Promise((res) => setTimeout(res, 0));
+    expect(st.stale).toBe(true);
+    r.destroy();
+    host.remove();
   });
 
   it("nested blocks don't add blank lines", () => {
@@ -218,5 +273,21 @@ describe("an orphaned renderer", () => {
     expect(r.on).toBe(false);
     r.schedule(); // nothing is scheduled any more
     expect(r.frame).toBe(0);
+  });
+});
+
+describe("oneWayScaled", () => {
+  it("allows each dimension's rounding to whole pixels", () => {
+    // 500 × 20.5 px, untransformed: offsetHeight rounds to 21
+    expect(oneWayScaled(1, 20.5 / 21, 500, 21)).toBe(false);
+    expect(oneWayScaled(667.5 / 668, 1, 668, 318)).toBe(false);
+    // uniform scaling
+    expect(oneWayScaled(1.2, 1.2, 400, 300)).toBe(false);
+  });
+
+  it("catches one-way stretching", () => {
+    expect(oneWayScaled(2, 1, 400, 300)).toBe(true);
+    expect(oneWayScaled(1, 1.1, 400, 300)).toBe(true);
+    expect(oneWayScaled(1.5, 1, 30, 20)).toBe(true);
   });
 });

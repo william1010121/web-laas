@@ -90,11 +90,19 @@ when they change. Here each column is the longest frame after the action.
 
 | editor | cold | scroll jump | wheel | typing | boxes |
 |---|---:|---:|---:|---:|---:|
-| CodeMirror 6 | 13 | 19.9 / 35.8 | 7.6 / 19.3 | 0.0 / 0.8 | 36 |
-| CodeMirror 5 | 29 | 14.0 / 18.2 | 7.2 / 24.8 | 0.0 / 0.0 | 35 |
-| ProseMirror | 18 | 23.5 / 43.8 | 12.9 / 21.6 | 7.1 / 30.3 | 56 |
-| contenteditable | 25 | 27.9 / 62.5 | 19.4 / 39.6 | 4.0 / 23.7 | 61 |
-| textarea | 45 | 27.8 / 54.4 | 14.8 / 48.2 | 9.4 / 23.4 | 40 |
+| CodeMirror 6 | 10 | 13.1 / 15.8 | 4.9 / 7.3 | 2.2 / 2.8 | 36 |
+| CodeMirror 5 | 11 | 13.4 / 14.6 | 4.9 / 13.1 | 2.9 / 3.8 | 35 |
+| ProseMirror | 10 | 15.6 / 19.3 | 7.6 / 11.8 | 13.9 / 19.9 | 56 |
+| contenteditable | 11 | 15.5 / 19.9 | 7.5 / 11.4 | 13.1 / 18.8 | 61 |
+| textarea | 16 | 16.0 / 29.7 | 5.4 / 7.1 | 8.9 / 19.0 | 40 |
+
+(Measured after the review fixes in #5 and #6; ego-browser, 80 scroll jumps.)
+Scrolling is faster than in the first SVG measurement (every layer is measured
+once per frame, before any box is written). Typing in the rich editors is about
+what it was with MathML (10.9 ms for ProseMirror above): the editor's text is
+read again after each keystroke. The first SVG run's typing means were lower
+because many keystrokes there fell within the slow-read throttle (its
+ProseMirror median was 1.2 ms, its p95 30 ms).
 
 The benchmark scrolls every other frame, leaving little idle time to render
 ahead; ordinary scrolling finds more formulas ready.

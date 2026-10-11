@@ -264,6 +264,16 @@ function scaleOf(el: Element, rect = el.getBoundingClientRect()): { sx: number; 
   };
 }
 
+/**
+ * Do scales `sx`, `sy` (on-screen size over offsetWidth / offsetHeight, `w` × `h`) differ by more
+ * than the rounding of offsetWidth and offsetHeight to whole pixels explains? Each ratio is off
+ * by up to half a pixel over its own size, so the allowance is per dimension, not one width's.
+ */
+export function oneWayScaled(sx: number, sy: number, w: number, h: number): boolean {
+  if (!w || !h) return false;
+  return Math.abs(sx - sy) > Math.max(sx, sy) * (0.5 / w + 0.5 / h) + 0.002;
+}
+
 /** The part of the window where content inside all of `clippers` can show. */
 function visibleArea(view: Window, clippers: Element[]): Rect {
   let r: Rect = { left: 0, top: 0, right: view.innerWidth, bottom: view.innerHeight };
@@ -410,6 +420,16 @@ function firstReaching(n: number, bottomOf: (i: number) => number, top: number):
   return lo;
 }
 
+/** What changes an editor's text: its content, and the attributes that hide text from domText or make it a widget. */
+const OBSERVE: MutationObserverInit = {
+  childList: true,
+  subtree: true,
+  characterData: true,
+  attributes: true,
+  attributeOldValue: true,
+  attributeFilter: ["hidden", "style", "contenteditable"],
+};
+
 /** Formulas this far outside the visible area are drawn too, so a scroll doesn't show them late. */
 const MARGIN = 120;
 /** How often (ms) an unchanged editor's scroll containers and stacking are looked at again. */
@@ -536,6 +556,8 @@ export class InlineRender {
   private laterTimer = 0;
   /** layers by the stacking context they're in, then z-index */
   /** layers by the stacking context they're in */
+  /** an element never in the page, to parse old style attributes with */
+  private probe: HTMLElement;
   private layers = new Map<Element, (Layer & { z: number; after: Element | null })[]>();
   /** boxes on screen, by the SVG they show (a box moves with its formula as text is typed before it) */
   private boxes = new Map<string, HTMLElement[]>();
@@ -565,6 +587,7 @@ export class InlineRender {
       alive?: () => boolean;
     } = {},
   ) {
+    this.probe = doc.createElement("div");
     this.observer = new MutationObserver((records) => {
       // only an editor whose content changed has to read its text again
       // (a style changing outside any editor, say an animation, needs no update at all)
@@ -573,8 +596,24 @@ export class InlineRender {
       for (const r of records) {
         // editors restyle their own elements all the time: only a display: none coming or going counts
         if (r.type === "attributes" && r.attributeName === "style") {
-          const was = /display\s*:\s*none/.test(r.oldValue ?? "");
-          if (was === ((r.target as HTMLElement).style?.display === "none")) continue;
+          const style = (r.target as HTMLElement).style;
+          // the old declarations, parsed as the browser does (a value may be var(--x), say)
+          const was = this.probe.style;
+          was.cssText = r.oldValue ?? "";
+          // (visibility, anywhere: hiding an editor or what holds it takes its formulas away at once;
+          // it is looked at on every draw, so a draw is all it needs)
+          if (was.visibility !== (style?.visibility ?? "")) {
+            any = true;
+            // inside an editor, the formulas' elements it knows to be hidden may have changed
+            for (let n: Node | null = r.target; n; n = n.parentNode) {
+              const st = this.states.get(n as Element);
+              if (st) {
+                st.faded = new Map();
+                break;
+              }
+            }
+          }
+          if ((was.display === "none") === (style?.display === "none")) continue;
         }
         if (r.type !== "attributes") any = true;
         for (let n: Node | null = r.target; n && !seen.has(n); n = n.parentNode) {
@@ -607,15 +646,7 @@ export class InlineRender {
       doc.addEventListener("focusin", this.schedule);
       doc.addEventListener("focusout", this.schedule);
       view.addEventListener("resize", this.schedule);
-      // (and the attributes that hide text from domText or make it a widget)
-      this.observer.observe(doc.body ?? doc.documentElement, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-        attributes: true,
-        attributeOldValue: true,
-        attributeFilter: ["hidden", "style", "contenteditable"],
-      });
+      this.observer.observe(doc.body ?? doc.documentElement, OBSERVE);
       // layout can also move without any of the above (a sidebar sliding open)
       this.timer = view.setInterval(this.schedule, 700);
       this.schedule();
@@ -673,7 +704,7 @@ export class InlineRender {
         if (!this.shadows.has(sr)) {
           this.shadows.add(sr);
           // mutations and scrolling inside don't reach the document's listeners
-          this.observer.observe(sr, { childList: true, subtree: true, characterData: true });
+          this.observer.observe(sr, OBSERVE);
           sr.addEventListener("scroll", this.schedule, { capture: true, passive: true });
         }
         look(sr);
@@ -835,7 +866,12 @@ export class InlineRender {
     if (empty(area)) return;
     const r = root.getBoundingClientRect();
     const cs = getComputedStyle(root);
+    // invisible (visibility is inherited: this covers its ancestors), looked at every frame as a
+    // style change can hide it at any time
+    if (cs.visibility !== "visible") return;
     const { sx, sy } = scaleOf(root, r);
+    // stretched one way only (scaleX(2)): math drawn at one font size can't match its source
+    if (oneWayScaled(sx, sy, (root as HTMLElement).offsetWidth, (root as HTMLElement).offsetHeight)) return;
     const contentLeft = r.left + root.clientLeft * sx;
     const frame: Frame = {
       area,
