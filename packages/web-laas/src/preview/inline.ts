@@ -529,7 +529,8 @@ export class InlineRender {
     s.background = item.background;
     s.fontSize = item.fontSize;
     const c = item.clip;
-    s.clipPath = `inset(${Math.max(0, c.top - top)}px ${Math.max(0, right - c.right)}px ${Math.max(0, bottom - c.bottom)}px ${Math.max(0, c.left - left)}px)`;
+    // cut off only by the editor's visible area: a formula may reach a little past its line
+    s.clipPath = `inset(${c.top - top}px ${right - c.right}px ${bottom - c.bottom}px ${c.left - left}px)`;
     s.visibility = empty(intersect(item.box, c)) ? "hidden" : "";
     // shrink a formula bigger than its source to fit
     const size = `${Math.round(w)}x${Math.round(h)}:${item.fontSize}`;
