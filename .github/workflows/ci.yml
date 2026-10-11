@@ -25,5 +25,7 @@ jobs:
       - run: npm run build
       - run: npm test
       - run: npm run typecheck
+      - name: showcase site builds
+        run: npm run site
       - name: published types work for Node ESM and bundlers
         run: npm run test:types -w web-laas-engine

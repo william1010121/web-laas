@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>web-laas — LaTeX snippets for every editor on the web</title>
+<meta name="description" content="Emacs laas and cdlatex snippets in Overleaf, ChatGPT, Claude, Notion, HackMD and any text field, with a live preview and formulas rendered in place.">
+<meta property="og:title" content="web-laas — LaTeX snippets for every editor on the web">
+<meta property="og:description" content="Type ;a for \alpha and x/ for \frac{x}{} in any web editor, and see the formula as you type.">
+<meta property="og:image" content="assets/img/chatgpt-rendered.jpg">
+<link rel="icon" href="assets/icon.png">
+<link rel="stylesheet" href="assets/site.css">
+<script type="module" src="assets/site.js"></script>
+</head>
+<body>
+
+<header class="top">
+  <a class="mark" href="#top"><span class="logo">∑</span>web-laas</a>
+  <nav class="links">
+    <a href="#features">Features</a>
+    <a href="#try-it">Try it</a>
+    <a href="#cheatsheet">Cheat sheet</a>
+    <a href="#privacy">Privacy</a>
+    <a href="https://github.com/william1010121/web-laas">GitHub</a>
+  </nav>
+  <a class="btn solid sm" href="#install">Install</a>
+</header>
+
+<section class="hero" id="top">
+  <div class="hero-text">
+    <span class="eyebrow">Chrome extension · Manifest V3 · free and open source</span>
+    <h1>LaTeX snippets for every editor on the web.</h1>
+    <p class="lead">Type <code>;a</code> for <code>\alpha</code>, <code>x/</code> for <code>\frac{x}{}</code> and <kbd>Tab</kbd> through the fields, in Overleaf, ChatGPT, Claude, Notion, HackMD or any text field. The snippets are the ones from Emacs <a href="https://github.com/tecosaur/LaTeX-auto-activating-snippets">laas</a> and <a href="https://github.com/cdominik/cdlatex">cdlatex</a>, ported one-to-one.</p>
+    <div class="ctas">
+      <a class="btn solid" href="#install">Add to Chrome</a>
+      <a class="btn ghost" href="#try-it">Try it on this page</a>
+    </div>
+  </div>
+  <div class="demo hero-demo" data-scene="tab">
+    <div class="win"><div class="dots"><i></i><i></i><i></i></div><span>main.tex — any editor</span></div>
+    <pre class="code"></pre>
+    <div class="render"><span class="rl">Renders as</span><div class="math"></div></div>
+    <div class="keys"><div class="caps"></div><div class="pill"></div></div>
+  </div>
+</section>
+
+<section class="stats">
+  <div><b data-count="laas">184</b>laas snippets, ported entry by entry</div>
+  <div><b data-count="cdlatex">296</b>cdlatex symbols, modifiers and Tab commands</div>
+  <div><b>6</b>kinds of editor: CodeMirror 5 &amp; 6, ProseMirror, contenteditable, textarea, input</div>
+  <div><b>0</b>bytes of your text sent anywhere</div>
+</section>
+
+<main>
+
+<div class="part" id="features"><span class="k">Features</span><h2>Write math as fast as you think it.</h2>
+  <p>Every animation below is recorded keystroke by keystroke from the real engine: nothing is mocked up.</p></div>
+
+<section class="feat">
+  <div class="txt">
+    <span class="num">01</span><h3>laas snippets, auto-expanding</h3>
+    <p>Inside math, short keys expand the moment you type them: <code>;a</code> → <code>\alpha</code>, <code>sr</code> → <code>^2</code>, <code>&lt;=</code> → <code>\leq</code>, <code>x1</code> → <code>x_1</code>, <code>iff</code> → <code>\iff</code>. Outside math nothing happens, so ordinary writing is never touched.</p>
+    <p class="note">Press <kbd>Backspace</kbd> right after an expansion to get back what you typed.</p>
+  </div>
+  <div class="demo" data-scene="laas">
+    <div class="win"><div class="dots"><i></i><i></i><i></i></div><span>notes — any text field</span></div>
+    <pre class="code"></pre>
+    <div class="render"><span class="rl">Renders as</span><div class="math"></div></div>
+    <div class="keys"><div class="caps"></div><div class="pill"></div></div>
+  </div>
+</section>
+
+<section class="feat flip">
+  <div class="txt">
+    <span class="num">02</span><h3>Fractions that take what's to their left</h3>
+    <p><code>/</code> turns the object before it into a numerator: <code>x_1/</code> → <code>\frac{x_1}{}</code>, and <code>(a+b)/</code> drops the parentheses → <code>\frac{a+b}{}</code>. <code>//</code> makes an empty fraction to fill in.</p>
+  </div>
+  <div class="demo" data-scene="frac">
+    <div class="win"><div class="dots"><i></i><i></i><i></i></div><span>homework — any text field</span></div>
+    <pre class="code"></pre>
+    <div class="render"><span class="rl">Renders as</span><div class="math"></div></div>
+    <div class="keys"><div class="caps"></div><div class="pill"></div></div>
+  </div>
+</section>
+
+<section class="feat">
+  <div class="txt">
+    <span class="num">03</span><h3>cdlatex, too</h3>
+    <p>Backtick symbols (<code>`a</code> → <code>\alpha</code>, <code>``</code> for the second level), quote modifiers on the last character (<code>x'.</code> → <code>\dot{x}</code>, <code>v'b</code> → <code>\mathbf{v}</code>), <code>_</code> → <code>_{}</code>, Tab commands like <code>fr</code><kbd>Tab</kbd> and <code>sq</code><kbd>Tab</kbd>, and <code>$ [ {</code> pairing.</p>
+  </div>
+  <div class="demo" data-scene="cdlatex">
+    <div class="win"><div class="dots"><i></i><i></i><i></i></div><span>physics.tex — Overleaf</span></div>
+    <pre class="code"></pre>
+    <div class="render"><span class="rl">Renders as</span><div class="math"></div></div>
+    <div class="keys"><div class="caps"></div><div class="pill"></div></div>
+  </div>
+</section>
+
+<section class="feat flip">
+  <div class="txt">
+    <span class="num">04</span><h3>Tab that knows LaTeX</h3>
+    <p>Snippets have fields, like yasnippet: <kbd>Tab</kbd> moves to the next one, and after the last it leaves the snippet. Outside a snippet, <kbd>Tab</kbd> moves like <code>cdlatex-tab</code>: out of a group, into the next empty <code>{}</code>, past the closing <code>$</code>. <kbd>Shift</kbd>+<kbd>Tab</kbd> goes back.</p>
+  </div>
+  <div class="demo" data-scene="tab">
+    <div class="win"><div class="dots"><i></i><i></i><i></i></div><span>proof.md — HackMD</span></div>
+    <pre class="code"></pre>
+    <div class="render"><span class="rl">Renders as</span><div class="math"></div></div>
+    <div class="keys"><div class="caps"></div><div class="pill"></div></div>
+  </div>
+</section>
+
+<section class="feat">
+  <div class="txt">
+    <span class="num">05</span><h3>A live preview while you type</h3>
+    <p>While the caret is in math, a small card renders the whole formula, marks where you are with a caret and shows the fields still to fill as □. It sits above the caret (or below, or in the corner) and <kbd>Esc</kbd> hides it.</p>
+  </div>
+  <figure class="shot"><img src="assets/img/chatgpt-typing.jpg" alt="ChatGPT's message box with formulas rendered in place and a preview card above the formula being typed" loading="lazy" width="1280" height="800"><figcaption>In ChatGPT's message box.</figcaption></figure>
+</section>
+
+<section class="feat flip">
+  <div class="txt">
+    <span class="num">06</span><h3>Formulas rendered in place</h3>
+    <p>Once the caret leaves a formula, it's drawn typeset right over its source, as crisp SVG. Move the caret back in (or click it) and the LaTeX is there to edit. It keeps up with long documents: only the formulas near the window are drawn.</p>
+  </div>
+  <figure class="shot"><img src="assets/img/chatgpt-rendered.jpg" alt="The same message with every formula rendered in place" loading="lazy" width="1280" height="800"><figcaption>The same message, with the caret in the text.</figcaption></figure>
+</section>
+
+<div class="part" id="try-it"><span class="k">Try it</span><h2>Type here. It's the real thing.</h2>
+  <p>This box runs the same engine, preview card and in-place rendering as the extension. Click into it and try <code>$</code>, <code>;b</code>, <code>x/</code>, <code>sum</code>, then <kbd>Tab</kbd>.</p></div>
+
+<section class="try">
+  <textarea id="try" spellcheck="false" aria-label="Try web-laas">Euler's identity, $e^{i\pi} + 1 = 0$, links five constants.
+
+The Gaussian integral:
+$$\int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}$$
+
+Your turn: </textarea>
+  <div class="try-bar">
+    <span class="hint">Formulas are rendered while the caret is elsewhere; click one to edit it.</span>
+    <button class="btn ghost sm" id="try-reset" type="button">Reset</button>
+  </div>
+</section>
+
+<div class="part" id="cheatsheet"><span class="k">Cheat sheet</span><h2>Every snippet, one keystroke away.</h2>
+  <p>Press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> on any page for this table, filtered to what works on that site. Search it by key or by command.</p></div>
+
+<section class="sheet-wrap"><div id="sheet"></div></section>
+
+<div class="part"><span class="k">Make it yours</span><h2>Your own snippets, your sites.</h2></div>
+
+<section class="feat">
+  <div class="txt">
+    <span class="num">07</span><h3>Write your own snippets</h3>
+    <p>The options page has a small config language: a JavaScript object with triggers, replacements, fields, regex triggers and per-site rules. Errors are shown as you type, and a test box tries the config before you save it.</p>
+  </div>
+  <pre class="config"><span class="c">// My snippets</span>
+{
+  snippets: [
+    { trigger: <span class="s">"EE"</span>, replacement: <span class="s">`\mathbb{E}`</span>, options: <span class="s">"mA"</span> },
+    { trigger: <span class="s">/([a-zA-Z])tld/</span>, replacement: <span class="s">`\tilde{[[0]]}`</span>, options: <span class="s">"mA"</span> },
+    { trigger: <span class="s">"beg"</span>, replacement: <span class="s">`\begin{$1}
+	$0
+\end{$1}`</span>, options: <span class="s">"tA"</span>, sites: [<span class="s">"overleaf.com"</span>] },
+  ],
+  disabledSites: [<span class="s">"mail.google.com"</span>],
+}</pre>
+</section>
+
+<section class="feat flip">
+  <div class="txt">
+    <span class="num">08</span><h3>Per-site control</h3>
+    <p>Turn web-laas off for a site from the toolbar, and choose what <code>mk</code> and <code>dm</code> insert there: <code>$…$</code> or <code>\(…\)</code> inline; <code>$$</code>, <code>\[ \]</code>, <code>equation*</code> or <code>align*</code> for display math.</p>
+  </div>
+  <figure class="shot small"><img src="assets/img/popup.png" alt="The toolbar popup: on/off for this site, and what mk and dm insert" loading="lazy" width="360" height="348"></figure>
+</section>
+
+<div class="part" id="reference"><span class="k">Reference</span><h2>The details.</h2></div>
+
+<section class="ref">
+  <div class="card">
+    <h3>Works in</h3>
+    <ul class="works">
+      <li><div><b>Overleaf</b>, <b>JupyterLab</b></div><span>CodeMirror 6</span></li>
+      <li><div><b>HackMD</b></div><span>CodeMirror 5</span></li>
+      <li><div><b>ChatGPT</b>, <b>Claude</b></div><span>ProseMirror</span></li>
+      <li><div><b>Notion</b> and other rich editors</div><span>contenteditable</span></li>
+      <li><div>Any <b>textarea</b> or text <b>input</b></div><span>native</span></li>
+      <li><div>Input methods such as Zhuyin and Pinyin</div><span>IME</span></li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Shortcuts</h3>
+    <table class="keys-table">
+      <tr><td><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></td><td>Turn web-laas on or off</td></tr>
+      <tr><td><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd></td><td>Open the cheat sheet</td></tr>
+      <tr><td><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>Next / previous field, or move like cdlatex</td></tr>
+      <tr><td><kbd>Backspace</kbd></td><td>Undo the expansion just made</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Hide the preview card</td></tr>
+    </table>
+  </div>
+</section>
+
+<section class="install" id="install">
+  <h2>Install</h2>
+  <div class="steps">
+    <div class="card">
+      <h3>From the Chrome Web Store</h3>
+      <p>Works in Chrome, Arc, Edge, Brave and other Chromium browsers.</p>
+      <a class="btn solid" href="https://chromewebstore.google.com/detail/cjmpnbhgaglpoggcfbfadkicmhhllhmp">Add to Chrome</a>
+    </div>
+    <div class="card">
+      <h3>From GitHub</h3>
+      <p>Download the zip from the <a href="https://github.com/william1010121/web-laas/releases/latest">latest release</a>, unzip it, turn on Developer mode in <code>chrome://extensions</code> and choose <b>Load unpacked</b>.</p>
+    </div>
+    <div class="card">
+      <h3>The engine, for your own app</h3>
+      <p><code>npm install web-laas-engine</code>: the snippet engine and editor adapters, with no extension APIs.</p>
+      <a class="btn ghost sm" href="https://www.npmjs.com/package/web-laas-engine">On npm</a>
+    </div>
+  </div>
+</section>
+
+<section class="privacy" id="privacy">
+  <h2>Privacy &amp; permissions</h2>
+  <p class="lead">web-laas runs entirely in your browser. It collects no data, makes no network requests of its own, has no analytics and loads no remote code. Your settings stay in the browser's extension storage. <a href="https://github.com/william1010121/web-laas/blob/main/PRIVACY.md">Privacy policy</a>.</p>
+  <table class="perm">
+    <tr><th>Permission</th><th>Why</th></tr>
+    <tr><td><code>storage</code></td><td>Your settings: on/off, sites you turned it off on, per-site delimiters, preview options and your own snippets.</td></tr>
+    <tr><td><code>scripting</code></td><td>Loads the preview and cheat sheet into a page only when they're needed, and brings tabs that were already open up to date after an install or update.</td></tr>
+    <tr><td><code>notifications</code></td><td>Shortcut feedback on pages where the in-page message can't show, such as <code>chrome://</code> pages.</td></tr>
+    <tr><td>Access to all sites</td><td>Snippets have to work in whatever editor you write math in, so the content script runs on every site. Nothing on the page leaves your browser.</td></tr>
+  </table>
+</section>
+
+<section class="limits">
+  <h2>Know the limits</h2>
+  <ul>
+    <li>Pages that block extensions (<code>chrome://</code> pages, the Chrome Web Store, the PDF viewer) can't be scripted.</li>
+    <li>Formulas drawn in place cover their source; an editor that is rotated, faded or clipped by its page keeps showing the source instead.</li>
+    <li>Your snippet config is passed to the pages you use web-laas on, because the snippets run there.</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  <span><span class="logo sm">∑</span> web-laas · GPL-3.0-or-later</span>
+  <a href="https://github.com/william1010121/web-laas">GitHub</a>
+  <a href="https://github.com/william1010121/web-laas/blob/main/PRIVACY.md">Privacy policy</a>
+  <a href="https://github.com/william1010121/web-laas/issues">Support</a>
+</footer>
+
+</body>
+</html>
