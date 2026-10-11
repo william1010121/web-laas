@@ -251,7 +251,11 @@ export function clippersOf(el: Element): Element[] {
   // <body>'s overflow applies to the viewport (already the limit) when <html> leaves its own
   // visible: then <body> clips nothing, and its box may even be 0 tall (JupyterLab)
   const html = getComputedStyle(doc.documentElement);
-  const bodyToViewport = !!doc.body && [html.overflow, html.overflowX, html.overflowY].every((v) => !v || v === "visible");
+  const body = doc.body ? getComputedStyle(doc.body) : null;
+  // (containment on either stops the propagation: then <body> clips itself)
+  const contained = (cs: CSSStyleDeclaration | null) => !!cs?.contain && cs.contain !== "none";
+  const bodyToViewport =
+    !!body && [html.overflow, html.overflowX, html.overflowY].every((v) => !v || v === "visible") && !contained(html) && !contained(body);
   for (let a: Element | null = el; a && a !== doc.documentElement; a = up(a)) {
     if (a === doc.body && bodyToViewport) continue;
     const cs = getComputedStyle(a);

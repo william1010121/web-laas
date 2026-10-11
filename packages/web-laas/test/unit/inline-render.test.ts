@@ -204,6 +204,10 @@ describe("clippersOf and <body>", () => {
     document.documentElement.style.overflow = "hidden";
     expect(clippersOf(ta)).toContain(document.body);
     document.documentElement.style.overflow = "";
+    // containment stops the propagation too
+    document.body.style.contain = "paint";
+    expect(clippersOf(ta)).toContain(document.body);
+    document.body.style.contain = "";
     document.body.style.overflow = "";
     ta.remove();
   });
