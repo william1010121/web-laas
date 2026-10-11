@@ -5,7 +5,12 @@ import { findFormulas, type FormulaSpan } from "web-laas-engine";
 import { renderMath } from "../shared/math";
 import { prepareLatex } from "./preview";
 
-const EDITORS = ".cm-content, .CodeMirror-code, textarea, [contenteditable]";
+const EDITORS = ".cm-content, .CodeMirror-code, textarea, input[type=text], input[type=search], input:not([type]), [contenteditable]";
+
+/** A plain text field: a textarea, or a one-line text / search input. */
+type Field = HTMLTextAreaElement | HTMLInputElement;
+const isField = (el: Element): el is Field =>
+  el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && (el.type === "text" || el.type === "search"));
 
 // Elements that start a new line of text.
 const BLOCKS = new Set([
@@ -199,7 +204,7 @@ export function clippersOf(el: Element): Element[] {
   for (let a: Element | null = el; a && a !== el.ownerDocument.documentElement; a = a.parentElement) {
     const cs = getComputedStyle(a);
     const scrolls = [cs.overflowX, cs.overflowY, cs.overflow].some((v) => v && v !== "visible");
-    if (a instanceof HTMLTextAreaElement || scrolls) out.push(a);
+    if (isField(a) || scrolls) out.push(a);
   }
   return out;
 }
@@ -317,7 +322,7 @@ export class InlineRender {
   /** boxes on screen, by the MathML they show (a box moves with its formula as text is typed before it) */
   private boxes = new Map<string, HTMLElement[]>();
   private states = new WeakMap<Element, RootState>();
-  private mirrors = new Map<HTMLTextAreaElement, Mirror>();
+  private mirrors = new Map<Field, Mirror>();
   private observer: MutationObserver;
   // per-frame memos of computed styles
   private backgrounds = new Map<Element, string>();
@@ -436,7 +441,8 @@ export class InlineRender {
     const view = this.doc.defaultView!;
     const out: Element[] = [];
     for (const el of this.doc.querySelectorAll<HTMLElement>(EDITORS)) {
-      if (el instanceof HTMLTextAreaElement) {
+      if (el instanceof HTMLInputElement && !isField(el)) continue;
+      if (isField(el)) {
         if (el.closest(".CodeMirror, .cm-editor, .monaco-editor") || el.disabled) continue;
       } else if (!el.classList.contains("CodeMirror-code")) {
         if (!el.isContentEditable || el.closest(".CodeMirror, .monaco-editor")) continue;
@@ -462,7 +468,7 @@ export class InlineRender {
       };
       this.states.set(root, st);
     }
-    const ta = root instanceof HTMLTextAreaElement ? root : null;
+    const ta = isField(root) ? root : null;
     // (a text field's value changes without DOM mutations)
     if (st.generation !== this.generation || (ta && st.value !== ta.value)) st.stale = true;
     const now = performance.now();
@@ -486,7 +492,7 @@ export class InlineRender {
     return st;
   }
 
-  private read(root: Element, st: RootState, ta: HTMLTextAreaElement | null) {
+  private read(root: Element, st: RootState, ta: Field | null) {
     st.generation = this.generation;
     st.html = [];
     if (ta) {
@@ -547,7 +553,7 @@ export class InlineRender {
       color: cs.color,
       fontSize: cs.fontSize,
     };
-    const items = root instanceof HTMLTextAreaElement ? this.fieldItems(root, st, frame) : this.domItems(root, st, frame);
+    const items = isField(root) ? this.fieldItems(root, st, frame) : this.domItems(root, st, frame);
     if (!items.length) return;
     const layer = this.layer(st.z);
     for (const item of items) st.drawn.push({ html: item.html, box: this.draw(layer, item, old) });
@@ -601,7 +607,11 @@ export class InlineRender {
       if (!rects.length) continue;
       if (Math.min(...rects.map((r) => r.top)) > area.bottom + MARGIN) break;
       if (selRange && rg.comparePoint(selRange.startContainer, selRange.startOffset) <= 0 && rg.comparePoint(selRange.endContainer, selRange.endOffset) >= 0) {
-        continue; // the caret (or selection) is in it: show the source
+        // the caret (or selection) is in it: show the source. A caret touching it from
+        // outside counts too, on purpose (as in Obsidian): arrowing up to a formula
+        // shows its source before the caret goes in, and a formula just closed with
+        // "$" isn't covered under the caret while typing goes on
+        continue;
       }
       const host = rg.startContainer.parentElement ?? root;
       const box = this.boxFor(rects, fs[i].display, frame, this.lineHeightOf(host));
@@ -614,7 +624,7 @@ export class InlineRender {
     return items;
   }
 
-  private fieldItems(ta: HTMLTextAreaElement, st: RootState, frame: Frame): Item[] {
+  private fieldItems(ta: Field, st: RootState, frame: Frame): Item[] {
     const fs = st.formulas;
     const mirror = this.mirror(ta, st.value!);
     const m = mirror.el.getBoundingClientRect();
@@ -653,7 +663,8 @@ export class InlineRender {
         .map((r) => new DOMRect(r.left + dx, r.top + dy, r.width, r.height));
       if (!rects.length) continue;
       if (Math.min(...rects.map((r) => r.top)) > area.bottom + MARGIN) break;
-      if (focused && ta.selectionStart <= f.to && ta.selectionEnd >= f.from) continue;
+      // (on purpose, a caret touching the delimiters counts too, as in Obsidian: see domItems)
+      if (focused && (ta.selectionStart ?? -1) <= f.to && (ta.selectionEnd ?? -1) >= f.from) continue;
       const box = this.boxFor(rects, f.display, frame, lineHeight);
       const html = box && this.htmlOf(st, i);
       if (!box || !html) continue;
@@ -663,10 +674,11 @@ export class InlineRender {
   }
 
   /** A hidden copy of the field's text, laid out the same way, to measure where formulas are. */
-  private mirror(ta: HTMLTextAreaElement, value: string): Mirror {
+  private mirror(ta: Field, value: string): Mirror {
     const cs = getComputedStyle(ta);
-    const wraps = ta.getAttribute("wrap") !== "off" && !/^pre$|nowrap/.test(cs.whiteSpace);
-    const sig = [ta.clientWidth, cs.font, cs.padding, cs.letterSpacing, cs.tabSize, wraps].join("\u0000");
+    const input = ta instanceof HTMLInputElement;
+    const wraps = !input && ta.getAttribute("wrap") !== "off" && !/^pre$|nowrap/.test(cs.whiteSpace);
+    const sig = [ta.clientWidth, ta.clientHeight, cs.font, cs.padding, cs.letterSpacing, cs.tabSize, wraps].join("\u0000");
     let m = this.mirrors.get(ta);
     if (!m || m.sig !== sig || !m.el.isConnected) {
       m?.el.remove();
@@ -688,6 +700,15 @@ export class InlineRender {
       if (ta.clientWidth > 0) {
         el.style.boxSizing = "border-box";
         el.style.width = `${ta.clientWidth + parseFloat(cs.borderLeftWidth || "0") + parseFloat(cs.borderRightWidth || "0")}px`;
+      }
+      if (input) {
+        // an input's one line sits in the middle of its box
+        Object.assign(el.style, {
+          height: `${ta.offsetHeight}px`,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+        });
       }
       el.setAttribute("data-web-laas-mirror", "");
       (this.doc.body ?? this.doc.documentElement).append(el);

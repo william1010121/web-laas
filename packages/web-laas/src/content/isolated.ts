@@ -25,8 +25,10 @@ const MATH_HINT = /\$|\\[([]|\\begin\s*\{/;
 
 /** Does any editor on the page contain something that looks like math? */
 function editorsHaveMath(): boolean {
-  for (const el of document.querySelectorAll<HTMLElement>(".cm-content, .CodeMirror-code, textarea, [contenteditable]")) {
-    const text = el instanceof HTMLTextAreaElement ? el.value : el.isContentEditable || el.classList.contains("CodeMirror-code") ? el.textContent : "";
+  const editors = ".cm-content, .CodeMirror-code, textarea, input[type=text], input[type=search], input:not([type]), [contenteditable]";
+  for (const el of document.querySelectorAll<HTMLElement>(editors)) {
+    const field = el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement;
+    const text = field ? el.value : el.isContentEditable || el.classList.contains("CodeMirror-code") ? el.textContent : "";
     if (text && MATH_HINT.test(text)) return true;
   }
   return false;
@@ -73,6 +75,8 @@ function start() {
     }, 300);
   };
   for (const type of ["focusin", "input"]) document.addEventListener(type, checkForMath, true);
+  // CodeMirror only has the lines near the window in the page: math further down shows up on scrolling
+  document.addEventListener("scroll", () => !previewRequested && checkForMath(), { capture: true, passive: true });
   // editors in web apps show up (and fill) a while after the page loads
   let checks = 0;
   const poll = window.setInterval(() => (previewRequested || ++checks > 20 ? clearInterval(poll) : checkForMath()), 3000);
