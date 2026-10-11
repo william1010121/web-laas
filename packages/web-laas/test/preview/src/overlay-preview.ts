@@ -13,4 +13,4 @@ if (new URLSearchParams(location.search).has("open")) open();
 
 // ?toast shows the shortcut notification
 import { showToast } from "../../../src/content/toast";
-if (new URLSearchParams(location.search).has("toast")) showToast("LaTeX 自動展開已暫停", "off", "Alt+Shift+L 切換");
+if (new URLSearchParams(location.search).has("toast")) showToast("LaTeX auto-expand is paused", "off", "Alt+Shift+L to switch");

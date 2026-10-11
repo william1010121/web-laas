@@ -53,16 +53,16 @@ function validate(): boolean {
   }
   status.className = "status ok";
   const mine = config!.snippets.filter((s) => s.source === "user").length;
-  status.textContent = `✓ 我的 ${mine} 個 · 共 ${config!.snippets.length} 個 snippet`;
+  status.textContent = `✓ ${mine} of mine · ${config!.snippets.length} snippets in all`;
   return true;
 }
 
 async function save() {
-  if (!validate()) return toast("設定有錯誤，尚未儲存");
+  if (!validate()) return toast("The config has errors; not saved");
   await saveState({ configText: editor.value });
   state.configText = editor.value;
   sheetDirty = true;
-  toast("已儲存");
+  toast("Saved");
 }
 
 // ── cheat sheet ─────────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ function renderSheet() {
 
 // ── general ─────────────────────────────────────────────────────────────
 function renderMaster() {
-  $("masterState").textContent = state.enabled ? "已啟用 · Alt+Shift+L" : "已暫停 · Alt+Shift+L";
+  $("masterState").textContent = state.enabled ? "On · Alt+Shift+L" : "Paused · Alt+Shift+L";
 }
 
 type BoolPref = { [K in keyof ExtensionPrefs]: ExtensionPrefs[K] extends boolean ? K : never }[keyof ExtensionPrefs];
@@ -95,7 +95,7 @@ function bindPrefs() {
       const preview = radio.value as PreviewPref;
       state.prefs = { ...state.prefs, preview };
       await savePrefs({ preview });
-      toast("已儲存");
+      toast("Saved");
     };
   });
   document.querySelectorAll<HTMLInputElement>("input[data-pref]").forEach((input) => {
@@ -107,7 +107,7 @@ function bindPrefs() {
       controller.setState({ prefs: state.prefs });
       sheetDirty = true;
       if (key === "extras" || key === "cdlatex") validate();
-      toast("已儲存");
+      toast("Saved");
     };
   });
   const builtins = compileConfig(null).config.snippets;
@@ -133,13 +133,13 @@ async function renderShortcuts() {
         text.firstElementChild!.textContent = c.description ?? c.name ?? "";
         const fallback = FALLBACK_KEYS[c.name ?? ""];
         const key = document.createElement("kbd");
-        key.textContent = c.shortcut || fallback || "未設定";
+        key.textContent = c.shortcut || fallback || "Not set";
         if (!c.shortcut) {
           const note = document.createElement("div");
           note.className = "desc warn";
           note.textContent = fallback
-            ? `Chrome 沒有指派這個快捷鍵，目前由頁面內備援處理（chrome:// 等頁面無效）。建議到 Chrome 設定指派。`
-            : "尚未指派";
+            ? `Chrome didn't assign this shortcut, so the page handles it for now (not on chrome:// pages and the like). Assign it in Chrome's settings.`
+            : "Not assigned";
           text.append(note);
           $("shortcutWarn").hidden = false;
         }
@@ -164,12 +164,12 @@ function renderSites() {
       name.textContent = h;
       const rm = document.createElement("button");
       rm.className = "btn ghost";
-      rm.textContent = "移除";
+      rm.textContent = "Remove";
       rm.onclick = async () => {
         state.disabledHosts = state.disabledHosts.filter((x) => x !== h);
         await saveState({ disabledHosts: state.disabledHosts });
         renderSites();
-        toast(`已在 ${h} 重新啟用`);
+        toast(`On again on ${h}`);
       };
       row.append(name, rm);
       return row;
@@ -192,7 +192,7 @@ async function main() {
     state.enabled = enabled.checked;
     await saveState({ enabled: enabled.checked });
     renderMaster();
-    toast(enabled.checked ? "已啟用" : "已暫停");
+    toast(enabled.checked ? "On" : "Paused");
   };
   chrome.storage.onChanged.addListener((changes) => {
     if (changes.enabled) {
@@ -225,7 +225,7 @@ async function main() {
     renderSheet();
   };
   $("reset").onclick = () => {
-    if (confirm("用範本取代目前的設定？（尚未儲存）")) {
+    if (confirm("Replace the current config with the template? (Not saved yet.)")) {
       editor.value = TEMPLATE;
       validate();
     }
@@ -244,7 +244,7 @@ async function main() {
     await saveState({ disabledHosts: state.disabledHosts });
     input.value = "";
     renderSites();
-    toast(`已在 ${host} 停用`);
+    toast(`Off on ${host}`);
   };
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "s") {

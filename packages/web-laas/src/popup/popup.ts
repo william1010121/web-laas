@@ -2,12 +2,12 @@ import { resolveMathDelimiters, type DisplayMathStyle, type InlineMathStyle, typ
 import { loadState, saveState } from "../shared/storage";
 
 const INLINE: [InlineMathStyle, string, string][] = [
-  ["auto", "預設", "依網站預設（$…$）"],
+  ["auto", "Default", "The site's default ($…$)"],
   ["dollar", "$…$", "$…$"],
   ["paren", "\\(…\\)", "\\(…\\)"],
 ];
 const DISPLAY: [DisplayMathStyle, string, string][] = [
-  ["auto", "預設", "依網站預設（Overleaf 用 \\[…\\]，其他用 $$…$$）"],
+  ["auto", "Default", "The site's default (\\[…\\] on Overleaf, $$…$$ elsewhere)"],
   ["ddollar", "$$", "$$…$$"],
   ["bracket", "\\[ \\]", "\\[…\\]"],
   ["equation", "equation*", "\\begin{equation*}…\\end{equation*}"],
@@ -28,12 +28,12 @@ async function main() {
   const site = $<HTMLInputElement>("site");
   const sync = () => {
     document.body.classList.toggle("off", !enabled.checked);
-    $("sub").textContent = enabled.checked ? "自動展開已啟用" : "自動展開已暫停";
+    $("sub").textContent = enabled.checked ? "Auto-expand is on" : "Auto-expand is paused";
   };
   enabled.checked = state.enabled;
   site.checked = !state.disabledHosts.includes(host);
   site.disabled = !host;
-  $("host").textContent = host || "此頁面無法使用（chrome:// 等）";
+  $("host").textContent = host || "Not available on this page (chrome:// and the like)";
   sync();
   requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.add("ready")));
 
@@ -42,7 +42,7 @@ async function main() {
   $("csKey").textContent = cs || "Alt+Shift+K"; // unassigned → in-page fallback key
   const cheat = $<HTMLButtonElement>("cheatsheet");
   cheat.disabled = !host || !state.prefs.cheatsheet;
-  if (!state.prefs.cheatsheet) cheat.title = "已在設定中關閉";
+  if (!state.prefs.cheatsheet) cheat.title = "Turned off in the settings";
 
   enabled.onchange = async () => {
     await saveState({ enabled: enabled.checked });

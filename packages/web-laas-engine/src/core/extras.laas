@@ -1,19 +1,19 @@
-// Web 擴充：laas.el 沒有、但在網頁上很常用的 snippet（可在設定中關閉）。
-// 不會覆蓋任何 laas 的 trigger。
+// Web extras: snippets laas.el doesn't have but that are handy on the web (can be turned off in the settings).
+// None of them overrides a laas trigger.
 {
   snippets: [
     {
-      // 網頁上沒有 Emacs 的 $ 自動配對，用 mk / dm 進入數學模式；按 Tab 跳出
-      group: "Web 擴充 · 進入數學模式",
+      // the web has no Emacs-style $ pairing: mk / dm enter math mode, Tab leaves it
+      group: "Web extras · Entering math",
       options: "tAw",
       snippets: [
-        { trigger: "mk", replacement: "$$1$$0", description: "行內數學 $…$" },
-        { trigger: "dm", replacement: "\\[\n\t$1\n\\]$0", sites: ["overleaf.com"], description: "區塊數學 \\[…\\]" },
-        { trigger: "dm", replacement: "$$\n$1\n$$$0", excludeSites: ["overleaf.com"], description: "區塊數學 $$…$$" },
+        { trigger: "mk", replacement: "$$1$$0", description: "Inline math $…$" },
+        { trigger: "dm", replacement: "\\[\n\t$1\n\\]$0", sites: ["overleaf.com"], description: "Display math \\[…\\]" },
+        { trigger: "dm", replacement: "$$\n$1\n$$$0", excludeSites: ["overleaf.com"], description: "Display math $$…$$" },
       ],
     },
     {
-      group: "Web 擴充 · 結構",
+      group: "Web extras · Structure",
       options: "mA",
       snippets: [
         { trigger: "__", replacement: "_{$1}$0", preview: "x_{\\square}" },

@@ -16,14 +16,14 @@ export interface SheetOptions {
 type Filter = "all" | "math" | "text" | "tab" | "user";
 
 const FILTERS: [Filter, string][] = [
-  ["all", "全部"],
-  ["math", "數學"],
-  ["text", "文字"],
-  ["tab", "按 Tab"],
-  ["user", "我的"],
+  ["all", "All"],
+  ["math", "Math"],
+  ["text", "Text"],
+  ["tab", "On Tab"],
+  ["user", "Mine"],
 ];
 
-const ORIGIN: Record<SnippetSource, string> = { laas: "laas", extras: "Web 擴充", cdlatex: "cdlatex", user: "我的" };
+const ORIGIN: Record<SnippetSource, string> = { laas: "laas", extras: "Web extras", cdlatex: "cdlatex", user: "Mine" };
 
 const rendered = (latex: string) => renderMath(latex);
 
@@ -104,8 +104,8 @@ export function buildCheatsheet(doc: Document, groups: CheatsheetGroup[], opts: 
   if (opts.onClose) {
     const close = el(doc, "button", "lw-close");
     close.type = "button";
-    close.title = "關閉 (Esc)";
-    close.setAttribute("aria-label", "關閉");
+    close.title = "Close (Esc)";
+    close.setAttribute("aria-label", "Close");
     close.textContent = "✕";
     close.onclick = () => opts.onClose!();
     titleRow.append(close);
@@ -114,17 +114,17 @@ export function buildCheatsheet(doc: Document, groups: CheatsheetGroup[], opts: 
 
   const intro = el(doc, "p", "lw-intro");
   intro.append(
-    "在數學模式（",
+    "In math (",
     el(doc, "code", "lw-ic", "$…$"),
-    " 內）打出左邊的按鍵，會自動變成右邊的結果。",
+    "), type the keys on the left and they turn into what's on the right. ",
     el(doc, "b", "", "x"),
-    " 代表游標左邊的東西，",
+    " stands for what's left of the caret, ",
     el(doc, "b", "", "□"),
-    " 是展開後要填的欄位；按 ",
+    " for a field to fill after expanding. ",
     kbd(doc, "Tab"),
-    " 跳到下一格或跳出括號，展開後立刻按 ",
+    " moves to the next field or out of a group; ",
     kbd(doc, "⌫"),
-    " 可以還原。",
+    " right after an expansion undoes it.",
   );
   head.append(intro);
 
@@ -134,7 +134,7 @@ export function buildCheatsheet(doc: Document, groups: CheatsheetGroup[], opts: 
   icon.innerHTML = SEARCH_ICON;
   const search = el(doc, "input");
   search.type = "search";
-  search.placeholder = "搜尋按鍵或指令，例如 alpha、frac、;a";
+  search.placeholder = "Search keys or commands, e.g. alpha, frac, ;a";
   search.spellcheck = false;
   searchWrap.append(icon, search);
   tools.append(searchWrap);
@@ -200,7 +200,7 @@ export function buildCheatsheet(doc: Document, groups: CheatsheetGroup[], opts: 
     sections.push({ section, link, count, items });
   }
   const empty = el(doc, "div", "lw-empty");
-  empty.append(el(doc, "div", "lw-empty-title", "找不到符合的 snippet"), el(doc, "div", "", "換個關鍵字，或切回「全部」"));
+  empty.append(el(doc, "div", "lw-empty-title", "No matching snippets"), el(doc, "div", "", "Try another word, or switch back to All"));
   body.append(empty);
   main.append(nav, body);
   root.append(main);
@@ -213,11 +213,11 @@ export function buildCheatsheet(doc: Document, groups: CheatsheetGroup[], opts: 
     s.append(el(doc, "span", "", label));
     foot.append(s);
   };
-  if (opts.shortcut) hint([opts.shortcut], "開／關");
-  if (opts.onClose) hint(["Esc"], "關閉");
-  hint(["Tab"], "下一格・跳出括號");
-  hint(["⇧", "Tab"], "上一格");
-  hint(["⌫"], "還原剛才的展開");
+  if (opts.shortcut) hint([opts.shortcut], "open / close");
+  if (opts.onClose) hint(["Esc"], "close");
+  hint(["Tab"], "next field · out of a group");
+  hint(["⇧", "Tab"], "previous field");
+  hint(["⌫"], "undo the last expansion");
   const total = el(doc, "span", "lw-total");
   foot.append(total);
   root.append(foot);
@@ -249,7 +249,7 @@ export function buildCheatsheet(doc: Document, groups: CheatsheetGroup[], opts: 
       o.hidden = !any;
     });
     empty.hidden = shown > 0;
-    total.textContent = `${shown} 個 snippet`;
+    total.textContent = `${shown} snippet${shown === 1 ? "" : "s"}`;
     syncNav();
   }
   function syncNav() {

@@ -1,6 +1,6 @@
 {
   "name": "web-laas-engine",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "LaTeX auto-activating snippets for the web — Emacs laas + cdlatex for textarea, contenteditable/ProseMirror and CodeMirror 5/6",
   "keywords": [
     "latex",
