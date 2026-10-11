@@ -27,7 +27,7 @@ if (!window.__webLaasPreviewAlive?.()) {
     let reply: string | null = null;
     const onReply = (e: Event) => (reply = (e as CustomEvent<string>).detail);
     root.addEventListener("web-laas:undrawn-reply", onReply);
-    root.dispatchEvent(new CustomEvent("web-laas:undrawn", { bubbles: true, detail: comments ? "comments" : "" }));
+    root.dispatchEvent(new CustomEvent("web-laas:undrawn", { bubbles: true, composed: true, detail: comments ? "comments" : "" }));
     root.removeEventListener("web-laas:undrawn-reply", onReply);
     try {
       return reply ? (JSON.parse(reply) as string[]) : null;

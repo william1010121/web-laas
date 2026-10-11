@@ -309,6 +309,9 @@ function formsContext(el: Element, cs: CSSStyleDeclaration): boolean {
     cs.position === "sticky" ||
     parseFloat(cs.opacity) < 1 ||
     set(cs.transform) ||
+    set(cs.translate) ||
+    set(cs.rotate) ||
+    set(cs.scale) ||
     set(cs.filter) ||
     set(cs.backdropFilter) ||
     set(cs.perspective) ||
@@ -318,7 +321,7 @@ function formsContext(el: Element, cs: CSSStyleDeclaration): boolean {
     cs.isolation === "isolate" ||
     set(cs.mixBlendMode) ||
     /\b(paint|layout|strict|content)\b/.test(cs.contain || "") ||
-    /transform|opacity|filter|perspective|clip-path|mask/.test(cs.willChange || "")
+    /transform|translate|rotate|scale|opacity|filter|perspective|clip-path|mask/.test(cs.willChange || "")
   );
 }
 
@@ -658,6 +661,12 @@ export class InlineRender {
         m.el.remove();
         this.mirrors.delete(ta);
       }
+    }
+    // layers whose context left the page (an editor in a closed modal): let both go
+    for (const [context, byZ] of this.layers) {
+      if (context.isConnected) continue;
+      for (const l of byZ.values()) l.host.remove();
+      this.layers.delete(context);
     }
   }
 

@@ -157,8 +157,26 @@ describe("stackingFor", () => {
     // clip-path makes a context too (the boxes must be clipped with the editor)
     wrap.style.cssText = "clip-path: inset(0)";
     expect(stackingFor(ta).context).toBe(wrap);
+    // so do the individual transform properties
+    wrap.style.cssText = "scale: 1.2";
+    expect(stackingFor(ta).context).toBe(wrap);
     wrap.style.cssText = "";
     wrap.remove();
+  });
+});
+
+describe("layers", () => {
+  it("go when their stacking context leaves the page", () => {
+    const r = new InlineRender(document) as any;
+    const modal = document.createElement("div");
+    document.body.append(modal);
+    const layer = r.layer({ context: modal, z: 0 });
+    expect(layer.host.isConnected).toBe(true);
+    modal.remove();
+    r.set({ on: true, comments: false });
+    r.update();
+    expect(r.layers.has(modal)).toBe(false);
+    r.destroy();
   });
 });
 

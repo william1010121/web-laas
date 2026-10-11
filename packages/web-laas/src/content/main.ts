@@ -49,7 +49,9 @@ if (current?.build !== __WEB_LAAS_BUILD__) {
   // Rendering formulas in place (isolated world) can't see the lines CodeMirror
   // hasn't drawn; whether drawn text starts inside a formula is answered here.
   const onUndrawn = (e: Event) => {
-    const el = e.target instanceof Element ? e.target : null;
+    // (composedPath: from an editor in a shadow root the event's target here is the shadow host)
+    const origin = e.composedPath()[0];
+    const el = origin instanceof Element ? origin : null;
     const comments = (e as CustomEvent<string>).detail === "comments";
     const paragraphs = el && undrawnParagraphs(el, { comments });
     if (paragraphs) el.dispatchEvent(new CustomEvent(UNDRAWN_REPLY_EVENT, { detail: JSON.stringify(paragraphs) }));
