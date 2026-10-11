@@ -210,6 +210,9 @@ describe("clippersOf and <body>", () => {
     document.body.style.contain = "";
     document.body.style.setProperty("container-type", "inline-size");
     expect(clippersOf(ta)).toContain(document.body);
+    // scroll-state doesn't contain
+    document.body.style.setProperty("container-type", "scroll-state");
+    if (document.body.style.getPropertyValue("container-type") === "scroll-state") expect(clippersOf(ta)).not.toContain(document.body);
     document.body.style.removeProperty("container-type");
     document.body.style.overflow = "";
     ta.remove();
