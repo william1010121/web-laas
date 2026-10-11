@@ -64,7 +64,18 @@ interface Item {
   background: string;
   fontSize: string;
   /** where its layer goes, when not where the editor's is (text of a rich editor on a level of its own) */
-  stacking?: { context: Element; z: number };
+  stacking?: Stacking;
+}
+
+/**
+ * A place in the page's stacking: in `context`, at level `z`, right after `after`
+ * (the child of the context that holds the editor), so what comes later at the
+ * same level (a popup, a toolbar) still paints over it.
+ */
+interface Stacking {
+  context: Element;
+  z: number;
+  after: Element | null;
 }
 
 /** The text of a rich editor, line by line, with the text nodes it came from. */
@@ -287,6 +298,19 @@ function turned(el: Element): boolean {
   return false;
 }
 
+/**
+ * Does text in `host` (inside `root`) fade, hide, filter or transform, between it and the
+ * editor? A box drawn in a layer outside wouldn't, so such formulas are left as source.
+ */
+function fadedWithin(host: Element, root: Element): boolean {
+  if (getComputedStyle(host).visibility !== "visible") return true;
+  for (let a: Element | null = host; a && a !== root; a = up(a)) {
+    const cs = getComputedStyle(a);
+    if (ownEffects(a) || set(cs.transform) || set(cs.rotate) || set(cs.scale) || set(cs.translate)) return true;
+  }
+  return false;
+}
+
 /** Does `el` fade, filter, clip or mask what it paints (which a layer outside it doesn't get)? */
 function ownEffects(el: Element): boolean {
   const cs = getComputedStyle(el);
@@ -332,7 +356,7 @@ function formsContext(el: Element, cs: CSSStyleDeclaration): boolean {
  * context, so the layer has to be in the same one. `text`: a node of the
  * editor's text whose level counts (its first text by default).
  */
-export function stackingFor(el: Element, text?: Node | null): { context: Element; z: number } {
+export function stackingFor(el: Element, text?: Node | null): Stacking {
   const root = el.ownerDocument.documentElement;
   const contextOf = (from: Element | null) => {
     let a = from;
@@ -354,10 +378,18 @@ export function stackingFor(el: Element, text?: Node | null): { context: Element
       if (formsContext(a, cs)) z = parseInt(cs.zIndex, 10) || 0;
       if (a === el) break;
     }
-    return { context: own, z };
+    return { context: own, z, after: childHolding(own, el) };
   }
   // the editor is a stacking context itself: beside it, at its level, in the one around it
-  return { context: contextOf(up(el)), z: parseInt(getComputedStyle(el).zIndex, 10) || 0 };
+  const context = contextOf(up(el));
+  return { context, z: parseInt(getComputedStyle(el).zIndex, 10) || 0, after: childHolding(context, el) };
+}
+
+/** The child of `context` (of its shadow root, for a shadow host) that holds `el`. */
+function childHolding(context: Element, el: Element): Element | null {
+  const container = context.shadowRoot ?? context;
+  for (let a: Element | null = el; a; a = up(a)) if (a.parentNode === container) return a;
+  return null;
 }
 
 /** Is the formula alone on its line(s), nothing but spaces before and after it? */
@@ -447,9 +479,11 @@ interface RootState {
   /** rendered SVG per formula, filled in as formulas come into view */
   html: (string | null | undefined)[];
   clippers: Element[];
-  stacking: { context: Element; z: number };
+  stacking: Stacking;
   /** the stacking of text in its elements (a rich editor's text may sit on several levels) */
-  levels: Map<Element, { context: Element; z: number }>;
+  levels: Map<Element, Stacking>;
+  /** formula hosts that fade, hide, filter or transform their text (not drawn over), by element */
+  faded: Map<Element, boolean>;
   /**
    * no boxes over this editor: it is rotated, skewed or flipped (they can't be placed over its
    * text), or it fades, filters, clips or masks itself (the layer beside it wouldn't be)
@@ -501,7 +535,8 @@ export class InlineRender {
   private timer = 0;
   private laterTimer = 0;
   /** layers by the stacking context they're in, then z-index */
-  private layers = new Map<Element, Map<number, Layer>>();
+  /** layers by the stacking context they're in */
+  private layers = new Map<Element, (Layer & { z: number; after: Element | null })[]>();
   /** boxes on screen, by the SVG they show (a box moves with its formula as text is typed before it) */
   private boxes = new Map<string, HTMLElement[]>();
   private states = new WeakMap<Element, RootState>();
@@ -532,18 +567,26 @@ export class InlineRender {
   ) {
     this.observer = new MutationObserver((records) => {
       // only an editor whose content changed has to read its text again
+      // (a style changing outside any editor, say an animation, needs no update at all)
       const seen = new Set<Node>();
+      let any = false;
       for (const r of records) {
+        // editors restyle their own elements all the time: only a display: none coming or going counts
+        if (r.type === "attributes" && r.attributeName === "style") {
+          const was = /display\s*:\s*none/.test(r.oldValue ?? "");
+          if (was === ((r.target as HTMLElement).style?.display === "none")) continue;
+        }
+        if (r.type !== "attributes") any = true;
         for (let n: Node | null = r.target; n && !seen.has(n); n = n.parentNode) {
           seen.add(n);
           const st = this.states.get(n as Element);
           if (st) {
-            st.stale = true;
+            st.stale = any = true;
             break;
           }
         }
       }
-      this.schedule();
+      if (any) this.schedule();
     });
   }
 
@@ -564,7 +607,15 @@ export class InlineRender {
       doc.addEventListener("focusin", this.schedule);
       doc.addEventListener("focusout", this.schedule);
       view.addEventListener("resize", this.schedule);
-      this.observer.observe(doc.body ?? doc.documentElement, { childList: true, subtree: true, characterData: true });
+      // (and the attributes that hide text from domText or make it a widget)
+      this.observer.observe(doc.body ?? doc.documentElement, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeOldValue: true,
+        attributeFilter: ["hidden", "style", "contenteditable"],
+      });
       // layout can also move without any of the above (a sidebar sliding open)
       this.timer = view.setInterval(this.schedule, 700);
       this.schedule();
@@ -594,7 +645,7 @@ export class InlineRender {
     this.frame = 0;
     (view as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(this.idle);
     this.idle = 0;
-    for (const byZ of this.layers.values()) for (const l of byZ.values()) l.host.remove();
+    for (const list of this.layers.values()) for (const l of list) l.host.remove();
     for (const m of this.mirrors.values()) m.el.remove();
     this.layers.clear();
     this.boxes.clear();
@@ -663,9 +714,9 @@ export class InlineRender {
       }
     }
     // layers whose context left the page (an editor in a closed modal): let both go
-    for (const [context, byZ] of this.layers) {
+    for (const [context, list] of this.layers) {
       if (context.isConnected) continue;
-      for (const l of byZ.values()) l.host.remove();
+      for (const l of list) l.host.remove();
       this.layers.delete(context);
     }
   }
@@ -698,7 +749,7 @@ export class InlineRender {
     let st = this.states.get(root);
     if (!st) {
       st = {
-        stale: true, dom: null, value: null, formulas: [], html: [], clippers: [], stacking: { context: root.ownerDocument.documentElement, z: 0 }, levels: new Map(), skip: false, checked: -Infinity, generation: -1,
+        stale: true, dom: null, value: null, formulas: [], html: [], clippers: [], stacking: { context: root.ownerDocument.documentElement, z: 0, after: null }, levels: new Map(), faded: new Map(), skip: false, checked: -Infinity, generation: -1,
         cost: 0, readAt: -Infinity, drawn: [], near: [0, 0],
       };
       this.states.set(root, st);
@@ -711,6 +762,7 @@ export class InlineRender {
       st.clippers = clippersOf(root);
       st.stacking = stackingFor(root);
       st.levels = new Map();
+      st.faded = new Map();
       st.skip = turned(root) || ownEffects(root);
       st.checked = now;
     }
@@ -798,7 +850,7 @@ export class InlineRender {
     if (!items.length) return;
     // every layer measured before any box is written (one layout), each once
     const layers = new Map<object, Layer>();
-    const layerOf = (at: { context: Element; z: number }) => {
+    const layerOf = (at: Stacking) => {
       let layer = layers.get(at);
       if (!layer) layers.set(at, (layer = this.layer(at)));
       return layer;
@@ -877,6 +929,9 @@ export class InlineRender {
         continue;
       }
       const host = rg.startContainer.parentElement ?? root;
+      let faded = st.faded.get(host);
+      if (faded === undefined) st.faded.set(host, (faded = fadedWithin(host, root)));
+      if (faded) continue;
       // (a heading or a coloured span in a rich editor has its own size and colour)
       const type = this.typographyOf(host);
       const box = this.boxFor(rects, fs[i].display, frame, type.lineHeight, () => aloneOnLine(t.text, fs[i]));
@@ -1077,11 +1132,15 @@ export class InlineRender {
   }
 
   /** The layer for a place in the page's stacking, made (and put there) the first time. */
-  private layer({ context, z }: { context: Element; z: number }): Layer {
-    let byZ = this.layers.get(context);
-    if (!byZ) this.layers.set(context, (byZ = new Map()));
-    let layer = byZ.get(z);
-    if (!layer || !layer.host.isConnected) {
+  private layer({ context, z, after }: Stacking): Layer {
+    let list = this.layers.get(context);
+    if (!list) this.layers.set(context, (list = []));
+    let layer = list.find((l) => l.z === z && l.after === after);
+    if (layer && !layer.host.isConnected) {
+      list.splice(list.indexOf(layer), 1);
+      layer = undefined;
+    }
+    if (!layer) {
       const host = this.doc.createElement("div");
       host.setAttribute("data-web-laas-render", "");
       // only a picture of the source, which stays where it is for screen readers
@@ -1096,11 +1155,14 @@ export class InlineRender {
       boxes.className = "boxes";
       frame.append(boxes);
       shadow.append(style, frame);
-      // last in its context: of equal z-index, the later one paints on top. A shadow host shows
-      // its shadow tree, not its own children: there the layer goes in the shadow root
-      (context.shadowRoot ?? context).append(host);
-      layer = { host, frame, el: boxes, left: 0, top: 0, sx: 1, sy: 1 };
-      byZ.set(z, layer);
+      // right after the editor in its context: of equal z-index, the later one paints on top, so
+      // the layer covers the editor and what comes after it (a popup) covers the layer. A shadow
+      // host shows its shadow tree, not its own children: there the layer goes in the shadow root
+      const container = context.shadowRoot ?? context;
+      if (after?.parentNode === container) after.after(host);
+      else container.append(host);
+      layer = { host, frame, el: boxes, left: 0, top: 0, sx: 1, sy: 1, z, after };
+      list.push(layer);
     }
     // in a context with a transform, "fixed" is relative to it and it moves and scales the layer:
     // boxes are placed in the layer's own coordinates, worked out from where the frame ends up

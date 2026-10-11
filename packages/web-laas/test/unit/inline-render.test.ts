@@ -31,6 +31,21 @@ describe("domText", () => {
     expect(formulasIn(t.text, false, t.resumes).map((f) => f.latex)).toEqual(["x", "y"]);
   });
 
+  it("re-reads an editor when an attribute hides or shows its text", async () => {
+    const ce = html('<div contenteditable="true"><p>a <span hidden>$x$</span> b</p></div>');
+    document.body.append(ce);
+    const r = new InlineRender(document) as any;
+    r.schedule = () => {}; // (no animation frames here)
+    r.set({ on: true, comments: false });
+    const st = { stale: false };
+    r.states.set(ce, st);
+    ce.querySelector("span")!.hidden = false;
+    await new Promise((res) => setTimeout(res, 0));
+    expect(st.stale).toBe(true);
+    r.destroy();
+    ce.remove();
+  });
+
   it("nested blocks don't add blank lines", () => {
     expect(domText(html("<ul><li><p>a</p></li><li><p>b</p></li></ul>")).text).toBe("a\nb\n");
   });
@@ -130,29 +145,29 @@ describe("stackingFor", () => {
     document.body.append(wrap);
     const ta = wrap.querySelector("textarea")!;
     // the editor is a context of its own: beside it, at its level, in the page's context
-    expect(stackingFor(ta)).toEqual({ context: document.documentElement, z: 3 });
+    expect(stackingFor(ta)).toMatchObject({ context: document.documentElement, z: 3 });
     // ... or in its container's
     wrap.style.cssText = "position:relative;z-index:7";
-    expect(stackingFor(ta)).toEqual({ context: wrap, z: 3 });
+    expect(stackingFor(ta)).toMatchObject({ context: wrap, z: 3 });
     // a plain editor in a dialog: inside the dialog, under the dialog's own popups
     ta.style.cssText = "";
     wrap.style.cssText = "position:fixed;z-index:1000";
-    expect(stackingFor(ta)).toEqual({ context: wrap, z: 0 });
+    expect(stackingFor(ta)).toMatchObject({ context: wrap, z: 0 });
     // text on a level of its own inside the editor (CodeMirror 5's lines): above that level
     const ed = html('<div class="ed"><pre style="position:relative;z-index:2"><span>line</span></pre></div>');
     wrap.append(ed);
-    expect(stackingFor(ed.firstElementChild!)).toEqual({ context: wrap, z: 2 });
+    expect(stackingFor(ed.firstElementChild!)).toMatchObject({ context: wrap, z: 2 });
     ed.remove();
     // nothing anywhere: the page's context
     wrap.style.cssText = "";
-    expect(stackingFor(ta)).toEqual({ context: document.documentElement, z: 0 });
+    expect(stackingFor(ta)).toMatchObject({ context: document.documentElement, z: 0 });
     // a rich editor's text on several levels: each formula's own text decides
     const rich = document.createElement("div");
     rich.innerHTML = '<p>low</p><p style="position: relative; z-index: 2"><span>high</span></p>';
     wrap.style.cssText = "position: relative; z-index: 1";
     wrap.append(rich);
-    expect(stackingFor(rich)).toEqual({ context: wrap, z: 0 });
-    expect(stackingFor(rich, rich.querySelector("span"))).toEqual({ context: wrap, z: 2 });
+    expect(stackingFor(rich)).toMatchObject({ context: wrap, z: 0 });
+    expect(stackingFor(rich, rich.querySelector("span"))).toMatchObject({ context: wrap, z: 2 });
     rich.remove();
     // clip-path makes a context too (the boxes must be clipped with the editor)
     wrap.style.cssText = "clip-path: inset(0)";
@@ -160,6 +175,18 @@ describe("stackingFor", () => {
     // so do the individual transform properties
     wrap.style.cssText = "scale: 1.2";
     expect(stackingFor(ta).context).toBe(wrap);
+    // the layer goes right after the editor's branch of its context: a popup after it stays above
+    wrap.style.cssText = "position: relative; z-index: 1";
+    const popup = document.createElement("div");
+    wrap.append(popup);
+    const at = stackingFor(ta);
+    expect(at.after).toBe(ta);
+    const r = new InlineRender(document) as any;
+    r.layer(at);
+    expect(ta.nextElementSibling?.hasAttribute("data-web-laas-render")).toBe(true);
+    expect(wrap.lastElementChild).toBe(popup);
+    r.destroy();
+    popup.remove();
     wrap.style.cssText = "";
     wrap.remove();
   });
