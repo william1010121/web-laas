@@ -597,7 +597,17 @@ export class InlineRender {
           // (visibility, anywhere: hiding an editor or what holds it takes its formulas away at once;
           // it is looked at on every draw, so a draw is all it needs)
           const vis = /visibility\s*:\s*([a-z]+)/.exec(r.oldValue ?? "")?.[1] ?? "";
-          if (vis !== (style?.visibility ?? "")) any = true;
+          if (vis !== (style?.visibility ?? "")) {
+            any = true;
+            // inside an editor, the formulas' elements it knows to be hidden may have changed
+            for (let n: Node | null = r.target; n; n = n.parentNode) {
+              const st = this.states.get(n as Element);
+              if (st) {
+                st.faded = new Map();
+                break;
+              }
+            }
+          }
           const was = /display\s*:\s*none/.test(r.oldValue ?? "");
           if (was === (style?.display === "none")) continue;
         }

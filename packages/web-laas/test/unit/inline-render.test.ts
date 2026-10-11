@@ -57,6 +57,16 @@ describe("domText", () => {
     wrap.style.visibility = "hidden";
     await new Promise((res) => setTimeout(res, 0));
     expect(scheduled).toBe(1);
+    // inside an editor, it forgets which of its elements it found hidden
+    const ce = document.createElement("div");
+    ce.innerHTML = "<span>$x$</span>";
+    wrap.append(ce);
+    const st = { stale: false, faded: new Map([[ce.firstElementChild, false]]) };
+    r.states.set(ce, st);
+    (ce.firstElementChild as HTMLElement).style.visibility = "hidden";
+    await new Promise((res) => setTimeout(res, 0));
+    expect(st.faded.size).toBe(0);
+    scheduled = 1;
     // other style changes outside an editor need nothing
     wrap.style.color = "red";
     await new Promise((res) => setTimeout(res, 0));
