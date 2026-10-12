@@ -40,6 +40,9 @@ describe("MessageRender", () => {
     expect(copy.hasAttribute("data-web-laas-msg-copy")).toBe(true);
     expect(copy.querySelector("[data-latex]")?.getAttribute("data-latex")).toBe("$p(\\cdot|x)$");
     expect(copy.querySelector("mjx-container svg")).toBeTruthy();
+    // copying (natively) and screen readers get the source, not the SVG
+    expect(copy.querySelector(".web-laas-src")?.textContent).toBe("$p(\\cdot|x)$");
+    expect(copy.querySelector("mjx-container")?.getAttribute("aria-hidden")).toBe("true");
     expect(copy.textContent).toContain("what is ");
     expect(copy.textContent).toContain(" here");
     // the page's own text is untouched

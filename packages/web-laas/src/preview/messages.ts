@@ -2,8 +2,9 @@
 // replies but show what you sent as plain text, $…$ and all. A message with math
 // is hidden and a copy with its formulas typeset goes right after it. The page's
 // own nodes are never changed (React or Angular keep updating them): when the
-// message changes or goes away, so does the copy. Copying from the copy gives the
-// LaTeX source back.
+// message changes or goes away, so does the copy. Each formula keeps its source
+// as text that is out of sight but copied (and read by screen readers), so copying
+// gives the LaTeX back, also in a selection that runs on into the reply.
 import { findFormulas } from "web-laas-engine";
 import { MATH_CSS, renderMath } from "../shared/math";
 import { domText } from "./inline";
@@ -17,7 +18,9 @@ const STYLE_ID = "web-laas-msg-style";
 const CSS = `
 [${SOURCE}] { display: none !important; }
 [${COPY}] mjx-container[display="true"] { display: block; margin: 0.5em 0; text-align: center; max-width: 100%; overflow-x: auto; overflow-y: hidden; }
-[${COPY}] mjx-container { color: inherit; }
+[${COPY}] mjx-container { color: inherit; user-select: none; }
+[${COPY}] [data-latex] { position: relative; }
+[${COPY}] .web-laas-src { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: pre; }
 ${MATH_CSS.replace(/^mjx-container/gm, `[${COPY}] mjx-container`)}
 `;
 
@@ -32,7 +35,6 @@ export class MessageRender {
   private shown = new Map<Element, Shown>();
   private observer: MutationObserver | null = null;
   private timer = 0;
-  private readonly onCopy = (e: ClipboardEvent) => this.copySource(e);
 
   constructor(
     private readonly doc: Document,
@@ -45,7 +47,6 @@ export class MessageRender {
     if (on) {
       this.observer = new MutationObserver(() => this.schedule());
       this.observer.observe(this.doc.documentElement, { childList: true, subtree: true, characterData: true });
-      this.doc.addEventListener("copy", this.onCopy, true);
       this.schedule();
     } else {
       this.destroy();
@@ -57,7 +58,6 @@ export class MessageRender {
     this.observer?.disconnect();
     this.observer = null;
     clearTimeout(this.timer);
-    this.doc.removeEventListener("copy", this.onCopy, true);
     for (const [source, { copy }] of this.shown) this.restore(source, copy);
     this.shown.clear();
     this.doc.getElementById(STYLE_ID)?.remove();
@@ -119,23 +119,6 @@ export class MessageRender {
     style.textContent = CSS;
     (this.doc.head ?? this.doc.documentElement).append(style);
   }
-
-  /** Copying across typeset formulas gives their LaTeX, as it was sent. */
-  private copySource(e: ClipboardEvent) {
-    const sel = this.doc.getSelection();
-    if (!sel || sel.isCollapsed || !e.clipboardData) return;
-    const range = sel.getRangeAt(0);
-    const touched = [...this.shown.values()].some(({ copy }) => range.intersectsNode(copy));
-    if (!touched) return;
-    const frag = range.cloneContents();
-    for (const m of frag.querySelectorAll<HTMLElement>("[data-latex]")) m.replaceWith(m.dataset.latex ?? "");
-    const holder = this.doc.createElement("div");
-    holder.append(frag);
-    // block elements end lines, as they did on the page
-    for (const b of holder.querySelectorAll("p, div, li, br")) b.after("\n");
-    e.clipboardData.setData("text/plain", holder.textContent?.replace(/\n{3,}/g, "\n\n").replace(/\n$/, "") ?? "");
-    e.preventDefault();
-  }
 }
 
 /** A copy of `source` with its formulas typeset, or null when none render. */
@@ -172,10 +155,13 @@ function typeset(source: Element): HTMLElement | null {
     range.setEnd(...end);
     const math = source.ownerDocument.createElement("span");
     math.dataset.latex = t.text.slice(f.from, f.to);
-    // the original is hidden from screen readers too: they read the source
-    math.setAttribute("role", "img");
-    math.setAttribute("aria-label", f.latex);
     math.innerHTML = html;
+    // the SVG isn't selected, its source is: that's what copying (and a screen reader) gets
+    const src = source.ownerDocument.createElement("span");
+    src.className = "web-laas-src";
+    src.textContent = math.dataset.latex;
+    math.firstElementChild?.setAttribute("aria-hidden", "true");
+    math.prepend(src);
     range.deleteContents();
     range.insertNode(math);
     drawn++;
