@@ -4,6 +4,7 @@ import { compileConfig, hostMatches } from "web-laas-engine";
 import { alive } from "../shared/alive";
 import { loadState, STORAGE_KEYS } from "../shared/storage";
 import { InlineRender } from "./inline";
+import { MessageRender, messageSelector } from "./messages";
 import { LivePreview, type PreviewFormula, type PreviewMode } from "./preview";
 
 declare global {
@@ -20,7 +21,8 @@ if (!window.__webLaasPreviewAlive?.()) {
   // the previous build (another isolated world after an update) stops its renderer and takes down
   // its card; whatever it left on the page goes too
   document.dispatchEvent(new CustomEvent(HANDOVER_EVENT));
-  document.querySelectorAll("[data-web-laas-preview], [data-web-laas-render], [data-web-laas-mirror]").forEach((el) => el.remove());
+  document.querySelectorAll("[data-web-laas-preview], [data-web-laas-render], [data-web-laas-mirror], [data-web-laas-msg-copy], #web-laas-msg-style").forEach((el) => el.remove());
+  document.querySelectorAll("[data-web-laas-msg]").forEach((el) => el.removeAttribute("data-web-laas-msg"));
   const preview = new LivePreview(document);
   // the main-world script reads CodeMirror's undrawn lines for us (events cross worlds synchronously)
   const undrawn = (root: Element, comments: boolean): string[] | null => {
@@ -36,15 +38,22 @@ if (!window.__webLaasPreviewAlive?.()) {
     }
   };
   const rendered = new InlineRender(document, { undrawn, alive });
+  // sent messages on chat sites, which show them as plain text
+  const msgSelector = messageSelector(location.hostname);
+  const messages = msgSelector ? new MessageRender(document, msgSelector) : null;
   document.addEventListener(HANDOVER_EVENT, () => {
     rendered.destroy();
+    messages?.destroy();
     preview.destroy();
   });
   let mode: PreviewMode | "off" = "above";
 
   const apply = async () => {
     const { prefs, enabled, disabledHosts, configText } = await loadState();
-    if (!alive()) return rendered.destroy();
+    if (!alive()) {
+      messages?.destroy();
+      return rendered.destroy();
+    }
     const host = location.hostname;
     let config = null;
     try {
@@ -58,6 +67,7 @@ if (!window.__webLaasPreviewAlive?.()) {
     else preview.setMode(mode);
     const comments = !!config?.latexCommentSites.some((p) => hostMatches(host, p));
     rendered.set({ on: on && prefs.inlineRender, comments });
+    messages?.set(on && prefs.inlineRender);
   };
   void apply();
   chrome.storage.onChanged.addListener((changes, area) => {

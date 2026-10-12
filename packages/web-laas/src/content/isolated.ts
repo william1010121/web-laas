@@ -12,6 +12,7 @@ import {
   type CommandName,
   type ContentMessage,
 } from "../shared/storage";
+import { messageSelector } from "../shared/chat";
 import { showToast } from "./toast";
 
 declare global {
@@ -46,6 +47,9 @@ function editorsHaveMath(): boolean {
     const text = field ? el.value : el.isContentEditable || el.classList.contains("CodeMirror-code") ? el.textContent : "";
     if (text && MATH_HINT.test(text)) return true;
   }
+  // messages already sent on a chat site (ChatGPT, Claude, Gemini show them as plain text)
+  const sent = messageSelector(location.hostname);
+  if (sent) for (const el of document.querySelectorAll(sent)) if (MATH_HINT.test(el.textContent ?? "")) return true;
   return false;
 }
 
