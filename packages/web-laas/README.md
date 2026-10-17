@@ -30,7 +30,7 @@ the browser assigned. Pages that can't be scripted (`chrome://`, the Web Store) 
 
 | Page | |
 |---|---|
-| General | Tab fields, cdlatex Tab movement, script simplification, `$ [ {` pairing, Backspace undo, auto space; the laas / cdlatex / web extras sets; the live LaTeX preview (above / below the caret, corner, off); the cheat sheet; keeping Tab in the editor; the experimental editor that replaces the message box on chat sites (Vim keys, ⌘Enter to send) |
+| General | Tab fields, cdlatex Tab movement, script simplification, `$ [ {` pairing, Backspace undo, auto space; the laas / cdlatex / web extras sets; the live LaTeX preview (above / below the caret, corner, off); the cheat sheet; keeping Tab in the editor; the experimental editor that replaces the message box on chat sites (Vim keys, ⌘Enter to send, its opacity) |
 | Snippet editor | your config (like an Emacs init file) with live validation and a playground |
 | Cheat sheet | every snippet, searchable, for "any site" or Overleaf |
 | Shortcuts | the browser shortcuts and the in-editor keys |
