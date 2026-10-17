@@ -129,10 +129,14 @@ class Session {
       if (f.env) span.dataset.env = f.env;
       span.addEventListener("mousedown", (e) => {
         e.preventDefault();
+        // where the formula is now (edits before it moved the mark), just inside its opener
+        const mark = this.marks.get(span)?.mark;
+        const r = mark?.find();
+        const at = r ? cm.indexFromPos(r.from) + (f.at - f.from) : f.at;
         // the source first: the caret can't go inside a collapsed mark
-        this.marks.get(span)?.mark.clear();
+        mark?.clear();
         this.marks.delete(span);
-        cm.setCursor(cm.posFromIndex(f.at));
+        cm.setCursor(cm.posFromIndex(at));
         cm.focus();
       });
       const mark = cm.markText(cm.posFromIndex(f.from), cm.posFromIndex(f.to), {
