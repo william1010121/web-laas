@@ -1,6 +1,6 @@
 // cheatsheet.js: injected into the top frame by the background only when the
 // cheat sheet is opened, so MathJax isn't loaded into every page and iframe.
-import { cheatsheetEntries, compileConfig, groupCheatsheet, snippetsForHost, withMathDelimiters, resolveMathDelimiters, type CheatsheetEntry } from "web-laas-engine";
+import { cheatsheetEntries, compileConfig, groupCheatsheet, hostMatches, snippetsForHost, withMathDelimiters, resolveMathDelimiters, type CheatsheetEntry } from "web-laas-engine";
 import { alive } from "../shared/alive";
 import { ADDED_GROUP, loadState, saveState, type ContentMessage, type StoredState } from "../shared/storage";
 import { refreshCheatsheet, toggleCheatsheet } from "./overlay";
@@ -41,7 +41,11 @@ const deletable = (e: CheatsheetEntry) => e.source === "user" && e.group === ADD
 
 async function remove(e: CheatsheetEntry) {
   const state = await loadState();
-  const i = state.snippets.findIndex((s) => s.trigger === e.trigger && s.replacement === e.code);
+  // (the one shown on this site: the same snippet may be kept for other sites too)
+  const host = location.hostname;
+  const i = state.snippets.findIndex(
+    (s) => s.trigger === e.trigger && s.replacement === e.code && (!s.sites || s.sites.some((p) => hostMatches(host, p))),
+  );
   if (i < 0) return;
   await saveState({ snippets: state.snippets.filter((_, k) => k !== i) });
   refreshCheatsheet(groupsFor(await loadState()));
