@@ -34,14 +34,19 @@ ${MATH_CSS}
 }
 /* typing that doesn't change its size is laid out here only, not across a long conversation */
 [data-web-laas-composer] { position: relative; width: 100%; text-align: start; contain: layout style; }
-[data-web-laas-composer] .wl-tools { position: absolute; top: 0; right: 0; z-index: 1; display: flex; gap: 3px; }
-[data-web-laas-composer] .wl-tools button, [data-web-laas-composer-off] .wl-back {
+[data-web-laas-composer] .wl-tools, [data-web-laas-composer-float] .wl-tools { position: absolute; top: 0; right: 0; z-index: 1; display: flex; gap: 3px; }
+/* the box faded: the buttons over it, outside it, so they don't fade with it */
+[data-web-laas-composer-float] { position: fixed; z-index: 2147483000; height: 0; pointer-events: none; }
+[data-web-laas-composer-float] .wl-tools { pointer-events: auto; }
+.wl-tools button, [data-web-laas-composer-off] .wl-back {
   border: 0; border-radius: 6px; padding: 1px 6px; cursor: pointer;
   font: 600 10px/1.6 ui-sans-serif, -apple-system, sans-serif; letter-spacing: .02em;
   color: inherit; background: rgba(127,127,127,.12); opacity: .45;
 }
-[data-web-laas-composer] .wl-tools button:hover, [data-web-laas-composer] .wl-tools button[aria-expanded="true"] { opacity: 1; }
-[data-web-laas-composer] .wl-tools .wl-gear { display: inline-flex; align-items: center; padding: 1px 4px; }
+/* (over a faded box they'd fade twice: a bit stronger there) */
+[data-web-laas-composer-float] .wl-tools button { opacity: .6; }
+.wl-tools button:hover, .wl-tools button[aria-expanded="true"] { opacity: 1 !important; }
+.wl-tools .wl-gear { display: inline-flex; align-items: center; padding: 1px 4px; }
 [data-web-laas-composer-off] .wl-back { position: absolute; top: 0; right: 0; z-index: 1; }
 /* the opacity slider (in the body: the box it fades doesn't fade it, or clip it) */
 [data-web-laas-opacity] {
@@ -90,6 +95,11 @@ class Composer {
   /** the part of the page faded (composerOpacity), and its own opacity before */
   private faded: HTMLElement | null = null;
   private fadedBefore = "";
+  private tools: HTMLElement;
+  /** while faded: the buttons' place in the body, kept over the editor's corner */
+  private float: HTMLElement | null = null;
+  private floatWatch: ResizeObserver | null = null;
+  private floatFrame = 0;
 
   constructor(
     readonly input: HTMLElement,
@@ -113,7 +123,7 @@ class Composer {
     gear.setAttribute("aria-expanded", "false");
     gear.append(gearIcon());
     gear.addEventListener("click", () => toggleOpacity(gear));
-    const tools = document.createElement("div");
+    const tools = (this.tools = document.createElement("div"));
     tools.className = "wl-tools";
     tools.append(gear, back);
     this.host.append(tools);
@@ -165,11 +175,52 @@ class Composer {
       this.fadedBefore = this.faded.style.opacity;
     }
     this.faded.style.opacity = String(value);
+    this.floatTools();
   }
 
   private unfade() {
     if (this.faded) this.faded.style.opacity = this.fadedBefore;
     this.faded = null;
+    this.dockTools();
+  }
+
+  /** TeX and the gear over the faded box, at full strength (a child can't be more opaque than its parent). */
+  private floatTools() {
+    if (this.float) return;
+    const float = (this.float = document.createElement("div"));
+    float.dataset.webLaasComposerFloat = "";
+    float.style.color = getComputedStyle(this.host).color;
+    float.append(this.tools);
+    document.body.append(float);
+    this.placeTools();
+    this.floatWatch = new ResizeObserver(this.queuePlace);
+    this.floatWatch.observe(this.host);
+    this.floatWatch.observe(document.documentElement);
+    window.addEventListener("scroll", this.queuePlace, { capture: true, passive: true });
+    window.addEventListener("resize", this.queuePlace);
+  }
+
+  private dockTools() {
+    if (!this.float) return;
+    cancelAnimationFrame(this.floatFrame);
+    this.floatWatch?.disconnect();
+    this.floatWatch = null;
+    window.removeEventListener("scroll", this.queuePlace, { capture: true });
+    window.removeEventListener("resize", this.queuePlace);
+    this.host.append(this.tools);
+    this.float.remove();
+    this.float = null;
+  }
+
+  private queuePlace = () => {
+    cancelAnimationFrame(this.floatFrame);
+    this.floatFrame = requestAnimationFrame(() => this.placeTools());
+  };
+
+  private placeTools() {
+    if (!this.float) return;
+    const r = this.host.getBoundingClientRect();
+    Object.assign(this.float.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, display: r.width ? "" : "none" });
   }
 
   destroy() {
@@ -459,7 +510,7 @@ let vimPreview = false;
 
 function setOff(value: boolean) {
   off = value;
-  const hadFocus = !!document.activeElement?.closest("[data-web-laas-composer]");
+  const hadFocus = !!document.activeElement?.closest("[data-web-laas-composer], [data-web-laas-composer-float]");
   check();
   // focus follows the switch, into whichever box is showing now
   if (off) {
@@ -594,7 +645,7 @@ if (!window.__webLaasComposerAlive?.()) {
   let lastCheck = -Infinity;
   const outside = (n: Node) => {
     const el = n instanceof Element ? n : n.parentElement;
-    return !el?.closest("[data-web-laas-composer], [data-web-laas-hidden], [data-web-laas-composer-off]");
+    return !el?.closest("[data-web-laas-composer], [data-web-laas-hidden], [data-web-laas-composer-off], [data-web-laas-composer-float], [data-web-laas-opacity]");
   };
   mo = new MutationObserver((records) => {
     if (queued) return;
