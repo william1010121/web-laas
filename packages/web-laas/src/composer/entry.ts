@@ -361,6 +361,8 @@ async function apply() {
   // the snippets in our editor: the page's own engine can't reach it (it's in this world)
   vimPreview = !!state.prefs.composerVimPreview;
   controller?.setState(stateForSite(state, host));
+  // (the config's own disabledSites too, as when the page loads)
+  if (controller && !controller.active) wanted = false;
   const next = { vim: !!state.prefs.composerVim, modEnter: !!state.prefs.composerModEnter };
   if (next.vim !== keys.vim || next.modEnter !== keys.modEnter) {
     keys = next;

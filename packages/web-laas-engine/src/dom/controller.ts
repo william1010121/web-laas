@@ -531,8 +531,10 @@ export class LaasController {
     const ctx = mathContext(before.slice(0, before.length - m[2].length), { comments: this.latexComments() });
     // the closer ends a formula with something in it ($ $ stays as it is)
     if (!ctx.math || ctx.start === undefined || !before.slice(ctx.start, spaces).trim()) return;
-    // "$5 and $", "$ 5 and $": prices, not a formula (Markdown sites read a single $ the Pandoc way)
-    if (m[2] === "$" && !this.latexComments() && /^[\s\d]/.test(before.slice(ctx.start, spaces))) return;
+    // Markdown sites read a single $ the Pandoc way: "$5 and $" is a price, "$HOME or $" plain text.
+    // There only trim one word ($x $) or something that is clearly LaTeX ($\alpha $, $a^2 + b $).
+    const inner = before.slice(ctx.start, spaces);
+    if (m[2] === "$" && !this.latexComments() && (/^[\s\d]/.test(inner) || (/\s/.test(inner) && !/[\\^_{}]/.test(inner)))) return;
     const base = sel.to - before.length;
     const len = m[1].length;
     if (this.sessionsFor(adapter).length) this.sync(adapter);

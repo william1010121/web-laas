@@ -305,6 +305,12 @@ describe("LaasController", () => {
       setup("chatgpt.com", "I paid ");
       await typeAll("$5 and $10");
       expect(show()).toBe("I paid $5 and $10|"); // prices: the space stays
+      setup("chatgpt.com", "Use ");
+      await typeAll("$HOME or $PATH");
+      expect(show()).toBe("Use $HOME or $PATH|"); // plain words: the space stays
+      setup("chatgpt.com", "so $a^2 + b ");
+      await typeAll("$");
+      expect(show()).toBe("so $a^2 + b$|"); // clearly LaTeX: trimmed
     });
 
     it("{ [ pair inside math only (everywhere on Overleaf)", async () => {
