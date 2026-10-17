@@ -35,6 +35,7 @@ export class MessageRender {
   private shown = new Map<Element, Shown>();
   private observer: MutationObserver | null = null;
   private timer = 0;
+  private lastScan = -Infinity;
 
   constructor(
     private readonly doc: Document,
@@ -45,9 +46,9 @@ export class MessageRender {
     if (on === this.on) return;
     this.on = on;
     if (on) {
-      // (typing in the message box changes only it: no need to look at every message again)
+      // (typing in the message box changes only it, or our own elements: no need to look at every message again)
       this.observer = new MutationObserver((records) => {
-        if (records.some((r) => !inEditable(r.target))) this.schedule();
+        if (records.some((r) => !inEditable(r.target) && !inOurs(r.target))) this.schedule();
       });
       this.observer.observe(this.doc.documentElement, { childList: true, subtree: true, characterData: true });
       this.schedule();
@@ -66,14 +67,17 @@ export class MessageRender {
     this.doc.getElementById(STYLE_ID)?.remove();
   }
 
-  // a reply streaming in changes the page many times a second: look once things settle
+  // a reply streaming in changes the page many times a second: look once things settle, and
+  // at most once a second (each look reads every sent message of the conversation)
   private schedule() {
     clearTimeout(this.timer);
-    this.timer = window.setTimeout(() => this.scan(), 150);
+    const wait = Math.max(150, this.lastScan + 1000 - performance.now());
+    this.timer = window.setTimeout(() => this.scan(), wait);
   }
 
   private scan() {
     if (!this.on) return;
+    this.lastScan = performance.now();
     // our own changes would wake the observer again
     this.observer?.disconnect();
     try {
@@ -128,6 +132,12 @@ export class MessageRender {
 function inEditable(node: Node): boolean {
   const el = node instanceof Element ? node : node.parentElement;
   return !!el && (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement || (el as HTMLElement).isContentEditable);
+}
+
+/** Is `node` inside an element web-laas put in the page (the composer, render layers, the preview card)? */
+function inOurs(node: Node): boolean {
+  const el = node instanceof Element ? node : node.parentElement;
+  return !!el?.closest("[data-web-laas-composer], [data-web-laas-render], [data-web-laas-preview], [data-web-laas-mirror]");
 }
 
 /** A copy of `source` with its formulas typeset, or null when none render. */

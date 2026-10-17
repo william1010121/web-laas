@@ -99,6 +99,8 @@ export class LivePreview {
   private math: HTMLElement;
   private mode: PreviewMode = "above";
   private shownHtml = "";
+  /** the card's size as last fitted, and for which markup: moving the caret only moves the card */
+  private size: { html: string; w: number; h: number } | null = null;
   private formulaId: string | undefined;
   private last: PreviewFormula | null = null;
   private dismissed: string | null = null;
@@ -128,6 +130,7 @@ export class LivePreview {
 
   // the formula may not change on resize, but where it fits does
   private readonly onResize = () => {
+    this.size = null;
     if (this.visible && this.last) {
       this.fit();
       this.place(this.last);
@@ -172,7 +175,8 @@ export class LivePreview {
       this.dismissed = null;
     }
     const { withCaret, plain } = prepareLatex(f, accentColor());
-    const html = (withCaret && renderMath(withCaret, f.display)) || renderMath(plain, f.display);
+    // (the caret's place changes with every key: those renders are kept only briefly)
+    const html = (withCaret && renderMath(withCaret, f.display, { brief: true })) || renderMath(plain, f.display);
     if (html) {
       if (html !== this.shownHtml) {
         this.math.innerHTML = html;
@@ -185,7 +189,8 @@ export class LivePreview {
       return this.hide();
     }
     if (!this.host.isConnected) (this.doc.body ?? this.doc.documentElement).append(this.host);
-    this.fit();
+    // (measuring makes the browser lay out the page there and then: only when what's shown changed)
+    if (this.size?.html !== this.shownHtml) this.fit();
     this.place(f);
     this.visible = true;
     this.root.classList.add("on");
@@ -203,14 +208,15 @@ export class LivePreview {
     if (w > maxW && maxW > 0) zoom = maxW / w;
     if (h * zoom > maxH && maxH > 0) zoom = maxH / h;
     if (zoom < 1) this.math.style.zoom = String(zoom);
+    this.size = { html: this.shownHtml, w: this.card.offsetWidth, h: this.card.offsetHeight };
   }
 
   private place(f: PreviewFormula) {
     const view = this.doc.defaultView!;
     const vw = view.innerWidth;
     const vh = view.innerHeight;
-    const w = this.card.offsetWidth;
-    const h = this.card.offsetHeight;
+    const w = this.size?.w ?? this.card.offsetWidth;
+    const h = this.size?.h ?? this.card.offsetHeight;
     let left: number;
     let top: number;
     const r = f.rect;

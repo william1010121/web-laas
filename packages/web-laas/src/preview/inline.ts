@@ -7,8 +7,12 @@ import { prepareLatex } from "./preview";
 
 const EDITORS = ".cm-content, .CodeMirror-code, textarea, input[type=text], input[type=search], input:not([type]), [contenteditable]";
 
-/** Elements web-laas puts in the page itself (render layers, mirrors, the preview card, message copies). */
-const OURS = ["data-web-laas-render", "data-web-laas-preview", "data-web-laas-mirror", "data-web-laas-msg-copy"];
+/** Elements web-laas puts in the page itself (render layers, mirrors, the preview card, message copies, the composer). */
+const OURS = [
+  "data-web-laas-render", "data-web-laas-preview", "data-web-laas-mirror", "data-web-laas-msg-copy",
+  // the composer, and the site's box it stands in for (neither is drawn over)
+  "data-web-laas-composer", "data-web-laas-composer-off", "data-web-laas-hidden",
+];
 const ours = (n: Node) => n instanceof Element && OURS.some((a) => n.hasAttribute(a));
 
 /** A plain text field: a textarea, or a one-line text / search input. */
@@ -473,10 +477,14 @@ const PREFETCH = 40;
 const range = (from: number, to: number) => Array.from({ length: Math.max(0, to - from) }, (_, k) => from + k);
 /** Time (ms) a frame may spend rendering formulas it hasn't drawn before. */
 const RENDER_BUDGET = 8;
-/** How often (ms) the page is searched for new open shadow roots, at most (when its elements changed). */
-const SHADOW_SCAN = 2000;
+/**
+ * How often (ms) the page is searched for new open shadow roots, at most (when its elements
+ * changed). Each search visits every element: 10-15 ms on a long chat, where a streaming reply
+ * changes the page all the time.
+ */
+const SHADOW_SCAN = 5000;
 /** How often (ms) it is searched anyway (a shadow root can be attached without any mutation). */
-const SHADOW_FULL = 10000;
+const SHADOW_FULL = 15000;
 /**
  * How often (ms), at most, the page is searched for editors again after elements outside them
  * came or went. Searching a long chat page takes several ms; typing changes only the editor.
@@ -816,11 +824,20 @@ export class InlineRender {
         this.mirrors.delete(ta);
       }
     }
-    // layers whose context left the page (an editor in a closed modal): let both go
+    // layers whose context left the page (an editor in a closed modal): let both go; and layers
+    // placed after an editor that's gone (a box the site replaced after sending)
     for (const [context, list] of this.layers) {
-      if (context.isConnected) continue;
-      for (const l of list) l.host.remove();
-      this.layers.delete(context);
+      if (!context.isConnected) {
+        for (const l of list) l.host.remove();
+        this.layers.delete(context);
+        continue;
+      }
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (list[i].after && !list[i].after!.isConnected) {
+          list[i].host.remove();
+          list.splice(i, 1);
+        }
+      }
     }
   }
 

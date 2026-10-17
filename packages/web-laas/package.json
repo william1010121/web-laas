@@ -1,6 +1,6 @@
 {
   "name": "web-laas",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "private": true,
   "description": "Chrome extension: Emacs laas-style LaTeX auto-activating snippets on Overleaf, ChatGPT, Claude, Notion, HackMD, Jupyter, …",
   "type": "module",

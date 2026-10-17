@@ -46,6 +46,9 @@ const MARGIN_LINES = 60;
 class Session {
   /** marks by the formula they cover */
   private marks = new Map<HTMLElement, { mark: Mark; latex: string }>();
+  /** the text last read, and its formulas */
+  private text: string | null = null;
+  private formulas: ReturnType<typeof findFormulas> = [];
   private queued = false;
   private readonly schedule = () => {
     if (this.queued) return;
@@ -100,9 +103,14 @@ class Session {
       const b = cm.indexFromPos(r.head);
       return [Math.min(a, b), Math.max(a, b)];
     });
-    // the formulas to show rendered, by where they are
+    // the formulas to show rendered, by where they are (the text read again only when it changed:
+    // moving the caret through a long note mustn't)
+    if (text !== this.text) {
+      this.text = text;
+      this.formulas = findFormulas(text, { comments: this.owner.comments });
+    }
     const want = new Map<string, { from: number; to: number; latex: string; display: boolean; env?: string; at: number }>();
-    for (const f of findFormulas(text, { comments: this.owner.comments })) {
+    for (const f of this.formulas) {
       if (f.to < lo || f.from > hi) continue;
       // the caret (or a selection) touching it: its source
       if (sels.some(([a, b]) => a <= f.to && b >= f.from)) continue;

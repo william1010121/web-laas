@@ -169,3 +169,32 @@ elements). That ate the frame's 8 ms render budget, so no formula was drawn and
 another frame was asked for: the renderer ran every frame, typing or not. Now
 the list of editors is searched again only when elements outside them come or
 go (at most every 250 ms), and the budget starts after it.
+
+## Typing in the composer
+
+`composer-bench.html` is the same page with the experimental composer in place
+of the message box (`?vim=1` for Vim keys). Like the extension, it runs
+`content-main.js` in the page and `content-isolated.js`, `preview.js` and
+`composer.js` in an isolated world: a driver injects those three with
+`Page.createIsolatedWorld` + `Runtime.evaluate`, after a `chrome.*` stub that
+serves `window.ISOLATED_STORE` as `chrome.storage.local` (loading them as
+ordinary scripts would put both engines in one world, where the page's engine
+reaches the composer's editor too). The old builds compared below came from the
+0.7.1 sources.
+
+Typing 65 characters, then 41 Vim motions (`w`, `b`, `l`, `h`), `turns = 150`,
+two runs each:
+
+| | key → frame p50 | p95 | main-thread time | layouts |
+|---|---:|---:|---:|---:|
+| 0.7.1, typing | 20–197 ms | 71–492 ms | 1.4–3.2 s | 139 |
+| **0.7.2, typing** | **18–29 ms** | **25–44 ms** | **0.85–2.1 s** | **74** |
+| 0.7.1, Vim insert mode | 35–38 ms | 146–194 ms | 2.7 s | 138 |
+| **0.7.2, Vim insert mode** | **15–28 ms** | **25–39 ms** | **0.76–1.9 s** | **72–74** |
+| 0.7.1, Vim motions | 21–28 ms | 33–73 ms | 0.8–2.2 s | 45 |
+| **0.7.2, Vim motions** | **21–37 ms** | **32–54 ms** | **0.6–1.4 s** | **45** |
+
+The composer drew its own caret and selection (CodeMirror's drawSelection) on
+every key, an extra layout each time; now only in Vim's visual modes. With
+everything else equal, typing in the composer now costs what typing in the
+site's own box does.

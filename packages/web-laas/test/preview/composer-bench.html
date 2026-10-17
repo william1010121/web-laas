@@ -1,0 +1,32 @@
+<!doctype html>
+<!-- Benchmark: the composer on a long chat page. ?turns=150&vim=1&preview=1&build=old; frameLatency() after typing.
+     Needs `npm run build` (dist/) and a driver that injects the isolated-world scripts (see below). -->
+<html><head><meta charset="utf-8"><title>composer bench</title>
+<style>
+  body { font: 16px/1.6 system-ui, sans-serif; margin: 0; background: #fff; color: #222; display: flex; flex-direction: column; height: 100vh; }
+  #thread { flex: 1; overflow: auto; padding: 0 20%; }
+  #prompt { margin: 8px 20%; border: 1px solid #ccc; border-radius: 16px; padding: 10px 14px; max-height: 200px; overflow: auto; }
+  #prompt .ProseMirror { outline: none; white-space: pre-wrap; min-height: 1.6em; }
+  #prompt p { margin: 0; }
+</style></head>
+<body><div id="thread"></div><div id="prompt"></div>
+<script>
+  // the page itself: chat-bench.js with none of its own parts
+  if (!location.search.includes("parts=")) history.replaceState(null, "", location.search + (location.search ? "&" : "?") + "parts=");
+</script>
+<script src="dist/chat-bench.js"></script>
+<script>
+  // the page's world: content-main.js and the settings it would get from content-isolated.js.
+  // content-isolated.js, preview.js and composer.js belong in an isolated world, as in the
+  // extension: a driver injects them there (Page.createIsolatedWorld), see window.ISOLATED_STORE.
+  const q = new URLSearchParams(location.search);
+  window.ISOLATED_STORE = {
+    enabled: true,
+    prefs: { composer: true, composerSites: [location.hostname], composerVim: q.get("vim") !== "0", composerVimPreview: q.get("vimPreview") === "1", preview: q.get("preview") === "0" ? "off" : "above", inlineRender: true },
+  };
+  const main = document.createElement("script");
+  main.src = `${q.get("build") === "old" ? "dist/old" : "../../dist"}/content-main.js`;
+  main.onload = () => document.dispatchEvent(new CustomEvent("web-laas:state", { detail: JSON.stringify({ enabled: true, configText: "", disabledHosts: [], prefs: window.ISOLATED_STORE.prefs, siteMath: {}, snippets: [] }) }));
+  document.body.append(main);
+</script>
+</body></html>
