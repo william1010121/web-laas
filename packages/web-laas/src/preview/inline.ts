@@ -646,9 +646,13 @@ export class InlineRender {
       for (const r of records) {
         // elements (not text) coming or going outside the editors, other than ours: the list of
         // editors and of shadow roots may have changed; typing changes only an editor
+        // (inside one, only an editor of its own coming in counts: a widget mounting a textarea)
         if (
           !this.editorsDirty &&
-          ((r.type === "childList" && !inside(r.target) && [...r.addedNodes, ...r.removedNodes].some((n) => n instanceof Element && !ours(n))) ||
+          ((r.type === "childList" &&
+            (inside(r.target)
+              ? [...r.addedNodes].some((n) => n instanceof Element && (n.matches(EDITORS) || !!n.querySelector(EDITORS)))
+              : [...r.addedNodes, ...r.removedNodes].some((n) => n instanceof Element && !ours(n)))) ||
             (r.type === "attributes" && r.attributeName === "contenteditable"))
         ) {
           this.editorsDirty = this.shadowsDirty = any = true;
