@@ -771,6 +771,9 @@ export class InlineRender {
     const scopes: (Document | ShadowRoot)[] = [this.doc, ...this.shadows];
     for (const el of scopes.flatMap((sc) => [...sc.querySelectorAll<HTMLElement>(EDITORS)])) {
       if (el instanceof HTMLInputElement && !isField(el)) continue;
+      // the composer draws its own formulas; the site's box it stands in for is hidden
+      // (and CodeMirror 5 Markdown editors typeset their own: content/cm5-math.ts)
+      if (el.closest("[data-web-laas-composer], [data-web-laas-hidden], [data-web-laas-native]")) continue;
       if (isField(el)) {
         if (el.closest(".CodeMirror, .cm-editor, .monaco-editor") || el.disabled) continue;
       } else if (!el.classList.contains("CodeMirror-code")) {

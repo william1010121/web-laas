@@ -50,7 +50,7 @@ one-to-one from the Emacs packages, not approximated — and the same <kbd>Tab</
 - **Your delimiters, per site.** Pick what ` mk` and ` dm` insert right in the toolbar popup — `$…$` or `\(…\)`,
   `$$…$$`, `\[…\]`, `equation*` or `align*` — and each site remembers its own choice.
 - **A cheat sheet one key away.** <kbd>⌥</kbd><kbd>⇧</kbd><kbd>K</kbd> shows every snippet available on the current site,
-  searchable, with the math rendered.
+  searchable, with the math rendered. Add your own snippets right there, with a live preview of what they insert.
 - **Yours to configure.** Write snippets like an Emacs config, try them in a live playground, turn sets on and off.
 
 ## Install

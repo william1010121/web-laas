@@ -30,7 +30,7 @@ the browser assigned. Pages that can't be scripted (`chrome://`, the Web Store) 
 
 | Page | |
 |---|---|
-| General | Tab fields, cdlatex Tab movement, script simplification, `$ [ {` pairing, Backspace undo, auto space; the laas / cdlatex / web extras sets; the live LaTeX preview (above / below the caret, corner, off); the cheat sheet |
+| General | Tab fields, cdlatex Tab movement, script simplification, `$ [ {` pairing, Backspace undo, auto space; the laas / cdlatex / web extras sets; the live LaTeX preview (above / below the caret, corner, off); the cheat sheet; keeping Tab in the editor; the experimental editor that replaces the message box on chat sites (Vim keys, ⌘Enter to send) |
 | Snippet editor | your config (like an Emacs init file) with live validation and a playground |
 | Cheat sheet | every snippet, searchable, for "any site" or Overleaf |
 | Shortcuts | the browser shortcuts and the in-editor keys |
@@ -45,6 +45,9 @@ src/cheatsheet/           cheat sheet (KaTeX → MathML) and the in-page overlay
                           bundled as cheatsheet.js and injected only when opened, so KaTeX isn't loaded into every frame
 src/preview/              the live LaTeX preview (floating card, closed shadow DOM); bundled as preview.js and
                           injected into a frame the first time its caret enters math
+src/content/cm5-math.ts   MAIN world: formulas typeset in place in CodeMirror 5 Markdown editors (HackMD), via markText
+src/composer/             experimental: a CodeMirror 6 editor in place of a chat site's message box, kept in step
+                          with the site's box; bundled as composer.js and injected only on the sites it's set for
 src/options/, src/popup/  settings page and popup
 src/background.ts         commands, notifications, re-injection into open tabs after an update
 ```

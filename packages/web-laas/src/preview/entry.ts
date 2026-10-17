@@ -5,7 +5,8 @@ import { alive } from "../shared/alive";
 import { loadState, STORAGE_KEYS } from "../shared/storage";
 import { InlineRender } from "./inline";
 import { MessageRender, messageSelector } from "./messages";
-import { LivePreview, type PreviewFormula, type PreviewMode } from "./preview";
+import { LivePreview, prepareLatex, type PreviewFormula, type PreviewMode } from "./preview";
+import { MATH_CSS, renderMathElement } from "../shared/math";
 
 declare global {
   interface Window {
@@ -42,6 +43,7 @@ if (!window.__webLaasPreviewAlive?.()) {
   const msgSelector = messageSelector(location.hostname);
   const messages = msgSelector ? new MessageRender(document, msgSelector) : null;
   document.addEventListener(HANDOVER_EVENT, () => {
+    document.removeEventListener("web-laas:cm5-fill", fillCm5);
     rendered.destroy();
     messages?.destroy();
     preview.destroy();
@@ -89,6 +91,29 @@ if (!window.__webLaasPreviewAlive?.()) {
     },
     true,
   );
+  // CodeMirror 5 editors (HackMD) typeset formulas themselves (content/cm5-math.ts, main world):
+  // they leave empty spans for us to fill
+  const cm5Style = document.createElement("style");
+  cm5Style.dataset.webLaasRender = "";
+  cm5Style.textContent = `${MATH_CSS.replace(/^mjx-container/gm, ".web-laas-math mjx-container")}
+.web-laas-math { cursor: text; border-radius: 3px; }
+.web-laas-math:hover { background: rgba(127,127,127,.12); }
+.web-laas-display { display: inline-block; width: 100%; text-align: center; }`;
+  (document.head ?? document.documentElement).append(cm5Style);
+  const fillCm5 = () => {
+    if (!alive()) return;
+    for (const span of document.querySelectorAll<HTMLElement>("span[data-web-laas-math]:not([data-web-laas-filled])")) {
+      // (an environment's body as MathJax takes it: align* → aligned…)
+      const latex = prepareLatex({ latex: span.dataset.webLaasMath ?? "", caret: 0, env: span.dataset.env }, "").plain;
+      const math = renderMathElement(latex, span.dataset.display !== undefined);
+      span.dataset.webLaasFilled = "";
+      if (math) span.replaceChildren(math);
+      span.dispatchEvent(new CustomEvent("web-laas:cm5-filled", { bubbles: true, detail: math ? "" : "error" }));
+    }
+  };
+  document.addEventListener("web-laas:cm5-fill", fillCm5);
+  fillCm5();
+
   // ask the main-world engine for the formula we may have missed while loading
   document.dispatchEvent(new CustomEvent("web-laas:preview-ready"));
 }

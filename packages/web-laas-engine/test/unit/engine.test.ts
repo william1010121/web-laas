@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compileConfig, resolveMathDelimiters, snippetsForHost } from "../../src/core/config";
+import { compileConfig, resolveMathDelimiters, snippetsForHost, withMathDelimiters } from "../../src/core/config";
 import { cheatsheetEntries, groupCheatsheet } from "../../src/core/cheatsheet";
 import { findExpansion } from "../../src/core/matcher";
 import { parseConfigText } from "../../src/core/parser";
@@ -160,7 +160,7 @@ describe("web extras", () => {
   });
 
   it("site-specific dm", () => {
-    expect(expand("dm", "www.overleaf.com")).toBe("\\[\n\t|\n\\]");
+    expect(expand("dm", "www.overleaf.com")).toBe("\\[\n|\n\\]");
     expect(expand("dm", "chatgpt.com")).toBe("$$\n|\n$$");
   });
 
@@ -206,6 +206,33 @@ describe("user config", () => {
     const s = snippetsForHost(compileConfig(cfg).config, "x");
     expect(findExpansion(s, "fig", { auto: true })).toBeNull();
     expect(findExpansion(s, "fig", { auto: false })?.rendered.text).toBe("\\begin{figure}\\end{figure}");
+  });
+});
+
+describe("snippets with math: their own delimiters, chosen per site", () => {
+  const cfg = `[{ trigger: "eq", replacement: "$1 = 2x$2", math: "display", options: "t" },
+                { trigger: "ii", replacement: "2x", math: "inline", options: "tA" }]`;
+  const run = (before: string, host: string, d?: Parameters<typeof withMathDelimiters>[1], auto = false) => {
+    const s = withMathDelimiters(snippetsForHost(compileConfig(cfg).config, host), d, host);
+    const exp = findExpansion(s, before, { auto })!;
+    const caret = exp.from + exp.rendered.stops[0].start;
+    const out = before.slice(0, exp.from) + exp.rendered.text;
+    return [out.slice(0, caret) + "|" + out.slice(caret), exp.rendered.stops.length];
+  };
+
+  it("uses the site's display or inline delimiters, like dm and mk", () => {
+    expect(run("eq", "chatgpt.com")).toEqual(["$$\n| = 2x\n$$", 3]);
+    expect(run("eq", "www.overleaf.com")).toEqual(["\\[\n| = 2x\n\\]", 3]);
+    expect(run("eq", "chatgpt.com", { display: "bracket" })).toEqual(["\\[\n| = 2x\n\\]", 3]);
+    // a digit right after the opener stays text, not a tabstop ($2)
+    expect(run("ii", "chatgpt.com", undefined, true)).toEqual(["$2x$|", 1]);
+    expect(run("ii", "chatgpt.com", { inline: "paren" }, true)).toEqual(["\\(2x\\)|", 1]);
+  });
+
+  it("rejects an unknown math value, and takes snippets from the caller", () => {
+    expect(compileConfig(`[{ trigger: "a", replacement: "b", math: "big" }]`).issues[0].message).toMatch(/math must be/);
+    const { config } = compileConfig(null, { snippets: [{ trigger: "zq", replacement: "\\zeta", options: "mA" }] });
+    expect(findExpansion(snippetsForHost(config, "x"), "$zq", { auto: true })?.rendered.text).toBe("\\zeta");
   });
 });
 

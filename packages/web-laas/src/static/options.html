@@ -64,6 +64,14 @@
           <span class="switch"><input type="checkbox" data-pref="autoPair"><span></span></span>
         </label>
         <label class="row">
+          <div class="text"><div class="title">Keep Tab in the editor</div><div class="desc">Tab never moves to the page's buttons: away from formulas it types spaces, and Shift+Tab goes back into the previous formula. Off: there Tab is the page's, as usual</div></div>
+          <span class="switch"><input type="checkbox" data-pref="tabEverywhere"><span></span></span>
+        </label>
+        <div class="row">
+          <div class="text"><div class="title">Spaces per Tab</div><div class="desc">What Tab types in text when it stays in the editor</div></div>
+          <input type="number" id="tabSpaces" class="num" min="1" max="16" step="1">
+        </div>
+        <label class="row">
           <div class="text"><div class="title">Backspace undoes</div><div class="desc">Backspace right after an expansion brings back what you typed</div></div>
           <span class="switch"><input type="checkbox" data-pref="backspaceUndo"><span></span></span>
         </label>
@@ -117,6 +125,30 @@
           <span class="switch"><input type="checkbox" data-pref="cheatsheet"><span></span></span>
         </label>
       </div>
+
+      <h2 class="label">Experimental</h2>
+      <div class="card">
+        <label class="row">
+          <div class="text"><div class="title">Replace the message box on chat sites</div><div class="desc">Type in web-laas's own editor instead of the site's box: formulas are typeset right in the text, and shrink to their rendered width. The site's box stays underneath, kept in step, so sending, drafts and attachments work as before. Click <b>TeX</b> in its corner to go back to the site's box on that page.</div></div>
+          <span class="switch"><input type="checkbox" data-pref="composer"><span></span></span>
+        </label>
+        <label class="row">
+          <div class="text"><div class="title">Vim keys in that editor</div><div class="desc">Normal, insert and visual modes, <code>:</code> commands; Esc for normal mode. Snippets expand in insert mode only. An input method (Zhuyin, Pinyin…) catches keys in normal mode too: switch to English there</div></div>
+          <span class="switch"><input type="checkbox" data-pref="composerVim"><span></span></span>
+        </label>
+        <label class="row">
+          <div class="text"><div class="title">Preview in Vim's normal mode</div><div class="desc">The floating preview follows the caret in normal mode too. Off: it shows while you type (insert mode) only</div></div>
+          <span class="switch"><input type="checkbox" data-pref="composerVimPreview"><span></span></span>
+        </label>
+        <label class="row">
+          <div class="text"><div class="title">Send with ⌘Enter</div><div class="desc">In that editor, Enter starts a new line and only ⌘Enter (Ctrl+Enter on Windows and Linux) sends</div></div>
+          <span class="switch"><input type="checkbox" data-pref="composerModEnter"><span></span></span>
+        </label>
+        <div class="composer-sites">
+          <div class="desc">On these sites, one per line (subdomains included). ChatGPT, Claude and Gemini are supported; on other sites the biggest text box is replaced, and Enter is passed on to it.</div>
+          <textarea id="composerSites" rows="4" spellcheck="false" autocomplete="off"></textarea>
+        </div>
+      </div>
     </section>
 
     <!-- Snippet editor -->
@@ -133,6 +165,7 @@
           <tr><td><code>${PREV}</code> <code>${PREV_INNER}</code></td><td>the TeX object to the left (with <code>o</code>); INNER drops its outer () []</td></tr>
           <tr><td><code>{ group, options, snippets: [...] }</code></td><td>a group: its name shows in the cheat sheet, its options / sites pass to the snippets inside</td></tr>
           <tr><td><code>sites</code> / <code>excludeSites</code></td><td>only on / not on these sites (subdomains included)</td></tr>
+          <tr><td><code>math</code></td><td><code>"inline"</code> / <code>"display"</code>: put the replacement inside this site's math delimiters, the ones <code>mk</code> / <code>dm</code> use (chosen per site in the toolbar popup), e.g. <code>{ trigger: "eq", replacement: "$1", math: "display", options: "t" }</code></td></tr>
           <tr><td><code>description</code> / <code>preview</code></td><td>the cheat sheet's description, and the LaTeX it renders</td></tr>
           <tr><td><code>priority</code></td><td>higher wins; on a tie, the longer trigger wins</td></tr>
         </table>

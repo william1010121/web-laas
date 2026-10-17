@@ -1,6 +1,6 @@
 // Searchable snippet cheat sheet, shared by the options page and the in-page overlay.
 import type { CheatsheetEntry, CheatsheetGroup, SnippetSource } from "web-laas-engine";
-import { MATH_CSS, renderMath } from "../shared/math";
+import { MATH_CSS, renderMath, renderMathElement } from "../shared/math";
 import { themeCss } from "../shared/theme";
 
 export interface SheetOptions {
@@ -11,6 +11,20 @@ export interface SheetOptions {
   /** keyboard hint shown in the footer */
   shortcut?: string;
   autofocus?: boolean;
+  /** adds a "New snippet" form; resolves to an error to show, or null once it's saved */
+  onAdd?: (spec: NewSnippet) => Promise<string | null>;
+  /** which entries can be deleted here (the ones made with the form), and how */
+  deletable?: (e: CheatsheetEntry) => boolean;
+  onDelete?: (e: CheatsheetEntry) => Promise<void>;
+}
+
+/** What the "New snippet" form makes (the fields of a snippet in the config). */
+export interface NewSnippet {
+  trigger: string;
+  replacement: string;
+  options: string;
+  math?: "inline" | "display";
+  sites?: string[];
 }
 
 type Filter = "all" | "math" | "text" | "tab" | "user";
@@ -53,7 +67,7 @@ function displayTrigger(e: CheatsheetEntry): { key: string; note?: string } {
   return { key: e.trigger, note: e.description };
 }
 
-function renderItem(doc: Document, e: CheatsheetEntry): HTMLElement {
+function renderItem(doc: Document, e: CheatsheetEntry, onDelete?: () => void): HTMLElement {
   const item = el(doc, "div", "lw-item");
   item.title = e.code;
   const { key, note } = displayTrigger(e);
@@ -76,6 +90,14 @@ function renderItem(doc: Document, e: CheatsheetEntry): HTMLElement {
   }
   item.append(out);
   if (note && note !== key) item.append(el(doc, "div", "lw-note", note));
+  if (onDelete) {
+    const del = el(doc, "button", "lw-del", "✕");
+    del.type = "button";
+    del.title = "Delete this snippet";
+    del.setAttribute("aria-label", "Delete this snippet");
+    del.onclick = onDelete;
+    item.append(del);
+  }
   item.dataset.search = [key, e.trigger, e.code, e.description ?? "", e.group].join(" ").toLowerCase();
   return item;
 }
@@ -157,6 +179,22 @@ export function buildCheatsheet(doc: Document, groups: CheatsheetGroup[], opts: 
   }
   tools.append(seg);
   head.append(tools);
+  if (opts.onAdd) {
+    const add = el(doc, "button", "lw-add", "+ New snippet");
+    add.type = "button";
+    const form = newSnippetForm(doc, opts.host, opts.onAdd, () => {
+      form.hidden = true;
+      add.hidden = false;
+    });
+    form.hidden = true;
+    add.onclick = () => {
+      form.hidden = false;
+      add.hidden = true;
+      form.querySelector("input")?.focus();
+    };
+    tools.append(add);
+    head.append(form);
+  }
   root.append(head);
 
   // ── body: group nav + sections ──
@@ -190,7 +228,8 @@ export function buildCheatsheet(doc: Document, groups: CheatsheetGroup[], opts: 
     const grid = el(doc, "div", "lw-grid");
     const items: [HTMLElement, CheatsheetEntry][] = [];
     for (const e of g.entries) {
-      const item = renderItem(doc, e);
+      const del = opts.onDelete && opts.deletable?.(e) ? () => void opts.onDelete!(e) : undefined;
+      const item = renderItem(doc, e, del);
       grid.append(item);
       items.push([item, e]);
     }
@@ -275,6 +314,119 @@ export function buildCheatsheet(doc: Document, groups: CheatsheetGroup[], opts: 
   return root;
 }
 
+/** Placeholder LaTeX for a replacement's fields ($1, ${2:x}), to preview it. */
+function previewOf(replacement: string): string {
+  return replacement
+    .replace(/\$\{\d+:([^}]*)\}/g, "$1")
+    .replace(/\$(?:\{(\d+)\}|(\d+))/g, (_, a, b) => ((a ?? b) === "0" ? "" : "\\square"))
+    .trim();
+}
+
+function newSnippetForm(doc: Document, host: string | undefined, onAdd: NonNullable<SheetOptions["onAdd"]>, close: () => void) {
+  const form = el(doc, "form", "lw-form");
+  const field = (label: string, input: HTMLElement, cls = "") => {
+    const l = el(doc, "label", `lw-field ${cls}`);
+    l.append(el(doc, "span", "lw-field-label", label), input);
+    return l;
+  };
+  const select = (options: [string, string][]) => {
+    const s = el(doc, "select");
+    for (const [value, label] of options) {
+      const o = el(doc, "option", "", label);
+      o.value = value;
+      s.append(o);
+    }
+    return s;
+  };
+  const trigger = el(doc, "input");
+  trigger.placeholder = "e.g. eq";
+  trigger.spellcheck = false;
+  const replacement = el(doc, "input");
+  replacement.placeholder = "e.g. \\frac{$1}{$2}$0";
+  replacement.spellcheck = false;
+  const where = select([["m", "In math"], ["t", "In text"], ["", "Anywhere"]]);
+  const how = select([["A", "As you type"], ["", "On Tab"]]);
+  const math = select([["", "Nothing around it"], ["inline", "This site's inline math"], ["display", "This site's display math"]]);
+  const only = el(doc, "input");
+  only.type = "checkbox";
+  const preview = el(doc, "div", "lw-form-preview");
+  const error = el(doc, "div", "lw-form-error");
+  const save = el(doc, "button", "lw-btn lw-btn-primary", "Add");
+  save.type = "submit";
+  const cancel = el(doc, "button", "lw-btn", "Cancel");
+  cancel.type = "button";
+
+  const grid = el(doc, "div", "lw-form-grid");
+  grid.append(
+    field("Type", trigger, "lw-field-trigger"),
+    field("to get", replacement, "lw-field-replacement"),
+    field("Works", where),
+    field("Expands", how),
+    field("Put it in", math),
+  );
+  const row = el(doc, "div", "lw-form-row");
+  const hint = el(doc, "div", "lw-form-hint");
+  hint.append(el(doc, "code", "lw-ic", "$1"), " ", el(doc, "code", "lw-ic", "$2"), " are fields you fill in turn, Tab to the next; ", el(doc, "code", "lw-ic", "$0"), " is where the caret ends.");
+  row.append(hint);
+  if (host) {
+    const l = el(doc, "label", "lw-only");
+    l.append(only, ` Only on ${host}`);
+    row.append(l);
+  }
+  const buttons = el(doc, "div", "lw-form-buttons");
+  buttons.append(error, cancel, save);
+  form.append(grid, preview, row, buttons);
+
+  // math delimiters only make sense around something typed in text
+  const sync = () => {
+    math.disabled = where.value === "m";
+    if (math.disabled) math.value = "";
+    const latex = previewOf(replacement.value);
+    const node = latex && (where.value !== "t" || math.value) ? renderMathElement(latex, math.value === "display", doc) : null;
+    if (node) preview.replaceChildren(node);
+    else preview.textContent = replacement.value ? "" : "The result shows here";
+  };
+  for (const input of [replacement, where, math]) input.addEventListener("input", sync);
+  where.addEventListener("change", sync);
+  sync();
+
+  const reset = () => {
+    trigger.value = replacement.value = "";
+    error.textContent = "";
+    sync();
+  };
+  cancel.onclick = () => {
+    reset();
+    close();
+  };
+  form.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      cancel.click();
+    }
+  });
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    if (!trigger.value.trim()) return void (error.textContent = "Type a trigger first");
+    if (/\s/.test(trigger.value)) return void (error.textContent = "A trigger can't have spaces");
+    save.disabled = true;
+    const err = await onAdd({
+      trigger: trigger.value,
+      replacement: replacement.value,
+      options: where.value + how.value,
+      ...(math.value ? { math: math.value as "inline" | "display" } : {}),
+      ...(host && only.checked ? { sites: [host] } : {}),
+    });
+    save.disabled = false;
+    if (err) error.textContent = err;
+    else {
+      reset();
+      close();
+    }
+  };
+  return form;
+}
+
 export const SHEET_CSS = `
 ${themeCss(".lw-sheet")}
 ${MATH_CSS}
@@ -342,6 +494,30 @@ ${MATH_CSS}
 .lw-note { flex-basis: 100%; font-size: 11.5px; color: var(--lw-muted); margin: -2px 0 0 2px; }
 .lw-empty { text-align: center; padding: 72px 0; color: var(--lw-muted); font-size: 13px; }
 .lw-empty-title { color: var(--lw-fg); font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+
+/* new snippet */
+.lw-add { all: unset; cursor: pointer; padding: 6px 12px; border-radius: 9px; font-size: 12.5px; font-weight: 600; color: var(--lw-accent-text); background: var(--lw-accent-soft); white-space: nowrap; }
+.lw-add:hover { filter: brightness(.97); }
+.lw-form { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; background: var(--lw-sunken); border: 1px solid var(--lw-line); }
+.lw-form-grid { display: grid; grid-template-columns: 110px minmax(0, 1fr) repeat(3, auto); gap: 8px; align-items: end; }
+.lw-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.lw-field-label { font-size: 11.5px; color: var(--lw-muted); }
+.lw-form input:not([type=checkbox]), .lw-form select { font: 13px ui-monospace, "SF Mono", Menlo, monospace; color: var(--lw-fg); background: var(--lw-surface); border: 1px solid var(--lw-line); border-radius: 8px; padding: 6px 8px; min-width: 0; outline: none; }
+.lw-form select { font-family: inherit; }
+.lw-form input:focus, .lw-form select:focus { border-color: var(--lw-accent); box-shadow: 0 0 0 3px var(--lw-accent-soft); }
+.lw-form-preview { min-height: 28px; display: flex; align-items: center; color: var(--lw-math); font-size: 17px; }
+.lw-form-row { display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; font-size: 12px; color: var(--lw-muted); }
+.lw-only { display: inline-flex; align-items: center; gap: 6px; color: var(--lw-fg-2); cursor: pointer; }
+.lw-form-buttons { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+.lw-form-error { flex: 1; color: #d93025; font-size: 12px; }
+.lw-btn { all: unset; cursor: pointer; padding: 6px 14px; border-radius: 8px; font-size: 13px; color: var(--lw-fg-2); background: var(--lw-surface); border: 1px solid var(--lw-line); }
+.lw-btn-primary { color: var(--lw-accent-fg); background: var(--lw-accent); border-color: transparent; font-weight: 600; }
+.lw-btn:disabled { opacity: .5; cursor: default; }
+.lw-item { position: relative; }
+.lw-del { all: unset; cursor: pointer; position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%; display: none; place-items: center; font-size: 10px; color: var(--lw-muted); background: var(--lw-surface); border: 1px solid var(--lw-line-2); }
+.lw-item:hover .lw-del { display: grid; }
+.lw-del:hover { color: #d93025; }
+@media (max-width: 760px) { .lw-form-grid { grid-template-columns: 1fr 1fr; } .lw-field-replacement { grid-column: 1 / -1; } }
 
 /* footer */
 .lw-foot { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 10px 24px; border-top: 1px solid var(--lw-line); background: var(--lw-surface); font-size: 12px; color: var(--lw-muted); }

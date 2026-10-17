@@ -16,12 +16,14 @@ mjx-container > svg { overflow: visible; min-height: 1px; min-width: 1px; }
 mjx-container > svg a { fill: currentColor; stroke: currentColor; }
 `;
 
-type Converter = (latex: string, display: boolean) => string;
+type LiteNode = unknown;
+type Converter = (latex: string, display: boolean) => LiteNode;
 let convert: Converter | null = null;
+let adaptor: ReturnType<typeof liteAdaptor>;
 
 function converter(): Converter {
   if (!convert) {
-    const adaptor = liteAdaptor();
+    adaptor = liteAdaptor();
     RegisterHTMLHandler(adaptor);
     const doc = mathjax.document("", {
       InputJax: new TeX({
@@ -34,30 +36,71 @@ function converter(): Converter {
       // glyph paths inside each SVG, so each one stands on its own
       OutputJax: new SVG({ fontCache: "local" }),
     });
-    convert = (latex, display) =>
-      adaptor.outerHTML(doc.convert(latex, { display, em: 16, ex: 8, containerWidth: 80 * 16 }) as never);
+    convert = (latex, display) => doc.convert(latex, { display, em: 16, ex: 8, containerWidth: 80 * 16 });
   }
   return convert;
 }
 
-const cache = new Map<string, string | null>();
+/** A typeset formula: MathJax's tree, and its markup once asked for. */
+interface Typeset {
+  node: LiteNode;
+  html?: string;
+}
+
+const cache = new Map<string, Typeset | null>();
+
+function typeset(latex: string, display: boolean): Typeset | null {
+  const key = (display ? "D" : "I") + latex;
+  if (!cache.has(key)) {
+    // forget the oldest, not everything: a long document keeps scrolling back to formulas it showed
+    if (cache.size >= 2000) cache.delete(cache.keys().next().value!);
+    try {
+      cache.set(key, { node: converter()(latex, display) });
+    } catch {
+      cache.set(key, null);
+    }
+  }
+  return cache.get(key)!;
+}
 
 /** Is `latex` rendered already (renderMath returns at once)? */
 export function isRendered(latex: string, display = false): boolean {
   return cache.has((display ? "D" : "I") + latex);
 }
 
+/** Does `latex` typeset (it's typeset now, and kept for the next call)? */
+export function mathParses(latex: string, display = false): boolean {
+  return typeset(latex, display) !== null;
+}
+
 /** SVG markup for `latex` (an <mjx-container>), or null when it doesn't parse (yet). */
 export function renderMath(latex: string, display = false): string | null {
-  const key = (display ? "D" : "I") + latex;
-  if (!cache.has(key)) {
-    // forget the oldest, not everything: a long document keeps scrolling back to formulas it showed
-    if (cache.size >= 2000) cache.delete(cache.keys().next().value!);
-    try {
-      cache.set(key, converter()(latex, display));
-    } catch {
-      cache.set(key, null);
+  const t = typeset(latex, display);
+  if (!t) return null;
+  return (t.html ??= adaptor.outerHTML(t.node as never));
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+/**
+ * `latex` typeset as DOM nodes, built directly rather than parsed from markup:
+ * pages that require Trusted Types (Gemini) refuse innerHTML.
+ */
+export function renderMathElement(latex: string, display = false, doc: Document = document): Element | null {
+  const t = typeset(latex, display);
+  if (!t) return null;
+  const build = (node: never, svg: boolean): Node => {
+    const kind = adaptor.kind(node);
+    if (kind === "#text") return doc.createTextNode(adaptor.value(node));
+    const inSvg = svg || kind === "svg";
+    const el = inSvg ? doc.createElementNS(SVG_NS, kind) : doc.createElement(kind);
+    for (const { name, value } of adaptor.allAttributes(node)) {
+      if (name === "xmlns" || name.startsWith("xmlns:")) continue;
+      if (name.startsWith("xlink:")) el.setAttributeNS("http://www.w3.org/1999/xlink", name, value);
+      else el.setAttribute(name, value);
     }
-  }
-  return cache.get(key)!;
+    for (const child of adaptor.childNodes(node)) el.append(build(child as never, inSvg));
+    return el;
+  };
+  return build(t.node as never, false) as Element;
 }

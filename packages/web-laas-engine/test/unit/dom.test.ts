@@ -55,14 +55,14 @@ describe("LaasController", () => {
       type(ta, ch);
       await tick();
     }
-    expect(ta.value).toBe("\\begin{equation*}\n\t\n\\end{equation*}");
+    expect(ta.value).toBe("\\begin{equation*}\n\n\\end{equation*}");
     c.setState({ siteMath: { "example.com": { display: "align" } } });
     ta.value = "";
     for (const ch of "dm") {
       type(ta, ch);
       await tick();
     }
-    expect(ta.value).toBe("\\begin{align*}\n\t\n\\end{align*}");
+    expect(ta.value).toBe("\\begin{align*}\n\n\\end{align*}");
     // "auto" on the subdomain stops inheriting from example.com
     c.setState({ siteMath: { "example.com": { inline: "paren" }, "chat.example.com": { inline: "auto" } } });
     ta.value = "";
@@ -282,6 +282,37 @@ describe("LaasController", () => {
       expect(show()).toBe("a $x$ \\$|"); // escaped: no pair
     });
 
+    it("leaving a formula drops the spaces before its closer", async () => {
+      setup("example.com", "$\\alpha ");
+      ta.value += "$";
+      ta.setSelectionRange(8, 8);
+      tab();
+      expect(show()).toBe("$\\alpha$|");
+      setup();
+      await typeAll("mk;a");
+      expect(show()).toBe("$\\alpha |$");
+      tab();
+      expect(show()).toBe("$\\alpha$|"); // out of mk's field too
+      setup("example.com", "so $x ");
+      await typeAll("$");
+      expect(show()).toBe("so $x$|");
+      setup("example.com", "$\\alpha\\ ");
+      await typeAll("$");
+      expect(show()).toBe("$\\alpha\\ $|"); // a control space stays
+      setup("example.com", "$ ");
+      await typeAll("$");
+      expect(show()).toBe("$ $|"); // nothing in it: left alone
+      setup("chatgpt.com", "I paid ");
+      await typeAll("$5 and $10");
+      expect(show()).toBe("I paid $5 and $10|"); // prices: the space stays
+      setup("chatgpt.com", "Use ");
+      await typeAll("$HOME or $PATH");
+      expect(show()).toBe("Use $HOME or $PATH|"); // plain words: the space stays
+      setup("chatgpt.com", "so $a^2 + b ");
+      await typeAll("$");
+      expect(show()).toBe("so $a^2 + b$|"); // clearly LaTeX: trimmed
+    });
+
     it("{ [ pair inside math only (everywhere on Overleaf)", async () => {
       setup();
       await typeAll("{ $\\sqrt{");
@@ -360,6 +391,29 @@ describe("LaasController", () => {
       at("a |$x$ b");
       expect(tab()).toBe(true);
       expect(show()).toBe("a $|x$ b");
+    });
+
+    it("with tabEverywhere, Tab types spaces in text and Shift+Tab goes back into the last formula", () => {
+      at("a $x^2$ and \\(y\\) b|");
+      expect(tab()).toBe(false); // off by default: left to the page
+      const c = new LaasController({ host: "example.com" });
+      detach?.();
+      detach = c.attach();
+      c.setState({ prefs: { tabEverywhere: true, tabSpaces: 2 } });
+      expect(tab()).toBe(true);
+      expect(show()).toBe("a $x^2$ and \\(y\\) b  |");
+      expect(tab(true)).toBe(true);
+      expect(show()).toBe("a $x^2$ and \\(y|\\) b  ");
+      tab(true); // in math now: back through it, then out before its opener
+      tab(true);
+      expect(show()).toBe("a $x^2$ and |\\(y\\) b  ");
+      expect(tab(true)).toBe(true);
+      expect(show()).toBe("a $x^2|$ and \\(y\\) b  ");
+      at("no math| here");
+      detach?.();
+      detach = c.attach();
+      expect(tab(true)).toBe(true); // nowhere to go, but focus stays
+      expect(show()).toBe("no math| here");
     });
 
     it("an expansion replaces the closer the editor auto-inserted", async () => {
@@ -537,6 +591,34 @@ describe("LaasController", () => {
       c.watchFormula(true);
       await frame();
       expect(seen).toEqual(["a", null, "a"]);
+    });
+
+    it("typing: false leaves keys alone but still reports the formula", async () => {
+      document.body.innerHTML = "<textarea></textarea>";
+      const ta = document.querySelector("textarea")!;
+      ta.value = "$a";
+      ta.focus();
+      ta.setSelectionRange(2, 2);
+      const seen: unknown[] = [];
+      let typing = false;
+      detach = new LaasController({ host: "example.com", typing: () => typing, onFormula: (f) => seen.push(f?.latex ?? null) }).attach();
+      type(ta, ";");
+      await tick();
+      type(ta, "a");
+      await tick();
+      expect(ta.value).toBe("$a;a"); // not \alpha: these keys aren't text
+      expect(ta.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }))).toBe(true);
+      document.dispatchEvent(new Event("selectionchange"));
+      await frame();
+      expect(seen.at(-1)).toBe("a;a");
+      typing = true;
+      ta.value = "$";
+      ta.setSelectionRange(1, 1);
+      type(ta, ";");
+      await tick();
+      type(ta, "a");
+      await tick();
+      expect(ta.value).toBe("$\\alpha ");
     });
 
     it("drops formula work still queued when it detaches", async () => {

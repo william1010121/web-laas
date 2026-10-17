@@ -60,6 +60,8 @@ laas.setState({ prefs: { autoSpace: false } }); // behaviour switches
 laas.setState({ enabled: false });              // pause
 // what mk / dm insert, per site: "dollar" | "paren" and "ddollar" | "bracket" | "equation" | "align" (align*)
 laas.setState({ siteMath: { "chatgpt.com": { inline: "paren", display: "bracket" } } });
+// more snippets of your own, after the config's (e.g. made in a UI); compileConfig takes them as options.snippets
+laas.setState({ snippets: [{ trigger: "eq", replacement: "$1", math: "display", options: "t" }] });
 laas.detach();                                  // remove all listeners
 ```
 
@@ -70,6 +72,7 @@ laas.detach();                                  // remove all listeners
 | `window` | `window` | window to listen on (e.g. an iframe's) |
 | `host` | `location.hostname` | used for `sites` / `excludeSites` / `disabledSites` |
 | `filter` | all | `(el) => boolean` — only handle some elements |
+| `typing` | always | `(el) => boolean` — false while keys aren't text (e.g. Vim's normal mode): nothing expands and <kbd>Tab</kbd> is left alone, but the formula under the caret is still reported |
 | `adapters` | `[]` | custom `AdapterFactory`s, tried before the built-ins |
 | `onConfigError` | `console.warn` | called when the config fails to compile (built-ins are used) |
 | `onFormula` | — | live-preview hook: `(f: FormulaState \| null) => void`, called when the formula under the caret or its position on screen changes |
@@ -95,7 +98,7 @@ selection, CodeMirror via its own coordinates); add it to a custom adapter to pl
 
 ### Behaviour switches (`prefs`)
 
-All default to `true` (`DEFAULT_PREFS`).
+All default to `true` except `tabEverywhere` (`DEFAULT_PREFS`).
 
 | Pref | |
 |---|---|
@@ -107,6 +110,7 @@ All default to `true` (`DEFAULT_PREFS`).
 | `extras` | web extras: `mk`, `dm`, `sum`, `lim`, `bmat`, … |
 | `cdlatex` | cdlatex tables: `` ` `` symbols, `'` modifiers, `_` `^` braces, <kbd>Tab</kbd> commands |
 | `autoPair` | cdlatex pairs: `$` → `$|$` in text, `[` `{` in math; typing a closer steps over it |
+| `tabEverywhere` | <kbd>Tab</kbd> never leaves the editor: away from formulas it types `tabSpaces` spaces (default 4), and <kbd>Shift</kbd>+<kbd>Tab</kbd> goes back into the previous formula |
 
 ### Custom editors
 
@@ -213,6 +217,7 @@ MV3 and strict page CSPs.
 - **templates**: `$1`, `${1:default}`, `$0` tabstops · `[[n]]` regex groups · `${PREV}` the object on the left,
   `${PREV_INNER}` without outer `()`/`[]` · any other `$` is a literal dollar
 - **groups**: `{ group, options, sites, excludeSites, priority, snippets: [...] }` pass their fields down, nestable
+- **math**: `"inline"` / `"display"` puts the replacement inside the site's math delimiters, the ones `mk` / `dm` insert
 - **cheat sheet**: `description`, and `preview` (LaTeX to render)
 - **cdlatex modifiers**: `{ trigger: "'.", action: "cdlatex-modify", command: "\\dot", accent: true, rmdot: true }`
 - **priority**: higher wins, then the longer trigger, then the earlier one

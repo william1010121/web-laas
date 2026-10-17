@@ -1,5 +1,6 @@
 // Data for a snippet cheat sheet: what to type, what you get, and where it works.
 import type { Snippet, SnippetSource } from "./config";
+import { tokenizeTemplate } from "./template";
 
 export interface CheatsheetEntry {
   /** what to type (the regex description for regex triggers without one) */
@@ -33,10 +34,11 @@ export function previewLatex(s: Snippet): string | null {
     const { command: c, accent } = s.modify;
     return c.includes("?") ? c.replace("?", "x") : accent ? `${c}{x}` : `{${c} x}`;
   }
-  if (!s.mode.inline && !s.mode.display) return null;
+  // (a snippet that brings its own math delimiters shows what goes inside them)
+  if (!s.mode.inline && !s.mode.display && !s.wrap) return null;
   if (s.regex) return null;
   let out = "";
-  for (const t of s.template) {
+  for (const t of s.wrap ? tokenizeTemplate(s.replacement) : s.template) {
     if (t.kind === "text") out += t.text;
     else if (t.kind === "stop") out += t.n === 0 ? "" : t.def || PLACEHOLDER;
     else if (t.kind === "capture") out += "?";

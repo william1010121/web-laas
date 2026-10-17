@@ -30,6 +30,7 @@ const builds = [
       "content-isolated": "src/content/isolated.ts",
       cheatsheet: "src/cheatsheet/entry.ts",
       preview: "src/preview/entry.ts",
+      composer: "src/composer/entry.ts",
       background: "src/background.ts",
       options: "src/options/options.ts",
       popup: "src/popup/popup.ts",

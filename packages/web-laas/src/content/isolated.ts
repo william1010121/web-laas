@@ -18,6 +18,7 @@ import { showToast } from "./toast";
 declare global {
   interface Window {
     __webLaasIsolatedAlive?: () => boolean;
+    __webLaasComposerKey?: (e: KeyboardEvent) => boolean;
   }
 }
 
@@ -31,6 +32,8 @@ const MATH_HINT = /\$|\\[([]|\\begin\s*\{/;
 
 /** Does any editor on the page contain something that looks like math? */
 function editorsHaveMath(): boolean {
+  // formulas a CodeMirror 5 editor already took out of its text, waiting for preview.js to draw them
+  if (document.querySelector("span[data-web-laas-math]:not([data-web-laas-filled])")) return true;
   const editors = ".cm-content, .CodeMirror-code, textarea, input[type=text], input[type=search], input:not([type]), [contenteditable]";
   // (editors in open shadow roots too)
   const scopes: (Document | ShadowRoot)[] = [document];
@@ -55,6 +58,18 @@ function editorsHaveMath(): boolean {
 
 if (!window.__webLaasIsolatedAlive?.()) {
   window.__webLaasIsolatedAlive = alive;
+  // Esc and Enter in the composer (composer.js, loaded later) go to it before any of the page's
+  // own listeners: this one is added at document_start, ahead of them (Claude catches both)
+  window.addEventListener(
+    "keydown",
+    (e) => {
+      if (window.__webLaasComposerKey?.(e)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    },
+    true,
+  );
   start();
 }
 
@@ -62,6 +77,7 @@ function start() {
   // a fresh start means the previous build's scripts are dead: take down a card it left on screen
   // (the new preview.js only arrives once a formula shows up, which may be never)
   document.querySelectorAll("[data-web-laas-preview]").forEach((el) => el.remove());
+  let composerRequested = false;
   async function send() {
     const state = await loadState();
     renderWanted = state.enabled && state.prefs.inlineRender;
@@ -71,6 +87,12 @@ function start() {
     // hear too: send only what this site needs, not the settings of every other site
     const forThisSite = stateForSite(state, location.hostname);
     document.dispatchEvent(new CustomEvent("web-laas:state", { detail: JSON.stringify(forThisSite) }));
+    // the experimental composer, on the sites it's set for (it removes itself when turned off)
+    // (in frames too: ChatSprig shows Gemini in a frame on other pages)
+    if (!composerRequested && forThisSite.enabled && forThisSite.prefs.composer && forThisSite.prefs.composerSites.length) {
+      composerRequested = true;
+      void chrome.runtime.sendMessage({ type: "load-composer" } satisfies BackgroundMessage).catch(() => (composerRequested = false));
+    }
   }
   // A main-world script from a build before the versioned hand-over can't be
   // replaced; switch it off through its old event so it doesn't keep running.
