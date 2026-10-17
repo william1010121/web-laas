@@ -142,3 +142,30 @@ blank line, which made a document without blank lines quadratic.
   page. Text right after such a stretch may start inside a formula; the
   main-world script (which can reach the editor) reports how each undrawn
   paragraph starts, so formulas there are found even without blank lines.
+
+## Typing on a long chat page
+
+`chat-bench.html` is a ChatGPT-like conversation (`turns` question / answer
+pairs, each answer with KaTeX-style markup: `turns = 150` is about 145k
+elements) with a ProseMirror message box at the bottom. `parts` picks what runs
+(`engine`, `inline`, `messages`, `live`; default all), as on chatgpt.com.
+
+```
+open http://localhost:8766/test/preview/chat-bench.html?turns=150
+keyLatency()                              # after typing: keydown → next frame, ms
+stream(4000)                              # a reply streaming in for 4 s
+```
+
+Typing 75 characters (40 ms apart) in the box, everything on, measured in
+ego lite (Chromium) on an Apple Silicon Mac, `turns = 150`:
+
+| | key → frame p50 | p95 | script time | idle script time per 3 s | formulas drawn in the box |
+|---|---:|---:|---:|---:|---:|
+| 0.7.0 | 250–370 ms | 830–1,420 ms | 2,200–3,000 ms | 2,900 ms | 0 |
+| **0.7.1** | **28–30 ms** | **39–99 ms** | **370–630 ms** | **3 ms** | **2** |
+
+0.7.0 searched the whole page for editors on every frame (13 ms with 145k
+elements). That ate the frame's 8 ms render budget, so no formula was drawn and
+another frame was asked for: the renderer ran every frame, typing or not. Now
+the list of editors is searched again only when elements outside them come or
+go (at most every 250 ms), and the budget starts after it.

@@ -7,6 +7,10 @@ import { prepareLatex } from "./preview";
 
 const EDITORS = ".cm-content, .CodeMirror-code, textarea, input[type=text], input[type=search], input:not([type]), [contenteditable]";
 
+/** Elements web-laas puts in the page itself (render layers, mirrors, the preview card, message copies). */
+const OURS = ["data-web-laas-render", "data-web-laas-preview", "data-web-laas-mirror", "data-web-laas-msg-copy"];
+const ours = (n: Node) => n instanceof Element && OURS.some((a) => n.hasAttribute(a));
+
 /** A plain text field: a textarea, or a one-line text / search input. */
 type Field = HTMLTextAreaElement | HTMLInputElement;
 const isField = (el: Element): el is Field =>
@@ -469,8 +473,15 @@ const PREFETCH = 40;
 const range = (from: number, to: number) => Array.from({ length: Math.max(0, to - from) }, (_, k) => from + k);
 /** Time (ms) a frame may spend rendering formulas it hasn't drawn before. */
 const RENDER_BUDGET = 8;
-/** How often (ms) the page is searched for new open shadow roots. */
+/** How often (ms) the page is searched for new open shadow roots, at most (when its elements changed). */
 const SHADOW_SCAN = 2000;
+/** How often (ms) it is searched anyway (a shadow root can be attached without any mutation). */
+const SHADOW_FULL = 10000;
+/**
+ * How often (ms), at most, the page is searched for editors again after elements outside them
+ * came or went. Searching a long chat page takes several ms; typing changes only the editor.
+ */
+const ROOTS_EVERY = 250;
 const READ_EVERY = 200;
 
 /** A hidden copy of a text field's text, in pieces of a few lines each. */
@@ -589,6 +600,12 @@ export class InlineRender {
   /** open shadow roots on the page (editors can live in them), looked for every SHADOW_SCAN ms */
   private shadows = new Set<ShadowRoot>();
   private shadowScan = -Infinity;
+  /** elements outside the editors came or went since the last search for shadow roots */
+  private shadowsDirty = true;
+  /** the page's editors as last searched for, and whether elements outside them changed since */
+  private editors: HTMLElement[] | null = null;
+  private editorsDirty = true;
+  private editorsAt = -Infinity;
 
   constructor(
     private doc: Document,
@@ -605,7 +622,37 @@ export class InlineRender {
       // (a style changing outside any editor, say an animation, needs no update at all)
       const seen = new Set<Node>();
       let any = false;
+      // is a node inside an editor we know (memoised for this batch)?
+      const inEditor = new Map<Node, boolean>();
+      const inside = (node: Node): boolean => {
+        const path: Node[] = [];
+        let found = false;
+        for (let n: Node | null = node; n; n = n.parentNode) {
+          const known = inEditor.get(n);
+          if (known !== undefined) {
+            found = known;
+            break;
+          }
+          path.push(n);
+          // (our own elements count as inside: nothing in them is an editor)
+          if (this.states.has(n as Element) || ours(n)) {
+            found = true;
+            break;
+          }
+        }
+        for (const n of path) inEditor.set(n, found);
+        return found;
+      };
       for (const r of records) {
+        // elements (not text) coming or going outside the editors, other than ours: the list of
+        // editors and of shadow roots may have changed; typing changes only an editor
+        if (
+          !this.editorsDirty &&
+          ((r.type === "childList" && !inside(r.target) && [...r.addedNodes, ...r.removedNodes].some((n) => n instanceof Element && !ours(n))) ||
+            (r.type === "attributes" && r.attributeName === "contenteditable"))
+        ) {
+          this.editorsDirty = this.shadowsDirty = any = true;
+        }
         // editors restyle their own elements all the time: only a display: none coming or going counts
         if (r.type === "attributes" && r.attributeName === "style") {
           const style = (r.target as HTMLElement).style;
@@ -681,6 +728,9 @@ export class InlineRender {
     for (const sr of this.shadows) sr.removeEventListener("scroll", this.schedule, { capture: true });
     this.shadows.clear();
     this.shadowScan = -Infinity;
+    this.shadowsDirty = true;
+    this.editors = null;
+    this.editorsDirty = true;
     view.clearInterval(this.timer);
     view.clearTimeout(this.laterTimer);
     this.laterTimer = 0;
@@ -708,13 +758,16 @@ export class InlineRender {
   private findShadows() {
     const now = performance.now();
     if (now - this.shadowScan < SHADOW_SCAN) return;
+    if (!this.shadowsDirty && now - this.shadowScan < SHADOW_FULL) return;
     this.shadowScan = now;
+    this.shadowsDirty = false;
     const look = (scope: Document | ShadowRoot) => {
       for (const el of scope.querySelectorAll("*")) {
         const sr = el.shadowRoot;
         if (!sr || el.hasAttribute("data-web-laas-render") || el.hasAttribute("data-web-laas-preview")) continue;
         if (!this.shadows.has(sr)) {
           this.shadows.add(sr);
+          this.editorsDirty = true;
           // mutations and scrolling inside don't reach the document's listeners
           this.observer.observe(sr, OBSERVE);
           sr.addEventListener("scroll", this.schedule, { capture: true, passive: true });
@@ -730,7 +783,6 @@ export class InlineRender {
   update() {
     if (this.opts.alive && !this.opts.alive()) return this.destroy();
     this.findShadows();
-    this.renderUntil = performance.now() + RENDER_BUDGET;
     this.unfinished = false;
     this.drawnStates = [];
     const old = this.boxes;
@@ -738,7 +790,11 @@ export class InlineRender {
     this.backgrounds.clear();
     this.typographies.clear();
     if (this.doc.visibilityState !== "hidden") {
-      for (const root of this.roots()) {
+      const roots = this.roots();
+      // (the budget starts after the page was searched for editors: on a long page that alone
+      // can take longer, and a frame left with no budget draws nothing and asks for another)
+      this.renderUntil = performance.now() + RENDER_BUDGET;
+      for (const root of roots) {
         try {
           this.drawRoot(root, old);
         } catch {
@@ -768,8 +824,15 @@ export class InlineRender {
   private roots(): Element[] {
     const view = this.doc.defaultView!;
     const out: Element[] = [];
-    const scopes: (Document | ShadowRoot)[] = [this.doc, ...this.shadows];
-    for (const el of scopes.flatMap((sc) => [...sc.querySelectorAll<HTMLElement>(EDITORS)])) {
+    const now = performance.now();
+    if (!this.editors || (this.editorsDirty && now - this.editorsAt >= ROOTS_EVERY)) {
+      const scopes: (Document | ShadowRoot)[] = [this.doc, ...this.shadows];
+      this.editors = scopes.flatMap((sc) => [...sc.querySelectorAll<HTMLElement>(EDITORS)]);
+      this.editorsDirty = false;
+      this.editorsAt = now;
+    } else if (this.editorsDirty) this.later(this.editorsAt + ROOTS_EVERY - now);
+    for (const el of this.editors) {
+      if (!el.isConnected) continue;
       if (el instanceof HTMLInputElement && !isField(el)) continue;
       // the composer draws its own formulas; the site's box it stands in for is hidden
       // (and CodeMirror 5 Markdown editors typeset their own: content/cm5-math.ts)
