@@ -33,6 +33,9 @@
     // 	$0
     // \end{$1}`, options: "tA" },
 
+    // in text, on Tab: this site's display math ($$…$$, \[…\]… as dm inserts), the caret inside
+    // { trigger: "eq", replacement: "$1", math: "display", options: "t" },
+
     // math mode, expands on Tab (no A)
     // { trigger: "mat", replacement: `\begin{matrix} $1 \end{matrix}$0`, options: "m" },
 

@@ -4,7 +4,9 @@
 // When the extension is reloaded, the background injects this script again
 // into open tabs, where the previous version is still running (page-world
 // scripts survive an extension reload). A different build replaces it.
+import { hostMatches } from "web-laas-engine";
 import { LaasController, undrawnParagraphs, type RuntimeState } from "web-laas-engine/dom";
+import { CM5Math } from "./cm5-math";
 
 declare const __WEB_LAAS_BUILD__: string;
 
@@ -16,6 +18,12 @@ export const PREVIEW_READY_EVENT = "web-laas:preview-ready";
 /** preview.js asks (on a CodeMirror element) for its undrawn paragraphs; the reply comes back on it at once */
 export const UNDRAWN_EVENT = "web-laas:undrawn";
 export const UNDRAWN_REPLY_EVENT = "web-laas:undrawn-reply";
+/** the composer sets the text of a Quill box (Gemini) */
+export const COMPOSER_SET_EVENT = "web-laas:composer-set";
+
+interface QuillLike {
+  setText(text: string, source?: string): void;
+}
 
 declare global {
   interface Window {
@@ -33,12 +41,16 @@ if (current?.build !== __WEB_LAAS_BUILD__) {
     document.dispatchEvent(new CustomEvent(FORMULA_EVENT, { detail: JSON.stringify(f) }));
   const controller = new LaasController({ onFormula: sendFormula });
   const detachKeys = controller.attach();
+  // formulas in CodeMirror 5 Markdown editors (HackMD) typeset by the editor itself
+  const cm5Math = new CM5Math();
   const onState = (e: Event) => {
     try {
       const state = JSON.parse((e as CustomEvent<string>).detail) as Partial<RuntimeState> & {
-        prefs?: { preview?: string };
+        prefs?: { preview?: string; inlineRender?: boolean };
       };
       controller.setState(state);
+      const comments = controller.compiled.latexCommentSites.some((p) => hostMatches(location.hostname, p));
+      cm5Math.set(controller.active && state.prefs?.inlineRender !== false, comments);
       // preview off: the controller stops scanning for formulas altogether
       controller.watchFormula((state.prefs?.preview ?? "above") !== "off");
     } catch (err) {
@@ -56,16 +68,25 @@ if (current?.build !== __WEB_LAAS_BUILD__) {
     const paragraphs = el && undrawnParagraphs(el, { comments });
     if (paragraphs) el.dispatchEvent(new CustomEvent(UNDRAWN_REPLY_EVENT, { detail: JSON.stringify(paragraphs) }));
   };
+  // The experimental composer (isolated world) writes into Gemini's Quill box, which only this world can reach.
+  const onComposerSet = (e: Event) => {
+    const el = e.composedPath()[0];
+    const quill = el instanceof Element ? (el.closest(".ql-container") as { __quill?: QuillLike } | null)?.__quill : undefined;
+    if (quill) quill.setText((e as CustomEvent<string>).detail, "user");
+  };
   document.addEventListener(STATE_EVENT, onState);
+  document.addEventListener(COMPOSER_SET_EVENT, onComposerSet, true);
   document.addEventListener(PREVIEW_READY_EVENT, onPreviewReady);
   document.addEventListener(UNDRAWN_EVENT, onUndrawn, true);
   window.__webLaas = {
     build: __WEB_LAAS_BUILD__,
     detach: () => {
       detachKeys();
+      cm5Math.set(false, false);
       document.removeEventListener(STATE_EVENT, onState);
       document.removeEventListener(PREVIEW_READY_EVENT, onPreviewReady);
       document.removeEventListener(UNDRAWN_EVENT, onUndrawn, true);
+      document.removeEventListener(COMPOSER_SET_EVENT, onComposerSet, true);
     },
   };
   document.documentElement.dataset.laasWeb = __WEB_LAAS_BUILD__;

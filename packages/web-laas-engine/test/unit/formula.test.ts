@@ -121,6 +121,22 @@ describe("findFormulas", () => {
     expect(spans("`$a$` and ``x ` $b$`` then $c$")).toEqual([["$c$", "c", false, undefined]]);
   });
 
+  it("Markdown: LaTeX may have a space inside its $, or run over a line", () => {
+    // laas's auto space after \alpha lands right before the closer
+    expect(spans("so $\\alpha $ and $ x_1$")).toEqual([
+      ["$\\alpha $", "\\alpha ", false, undefined],
+      ["$ x_1$", " x_1", false, undefined],
+    ]);
+    expect(spans("a $\\frac{1}\n{2}$ b")).toEqual([["$\\frac{1}\n{2}$", "\\frac{1}\n{2}", false, undefined]]);
+    // but not plain words, nor prices, nor past a blank line
+    expect(spans("$a\nb$")).toEqual([]);
+    expect(spans("$ x $")).toEqual([]);
+    expect(spans("costs $5 and\n$x^2$ more")).toEqual([["$x^2$", "x^2", false, undefined]]);
+    expect(spans("pay $5 for x_1 and $10")).toEqual([]);
+    expect(spans("$\\alpha\n\nb$")).toEqual([]);
+    expect(spans("use $HOME and\n$\\alpha$")).toEqual([["$\\alpha$", "\\alpha", false, undefined]]);
+  });
+
   it("LaTeX: comments hide delimiters, $ x $ is math", () => {
     expect(spans("% $a$\n$ b $", { comments: true })).toEqual([["$ b $", " b ", false, undefined]]);
     expect(spans("$x$ % $y$", { comments: true })).toEqual([["$x$", "x", false, undefined]]);

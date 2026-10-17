@@ -163,6 +163,14 @@ chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, reply) => 
         .catch(() => {});
     })();
     return true; // async reply
+  } else if (msg?.type === "load-composer") {
+    const tabId = sender.tab?.id;
+    if (tabId === undefined) return;
+    void (async () => {
+      if (!(await previewWanted(sender.url))) return;
+      const frameIds = [sender.frameId ?? 0];
+      await chrome.scripting.executeScript({ target: { tabId, frameIds }, files: ["composer.js"], injectImmediately: true }).catch(() => {});
+    })();
   } else if (msg?.type === "shortcuts") {
     void assignedShortcuts().then(reply);
     return true; // async reply

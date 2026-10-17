@@ -1,7 +1,7 @@
 // In-page cheat sheet overlay. A closed shadow root keeps page CSS out and
 // keeps the snippet engine (and page shortcuts) away from its search box.
 import type { CheatsheetGroup } from "web-laas-engine";
-import { buildCheatsheet, SHEET_CSS } from "./sheet";
+import { buildCheatsheet, SHEET_CSS, type SheetOptions } from "./sheet";
 
 const HOST_ID = "web-laas-cheatsheet";
 
@@ -24,7 +24,7 @@ const OVERLAY_CSS = `
 @media (prefers-reduced-motion: reduce) { .lw-backdrop, .lw-panel { animation: none; } }
 `;
 
-let open: { host: HTMLElement; restore: Element | null } | null = null;
+let open: { host: HTMLElement; restore: Element | null; panel: HTMLElement; opts: SheetOptions } | null = null;
 
 function deepActive(): Element | null {
   let a = document.activeElement;
@@ -40,7 +40,16 @@ export function closeCheatsheet() {
   if (restore instanceof HTMLElement) restore.focus({ preventScroll: true });
 }
 
-export function toggleCheatsheet(groups: CheatsheetGroup[], opts: { host: string; shortcut?: string }) {
+/** Show changed snippets in the open cheat sheet (after one was added or deleted there). */
+export function refreshCheatsheet(groups: CheatsheetGroup[]) {
+  if (!open) return;
+  const scroll = open.panel.querySelector(".lw-body")?.scrollTop ?? 0;
+  open.panel.replaceChildren(buildCheatsheet(document, groups, { ...open.opts, autofocus: false }));
+  const body = open.panel.querySelector(".lw-body");
+  if (body) body.scrollTop = scroll;
+}
+
+export function toggleCheatsheet(groups: CheatsheetGroup[], opts: Omit<SheetOptions, "onClose" | "autofocus"> & { host: string }) {
   if (open) return closeCheatsheet();
   document.getElementById(HOST_ID)?.remove();
   const host = document.createElement("div");
@@ -52,7 +61,8 @@ export function toggleCheatsheet(groups: CheatsheetGroup[], opts: { host: string
   backdrop.className = "lw-backdrop";
   const panel = document.createElement("div");
   panel.className = "lw-panel";
-  panel.append(buildCheatsheet(document, groups, { ...opts, onClose: closeCheatsheet, autofocus: true }));
+  const sheetOpts: SheetOptions = { ...opts, onClose: closeCheatsheet, autofocus: true };
+  panel.append(buildCheatsheet(document, groups, sheetOpts));
   backdrop.append(panel);
   backdrop.addEventListener("mousedown", (e) => {
     if (e.target === backdrop) closeCheatsheet();
@@ -62,6 +72,6 @@ export function toggleCheatsheet(groups: CheatsheetGroup[], opts: { host: string
   for (const type of ["keydown", "keyup", "keypress", "input", "beforeinput"]) {
     host.addEventListener(type, (e) => e.stopPropagation());
   }
-  open = { host, restore: deepActive() };
+  open = { host, restore: deepActive(), panel, opts: sheetOpts };
   (document.body ?? document.documentElement).append(host);
 }

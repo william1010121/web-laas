@@ -125,8 +125,10 @@ export interface FormulaSpan extends Formula {
 /**
  * Every formula in `text`, in order. Without `comments` (Markdown sites) a
  * single $ follows Pandoc: no space just inside it, no digit right after the
- * closer, so prices like "$5 and $10" stay text; it doesn't cross a line
- * either, and `code spans` are skipped.
+ * closer, so prices like "$5 and $10" stay text, and `code spans` are skipped.
+ * What looks like LaTeX (a \, ^, _ or brace) may still have a space inside
+ * its $ ($\alpha $, where laas's auto space lands) or run over a line break;
+ * a $ followed by a digit (a price) never does.
  */
 export function findFormulas(text: string, opts: { comments?: boolean } = {}): FormulaSpan[] {
   const comments = !!opts.comments;
@@ -233,6 +235,15 @@ export function findFormulas(text: string, opts: { comments?: boolean } = {}): F
   return out;
 }
 
+/** Does text[from, to) hold LaTeX markup: a command, a script or a brace? */
+function looksLikeTex(text: string, from: number, to: number): boolean {
+  for (let i = from; i < to; i++) {
+    const c = text[i];
+    if (c === "^" || c === "_" || c === "{" || c === "}" || (c === "\\" && /[A-Za-z{}()[\]|,;!]/.test(text[i + 1] ?? ""))) return true;
+  }
+  return false;
+}
+
 /**
  * The formula opened by `opener` at `at`; just its end when it's empty; null
  * when it isn't closed within its paragraph.
@@ -246,18 +257,27 @@ function formulaFrom(
 ): FormulaSpan | { to: number } | null {
   const start = at + opener.length;
   const pandoc = opener === "$" && !comments;
-  if (pandoc && /^\s|^$/.test(text.slice(start, start + 1))) return null;
-  // a formula ends with its paragraph; in Markdown a $…$ one even ends with its line ($10 …\n… $x$)
-  const blank = pandoc ? text.indexOf("\n", start) : nextBlank(start);
+  if (pandoc && start >= text.length) return null;
+  // $5…: a price, unless it's closed plainly on its own line
+  const price = pandoc && /\d/.test(text[start]);
+  const spaceInside = pandoc && /\s/.test(text[start]);
+  // a formula ends with its paragraph; a $5… one even ends with its line ($10 …\n… $x$)
+  const blank = price ? text.indexOf("\n", start) : nextBlank(start);
   const stop = blank < 0 ? text.length : blank;
   const { closer, env } = closerFor(opener);
   const endRe = endPattern(closer);
   for (let from = start; from < stop; ) {
     const end = findCloser(text, closer, comments, from, stop);
     if (end < 0) return null;
-    if (pandoc && (/\s/.test(text[end - 1]) || /\d/.test(text[end + 1] ?? ""))) {
-      from = end + 1;
-      continue;
+    if (pandoc) {
+      const tex = looksLikeTex(text, start, end);
+      if (spaceInside || text.lastIndexOf("\n", end) >= start) {
+        // "$ x$", or over a line: only LaTeX closed at its first $
+        if (from !== start || !tex || /\d/.test(text[end + 1] ?? "")) return null;
+      } else if ((/\s/.test(text[end - 1]) && !tex) || /\d/.test(text[end + 1] ?? "")) {
+        from = end + 1;
+        continue;
+      }
     }
     const len = endRe?.exec(text.slice(end, end + closer.length + 16))?.[0].length ?? closer.length;
     const latex = text.slice(start, end);

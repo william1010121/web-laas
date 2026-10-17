@@ -8,7 +8,7 @@
       options: "tAw",
       snippets: [
         { trigger: "mk", replacement: "$$1$$0", description: "Inline math $…$" },
-        { trigger: "dm", replacement: "\\[\n\t$1\n\\]$0", sites: ["overleaf.com"], description: "Display math \\[…\\]" },
+        { trigger: "dm", replacement: "\\[\n$1\n\\]$0", sites: ["overleaf.com"], description: "Display math \\[…\\]" },
         { trigger: "dm", replacement: "$$\n$1\n$$$0", excludeSites: ["overleaf.com"], description: "Display math $$…$$" },
       ],
     },

@@ -36,7 +36,7 @@ window.addEventListener("hashchange", route);
 // ── config / validation ─────────────────────────────────────────────────
 function compileCurrent(): { config: CompiledConfig | null; error: string | null } {
   try {
-    const { config, issues } = compileConfig(editor.value, { extras: state.prefs.extras, cdlatex: state.prefs.cdlatex });
+    const { config, issues } = compileConfig(editor.value, { extras: state.prefs.extras, cdlatex: state.prefs.cdlatex, snippets: state.snippets });
     return { config, error: issues.length ? issues.map((i) => i.message).join("\n") : null };
   } catch (e) {
     return { config: null, error: (e as Error).message };
@@ -45,7 +45,7 @@ function compileCurrent(): { config: CompiledConfig | null; error: string | null
 
 function validate(): boolean {
   const { config, error } = compileCurrent();
-  controller.setState({ configText: editor.value, enabled: true, disabledHosts: [], prefs: state.prefs });
+  controller.setState({ configText: editor.value, enabled: true, disabledHosts: [], prefs: state.prefs, snippets: state.snippets });
   if (error) {
     status.className = "status err";
     status.textContent = error;
@@ -71,10 +71,10 @@ function renderSheet() {
   if (!sheetDirty) return;
   sheetDirty = false;
   const { config } = compileCurrent();
-  const cfg = config ?? compileConfig(null, { extras: state.prefs.extras, cdlatex: state.prefs.cdlatex }).config;
+  const cfg = config ?? compileConfig(null, { extras: state.prefs.extras, cdlatex: state.prefs.cdlatex, snippets: state.snippets }).config;
   const select = $<HTMLSelectElement>("sheetSite");
   const groups = groupCheatsheet(cheatsheetEntries(
-    withMathDelimiters(snippetsForHost(cfg, select.value), resolveMathDelimiters(state.siteMath, select.value)),
+    withMathDelimiters(snippetsForHost(cfg, select.value), resolveMathDelimiters(state.siteMath, select.value), select.value),
   ));
   const label = select.selectedOptions[0]?.textContent ?? "";
   $("sheetHost").replaceChildren(buildCheatsheet(document, groups, { host: label }));
@@ -110,6 +110,24 @@ function bindPrefs() {
       toast("Saved");
     };
   });
+  const tabSpaces = $<HTMLInputElement>("tabSpaces");
+  tabSpaces.value = String(state.prefs.tabSpaces);
+  tabSpaces.onchange = async () => {
+    const n = Math.max(1, Math.min(16, Math.round(Number(tabSpaces.value)) || 4));
+    tabSpaces.value = String(n);
+    state.prefs = { ...state.prefs, tabSpaces: n };
+    await savePrefs({ tabSpaces: n });
+    controller.setState({ prefs: state.prefs });
+    toast("Saved");
+  };
+  const sites = $<HTMLTextAreaElement>("composerSites");
+  sites.value = state.prefs.composerSites.join("\n");
+  sites.onchange = async () => {
+    const composerSites = sites.value.split(/[\s,]+/).map((h) => h.trim()).filter(Boolean);
+    state.prefs = { ...state.prefs, composerSites };
+    await savePrefs({ composerSites });
+    toast("Saved");
+  };
   const builtins = compileConfig(null).config.snippets;
   $("laasCount").textContent = String(builtins.filter((s) => s.source === "laas").length);
   $("extrasCount").textContent = String(builtins.filter((s) => s.source === "extras").length);

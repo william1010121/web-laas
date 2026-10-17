@@ -13,7 +13,7 @@ import { findExpansion, type Expansion } from "../core/matcher";
 import type { Range } from "../core/template";
 import { mathContext } from "../core/tex";
 import { cdlatexBackTab, cdlatexTab } from "../core/cdlatex";
-import { formulaAt, type Formula } from "../core/formula";
+import { findFormulas, formulaAt, type Formula } from "../core/formula";
 import type { CaretRect } from "./adapters/types";
 
 /** The formula under the caret, for a live preview. */
@@ -45,6 +45,13 @@ export interface LaasPrefs {
   cdlatex: boolean;
   /** cdlatex pairs: $ → $|$ in text, [ { → [|] {|} in math (everywhere on Overleaf) */
   autoPair: boolean;
+  /**
+   * Tab never leaves the editor: in text it types `tabSpaces` spaces, and
+   * Shift+Tab goes back into the previous formula
+   */
+  tabEverywhere: boolean;
+  /** spaces a Tab types in text, with `tabEverywhere` */
+  tabSpaces: number;
 }
 
 export const DEFAULT_PREFS: LaasPrefs = {
@@ -56,6 +63,8 @@ export const DEFAULT_PREFS: LaasPrefs = {
   extras: true,
   cdlatex: true,
   autoPair: true,
+  tabEverywhere: false,
+  tabSpaces: 4,
 };
 
 export interface RuntimeState {
@@ -67,6 +76,8 @@ export interface RuntimeState {
   prefs: Partial<LaasPrefs>;
   /** per-site mk / dm delimiters, keyed by host pattern ("overleaf.com" covers its subdomains) */
   siteMath?: Record<string, MathDelimiters>;
+  /** more snippets of your own, after the config's (see CompileOptions.snippets) */
+  snippets?: unknown[];
 }
 
 export interface ControllerOptions {
@@ -76,6 +87,12 @@ export interface ControllerOptions {
   host?: string;
   /** only handle focused elements for which this returns true */
   filter?: (el: Element) => boolean;
+  /**
+   * Are keys in this (filtered-in) element text right now? When false they
+   * expand nothing and Tab is left alone, but the formula under the caret is
+   * still reported (e.g. Vim's normal mode, where keys are commands)
+   */
+  typing?: (el: Element) => boolean;
   /** custom editors, tried before the built-in adapters */
   adapters?: AdapterFactory[];
   /** called when the config text fails to compile (defaults are used instead) */
@@ -148,6 +165,7 @@ export class LaasController {
   private readonly win: Window;
   private readonly host: string;
   private readonly filter: (el: Element) => boolean;
+  private readonly typing: (el: Element) => boolean;
   private readonly factories: AdapterFactory[];
   private readonly onConfigError: (error: Error) => void;
   private readonly onFormula?: (formula: FormulaState | null) => void;
@@ -200,7 +218,7 @@ export class LaasController {
     const ch = data[data.length - 1];
     if (!/[\x21-\x7e]/.test(ch)) return; // only ASCII can end a trigger
     const focused = deepActiveElement(this.win.document);
-    if (!focused || !this.filter(focused)) return;
+    if (!focused || !this.filter(focused) || !this.typing(focused)) return;
     const adapter = adapterFor(focused, this.factories);
     if (!adapter) return;
     this.last = null;
@@ -215,6 +233,7 @@ export class LaasController {
     this.win = options.window ?? window;
     this.host = options.host ?? this.win.location.hostname;
     this.filter = options.filter ?? (() => true);
+    this.typing = options.typing ?? (() => true);
     this.factories = options.adapters ?? [];
     this.onFormula = options.onFormula;
     this.onConfigError =
@@ -226,7 +245,7 @@ export class LaasController {
   setState(state: Partial<RuntimeState>) {
     this.state = { ...this.state, ...state };
     this.prefs = { ...DEFAULT_PREFS, ...this.state.prefs };
-    const opts = { extras: this.prefs.extras, cdlatex: this.prefs.cdlatex };
+    const opts = { extras: this.prefs.extras, cdlatex: this.prefs.cdlatex, snippets: this.state.snippets };
     try {
       this.config = compileConfig(this.state.configText, opts).config;
     } catch (e) {
@@ -236,6 +255,7 @@ export class LaasController {
     this.snippets = withMathDelimiters(
       snippetsForHost(this.config, this.host),
       resolveMathDelimiters(this.state.siteMath, this.host),
+      this.host,
     );
     this.sessions = [];
     this.last = null;
@@ -366,7 +386,7 @@ export class LaasController {
     this.imeKey = e.keyCode === 229 || e.key === "Process" || e.key === "Dead";
     if (e.isComposing || this.imeKey) return;
     const focused = deepActiveElement(this.win.document);
-    if (!focused || !this.filter(focused)) return;
+    if (!focused || !this.filter(focused) || !this.typing(focused)) return;
     const adapter = adapterFor(focused, this.factories);
     if (!adapter) return;
 
@@ -383,7 +403,10 @@ export class LaasController {
       this.last = null;
       this.busy = true;
       try {
-        if (this.onTab(adapter, e.shiftKey)) consume();
+        if (this.onTab(adapter, e.shiftKey)) {
+          consume();
+          if (!e.shiftKey) this.trimExit(adapter);
+        }
       } finally {
         this.busy = false;
       }
@@ -433,6 +456,7 @@ export class LaasController {
     const r = this.expandAtCaret(p.adapter, true, p.key);
     const pairs = this.prefs.cdlatex && this.prefs.autoPair && (p.key in PAIRS || p.key in TYPE_OVER);
     if (r === false && pairs && p.lenBefore !== undefined) this.autoPair(p.adapter, p.key, p.lenBefore);
+    if (r === false && p.key === "$") this.trimExit(p.adapter);
     if (r !== null || final) {
       this.pending = null;
       this.seenLen = { id: p.adapter.id, len: p.adapter.getLength() };
@@ -488,6 +512,32 @@ export class LaasController {
     adapter.replace(caret, caret, PAIRS[key], caret, caret);
     this.shiftStops(caret, 1);
     // the caret stays before the closer, inside the active field
+    this.rebase(adapter);
+  }
+
+  /**
+   * Right after leaving a formula ($\alpha |$ → $\alpha$|): drop the spaces
+   * before its closer. They do nothing in TeX, and laas's auto space after
+   * \alpha always leaves one there.
+   */
+  private trimExit(adapter: EditorAdapter) {
+    const sel = adapter.getSelection();
+    if (!sel || sel.from !== sel.to) return;
+    const before = adapter.textBefore(sel.to, CONTEXT_CHARS);
+    const m = /([ \t]+)\n?(\$\$|\$|\\\)|\\\])$/.exec(before);
+    if (!m) return;
+    const spaces = m.index;
+    if (before[spaces - 1] === "\\") return; // "\ " is a space TeX keeps
+    const ctx = mathContext(before.slice(0, before.length - m[2].length), { comments: this.latexComments() });
+    // the closer ends a formula with something in it ($ $ stays as it is)
+    if (!ctx.math || ctx.start === undefined || !before.slice(ctx.start, spaces).trim()) return;
+    // "$5 and $", "$ 5 and $": prices, not a formula (Markdown sites read a single $ the Pandoc way)
+    if (m[2] === "$" && !this.latexComments() && /^[\s\d]/.test(before.slice(ctx.start, spaces))) return;
+    const base = sel.to - before.length;
+    const len = m[1].length;
+    if (this.sessionsFor(adapter).length) this.sync(adapter);
+    adapter.replace(base + spaces, base + spaces + len, "", sel.to - len, sel.to - len);
+    this.shiftStops(base + spaces, -len);
     this.rebase(adapter);
   }
 
@@ -602,7 +652,7 @@ export class LaasController {
       else this.exitSnippet(adapter, top);
       return true;
     }
-    if (!this.prefs.tabOut) return false;
+    if (!this.prefs.tabOut) return this.tabInText(adapter, back);
     const caret = back ? sel.from : sel.to;
     const before = adapter.textBefore(caret, CONTEXT_CHARS);
     const base = caret - before.length;
@@ -631,7 +681,7 @@ export class LaasController {
         this.setCaret(adapter, base + m.index);
         return true;
       }
-      return false;
+      return this.tabInText(adapter, back);
     }
     // just before a formula (|$x$): step inside it, like cdlatex-tab does
     const after = adapter.slice(caret, caret + 2);
@@ -640,7 +690,35 @@ export class LaasController {
       this.setCaret(adapter, caret + open[0].length);
       return true;
     }
-    return false;
+    return this.tabInText(adapter, back);
+  }
+
+  /**
+   * Tab in text, away from formulas: left to the page, unless it's kept in the
+   * editor (tabEverywhere). Then Tab types spaces, and Shift+Tab goes back
+   * into the previous formula, just before its closer.
+   */
+  private tabInText(adapter: EditorAdapter, back: boolean): boolean {
+    if (!this.prefs.tabEverywhere) return false;
+    const sel = adapter.getSelection();
+    if (!sel) return true;
+    if (!back) {
+      const spaces = " ".repeat(Math.max(1, Math.min(16, Math.round(this.prefs.tabSpaces) || 4)));
+      if (this.sessionsFor(adapter).length) this.sync(adapter);
+      const at = sel.from + spaces.length;
+      adapter.replace(sel.from, sel.to, spaces, at, at);
+      this.shiftStops(sel.from, -(sel.to - sel.from));
+      this.shiftStops(sel.from, spaces.length);
+      this.rebase(adapter);
+      return true;
+    }
+    const before = adapter.textBefore(sel.from, CONTEXT_CHARS);
+    const last = findFormulas(before, { comments: this.latexComments() }).at(-1);
+    if (last) {
+      const closer = /(?:\$\$|\$|\\\)|\\\]|\\end\s*\{[^{}]*\})$/.exec(before.slice(last.from, last.to));
+      this.setCaret(adapter, sel.from - before.length + last.to - (closer?.[0].length ?? 0));
+    }
+    return true;
   }
 
   private setCaret(adapter: EditorAdapter, pos: number) {

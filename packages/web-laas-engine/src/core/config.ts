@@ -31,6 +31,8 @@ export interface Snippet {
   preview?: string;
   /** `action: "cdlatex-modify"`: apply a cdlatex accent/font to what precedes the trigger */
   modify?: ModifySpec;
+  /** `math: "inline" | "display"`: the replacement goes inside the site's math delimiters, as mk / dm's do */
+  wrap?: "inline" | "display";
 }
 
 export interface CompiledConfig {
@@ -48,6 +50,8 @@ export interface CompileOptions {
   extras?: boolean;
   /** include cdlatex's tables (` symbols, ' modifiers, _ ^, Tab commands); default true */
   cdlatex?: boolean;
+  /** more snippets of your own (as in the config's `snippets`), e.g. ones made in a UI; after the config's */
+  snippets?: unknown[];
 }
 
 interface RawConfig {
@@ -126,6 +130,11 @@ function compileSnippets(
       continue;
     }
     const replacement = typeof s.replacement === "string" ? s.replacement : "";
+    if (s.math !== undefined && s.math !== "inline" && s.math !== "display") {
+      issues.push({ message: `${label}: math must be "inline" or "display"` });
+      continue;
+    }
+    const wrap = s.math as Snippet["wrap"];
     let trigger: string | null = null;
     let regex: RegExp | null = null;
     const subst = (src: string) =>
@@ -159,7 +168,7 @@ function compileSnippets(
       regex,
       key: triggerKey(s.trigger),
       replacement: modify ? modify.command : replacement,
-      template: tokenizeTemplate(replacement),
+      template: wrap ? wrapTemplate(replacement, wrap === "inline" ? "dollar" : "ddollar") : tokenizeTemplate(replacement),
       auto: opts.includes("A"),
       mode: { text: any || t, inline: any || m || n, display: any || m || M },
       wordBoundary: opts.includes("w"),
@@ -172,6 +181,7 @@ function compileSnippets(
       description: str(s.description),
       preview: str(s.preview),
       modify,
+      wrap,
     });
   }
   return out;
@@ -196,7 +206,10 @@ export function compileConfig(
   const user: RawConfig = userText && userText.trim() ? asRaw(parseConfigText(userText), "config") : {};
 
   const variables = { ...(laas.variables ?? {}), ...(extras.variables ?? {}), ...(user.variables ?? {}) };
-  const userRaw = flatten(user.snippets ?? [], {}, issues, "config snippets");
+  const userRaw = [
+    ...flatten(user.snippets ?? [], {}, issues, "config snippets"),
+    ...flatten(options.snippets ?? [], {}, issues, "added snippets"),
+  ];
   const snippets = compileSnippets(userRaw, variables, issues, 0, "user", "My snippets");
 
   if (user.useDefaults !== false) {
@@ -263,16 +276,44 @@ const MATH_DELIMITERS: Record<string, [replacement: string, description: string]
   dollar: ["$$1$$0", "Inline math $…$"],
   paren: ["\\($1\\)$0", "Inline math \\(…\\)"],
   ddollar: ["$$\n$1\n$$$0", "Display math $$…$$"],
-  bracket: ["\\[\n\t$1\n\\]$0", "Display math \\[…\\]"],
-  equation: ["\\begin{equation*}\n\t$1\n\\end{equation*}$0", "Display math equation*"],
-  align: ["\\begin{align*}\n\t$1\n\\end{align*}$0", "Display math align*"],
+  bracket: ["\\[\n$1\n\\]$0", "Display math \\[…\\]"],
+  equation: ["\\begin{equation*}\n$1\n\\end{equation*}$0", "Display math equation*"],
+  align: ["\\begin{align*}\n$1\n\\end{align*}$0", "Display math align*"],
 };
 
-/** The built-in mk / dm snippets rewritten to insert the chosen delimiters (your own mk / dm are left alone). */
-export function withMathDelimiters(snippets: Snippet[], d: MathDelimiters | undefined): Snippet[] {
-  if (!d) return snippets;
+/** Opening and closing delimiters of each style, for snippets with `math`. */
+const WRAPS: Record<Exclude<InlineMathStyle | DisplayMathStyle, "auto">, [string, string]> = {
+  dollar: ["$", "$"],
+  paren: ["\\(", "\\)"],
+  ddollar: ["$$\n", "\n$$"],
+  bracket: ["\\[\n", "\n\\]"],
+  equation: ["\\begin{equation*}\n", "\n\\end{equation*}"],
+  align: ["\\begin{align*}\n", "\n\\end{align*}"],
+};
+
+/** `replacement` inside the delimiters of `style` (as tokens: "$" + "2x" would read as a tabstop $2). */
+function wrapTemplate(replacement: string, style: keyof typeof WRAPS): TemplateToken[] {
+  const [open, close] = WRAPS[style];
+  const body = tokenizeTemplate(replacement);
+  // without its own $0 the caret ends up after the closer, as after mk
+  const exit: TemplateToken[] = body.some((t) => t.kind === "stop" && t.n === 0) ? [] : [{ kind: "stop", n: 0, def: "" }];
+  return [{ kind: "text", text: open }, ...body, { kind: "text", text: close }, ...exit];
+}
+
+/**
+ * The built-in mk / dm snippets rewritten to insert the chosen delimiters (your
+ * own mk / dm are left alone), and snippets with `math` wrapped in them. With
+ * "auto", display math is \[…\] on `host` overleaf.com, $$…$$ elsewhere.
+ */
+export function withMathDelimiters(snippets: Snippet[], d: MathDelimiters | undefined, host?: string): Snippet[] {
   return snippets.map((s) => {
-    if (s.source !== "extras") return s;
+    if (s.wrap) {
+      const chosen = s.wrap === "inline" ? d?.inline : d?.display;
+      const auto = s.wrap === "inline" ? "dollar" : host && hostMatches(host, "overleaf.com") ? "bracket" : "ddollar";
+      const style = chosen && chosen !== "auto" ? chosen : auto;
+      return { ...s, template: wrapTemplate(s.replacement, style) };
+    }
+    if (!d || s.source !== "extras") return s;
     const style = s.key === "mk" ? d.inline : s.key === "dm" ? d.display : undefined;
     const pick = style && style !== "auto" ? MATH_DELIMITERS[style] : undefined;
     if (!pick) return s;

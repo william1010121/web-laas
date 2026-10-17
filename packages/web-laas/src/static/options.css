@@ -121,3 +121,8 @@ textarea { width: 100%; border: 0; outline: none; resize: none; background: tran
 .banner .title { font-weight: 600; }
 .banner .desc { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
 .desc.warn { color: var(--err); font-size: 12px; margin-top: 4px; }
+
+.composer-sites { padding: 0 16px 12px; }
+.composer-sites .desc { margin-bottom: 6px; }
+.composer-sites textarea { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.num { width: 64px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--fg); font: inherit; text-align: center; }
