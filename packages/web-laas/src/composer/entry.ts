@@ -29,8 +29,11 @@ ${MATH_CSS}
   position: absolute !important; opacity: 0 !important; pointer-events: none !important;
   width: 1px !important; height: 1px !important; min-height: 0 !important; max-height: 1px !important;
   overflow: hidden !important;
+  /* what we write into it doesn't make the browser lay out the rest of the page again */
+  contain: strict !important;
 }
-[data-web-laas-composer] { position: relative; width: 100%; text-align: start; }
+/* typing that doesn't change its size is laid out here only, not across a long conversation */
+[data-web-laas-composer] { position: relative; width: 100%; text-align: start; contain: layout style; }
 [data-web-laas-composer] .wl-back, [data-web-laas-composer-off] .wl-back {
   position: absolute; top: 0; right: 0; z-index: 1;
   border: 0; border-radius: 6px; padding: 1px 6px; cursor: pointer;
@@ -83,6 +86,8 @@ class Composer {
     // whatever focuses the site's box (its own shortcuts, a new chat) lands here instead
     input.addEventListener("focus", this.redirect);
     this.host.addEventListener("paste", this.forwardFiles, true);
+    // a click anywhere (the site's own send button) first gets the text over
+    document.addEventListener("pointerdown", this.flush, true);
     this.observer = new MutationObserver(() => this.pull());
     this.observer.observe(input, { childList: true, subtree: true, characterData: true, attributes: false });
     if (input instanceof HTMLTextAreaElement) input.addEventListener("input", this.pull);
@@ -111,6 +116,7 @@ class Composer {
     this.observer.disconnect();
     this.input.removeEventListener("focus", this.redirect);
     this.input.removeEventListener("input", this.pull);
+    document.removeEventListener("pointerdown", this.flush, true);
     delete this.input.dataset.webLaasHidden;
     this.view.destroy();
     this.host.remove();
@@ -145,14 +151,20 @@ class Composer {
     clearTimeout(this.pushTimer); // that was the site's text: nothing to send back
   };
 
+  // (each push has the site's editor take in the whole text: not after every key)
   private schedulePush() {
     clearTimeout(this.pushTimer);
-    this.pushTimer = window.setTimeout(() => this.push(), 120);
+    this.pushTimer = window.setTimeout(() => this.push(), 400);
   }
+
+  private flush = () => {
+    if (this.pushTimer) this.push();
+  };
 
   /** Write our text into the site's box, without moving the focus or the caret. */
   private push() {
     clearTimeout(this.pushTimer);
+    this.pushTimer = 0;
     const text = this.view.state.doc.toString();
     if (text === this.seen) return;
     const el = this.input;
@@ -361,6 +373,8 @@ async function apply() {
   // the snippets in our editor: the page's own engine can't reach it (it's in this world)
   vimPreview = !!state.prefs.composerVimPreview;
   controller?.setState(stateForSite(state, host));
+  // the preview off: no looking for the formula under the caret
+  controller?.watchFormula(state.prefs.preview !== "off");
   // (the config's own disabledSites too, as when the page loads)
   if (controller && !controller.active) wanted = false;
   const next = { vim: !!state.prefs.composerVim, modEnter: !!state.prefs.composerModEnter };
@@ -396,16 +410,33 @@ if (!window.__webLaasComposerAlive?.()) {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && Object.keys(changes).some((k) => (STORAGE_KEYS as readonly string[]).includes(k))) void apply();
   });
-  // the box comes and goes as the app moves between pages
+  // the box comes and goes as the app moves between pages. Finding it searches the whole page
+  // (milliseconds on a long chat), so only elements coming or going outside our editor and the
+  // box it stands in for count (typing changes only those), and it's looked for at most every 200 ms
   let queued = false;
-  mo = new MutationObserver(() => {
+  let lastCheck = -Infinity;
+  const outside = (n: Node) => {
+    const el = n instanceof Element ? n : n.parentElement;
+    return !el?.closest("[data-web-laas-composer], [data-web-laas-hidden], [data-web-laas-composer-off]");
+  };
+  mo = new MutationObserver((records) => {
     if (queued) return;
+    // (anything taken out counts, our editor too: the site may have rebuilt that part of the page)
+    const relevant = records.some(
+      (r) =>
+        outside(r.target) &&
+        ([...r.addedNodes].some((n) => n instanceof Element && outside(n)) || [...r.removedNodes].some((n) => n instanceof Element)),
+    );
+    if (!relevant) return;
     queued = true;
-    requestAnimationFrame(() => {
+    setTimeout(() => {
       queued = false;
+      lastCheck = performance.now();
       check();
-    });
+    }, Math.max(0, lastCheck + 200 - performance.now()));
   });
   mo.observe(document.body ?? document.documentElement, { childList: true, subtree: true });
-  timer = window.setInterval(check, 2000);
+  // (while our editor is in place the observer above notices the page changing: this is for a
+  // box that showed up without it, and for noticing the extension went away)
+  timer = window.setInterval(() => (!alive() ? stop() : composer?.mounted ? undefined : check()), 2000);
 }

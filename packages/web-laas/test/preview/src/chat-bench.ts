@@ -4,6 +4,8 @@
 import { EditorState } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { schema } from "prosemirror-schema-basic";
+import { keymap } from "prosemirror-keymap";
+import { baseKeymap } from "prosemirror-commands";
 import { LaasController } from "web-laas-engine/dom";
 import { InlineRender } from "../../../src/preview/inline";
 import { MessageRender } from "../../../src/preview/messages";
@@ -32,7 +34,8 @@ for (let t = 0; t < turns; t++) {
 thread.innerHTML = html;
 
 const box = document.getElementById("prompt")!;
-const view = new EditorView(box, { state: EditorState.create({ schema }) });
+// (with its keymap, as on the sites: the composer selects all with Mod-a before pasting its text)
+const view = new EditorView(box, { state: EditorState.create({ schema, plugins: [keymap(baseKeymap)] }) });
 view.dom.id = "prompt-textarea";
 (window as any).pm = view;
 
@@ -61,6 +64,18 @@ document.addEventListener("input", () => {
   pending = [];
   requestAnimationFrame(() => setTimeout(() => ts.forEach((t) => lat.push(performance.now() - t)), 0));
 }, true);
+// every key, also ones that change no text (Vim's normal mode): keydown → the frame after it
+const keyFrames: number[] = [];
+window.addEventListener("keydown", () => {
+  const t = performance.now();
+  requestAnimationFrame(() => setTimeout(() => keyFrames.push(performance.now() - t), 0));
+}, true);
+(window as any).frameLatency = () => {
+  const s = [...keyFrames].sort((a, b) => a - b);
+  const at = (p: number) => +(s[Math.min(s.length - 1, Math.floor(p * s.length))] ?? 0).toFixed(1);
+  keyFrames.length = 0;
+  return { n: s.length, p50: at(0.5), p95: at(0.95), max: at(1) };
+};
 const longTasks: number[] = [];
 new PerformanceObserver((l) => l.getEntries().forEach((e) => longTasks.push(e.duration))).observe({ entryTypes: ["longtask"] });
 (window as any).keyLatency = () => {

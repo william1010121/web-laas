@@ -2,7 +2,7 @@
 // the caret isn't in is replaced by its rendering (the text really collapses to
 // the formula's width); move the caret into it, or click it, and the source shows.
 import { findFormulas } from "web-laas-engine";
-import { EditorState, StateField, type Extension, type Range } from "@codemirror/state";
+import { Compartment, EditorState, StateField, type Extension, type Range, type Text } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType, drawSelection, keymap, placeholder, runScopeHandlers, type DecorationSet } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, insertNewline } from "@codemirror/commands";
 import { getCM, vim, Vim } from "@replit/codemirror-vim";
@@ -13,12 +13,14 @@ class MathWidget extends WidgetType {
   constructor(
     readonly latex: string,
     readonly display: boolean,
-    readonly at: number,
+    /** the length of the formula's opener ($, \[, \begin{…}) */
+    readonly opener: number,
   ) {
     super();
   }
+  // (not its position: text typed before a formula mustn't draw it again)
   eq(other: MathWidget) {
-    return other.latex === this.latex && other.display === this.display && other.at === this.at;
+    return other.latex === this.latex && other.display === this.display && other.opener === this.opener;
   }
   toDOM(view: EditorView) {
     const span = document.createElement("span");
@@ -26,9 +28,9 @@ class MathWidget extends WidgetType {
     const math = renderMathElement(this.latex, this.display);
     if (math) span.append(math);
     span.addEventListener("mousedown", (e) => {
-      // into the source, just inside the opener
+      // into the source, just inside the opener (where the formula is now)
       e.preventDefault();
-      view.dispatch({ selection: { anchor: this.at } });
+      view.dispatch({ selection: { anchor: view.posAtDOM(span) + this.opener } });
       view.focus();
     });
     return span;
@@ -38,19 +40,38 @@ class MathWidget extends WidgetType {
   }
 }
 
-function mathDecorations(state: EditorState): DecorationSet {
-  const text = state.doc.toString();
-  const { from: selFrom, to: selTo } = state.selection.main;
-  const out: Range<Decoration>[] = [];
+interface DocFormula {
+  from: number;
+  to: number;
+  widget: MathWidget;
+}
+
+/** The formulas of a document that typeset, found once per version of it (the caret moving reuses them). */
+const formulasOf = new WeakMap<Text, DocFormula[]>();
+
+function docFormulas(doc: Text): DocFormula[] {
+  let out = formulasOf.get(doc);
+  if (out) return out;
+  const text = doc.toString();
+  out = [];
   for (const f of findFormulas(text)) {
-    // the caret (or a selection) touching it: show the source
-    if (selFrom <= f.to && selTo >= f.from) continue;
     // (an environment's body as MathJax takes it: align* → aligned…)
     const latex = prepareLatex({ latex: f.latex, caret: 0, env: f.env }, "").plain;
     if (!mathParses(latex, f.display)) continue; // doesn't parse (yet): leave the source
     const opener = /^(?:\$\$|\$|\\[([]|\\begin\s*\{[^}]*\})/.exec(text.slice(f.from, f.from + 40))?.[0].length ?? 1;
-    const widget = new MathWidget(latex, f.display, f.from + opener);
-    out.push(Decoration.replace({ widget }).range(f.from, f.to));
+    out.push({ from: f.from, to: f.to, widget: new MathWidget(latex, f.display, opener) });
+  }
+  formulasOf.set(doc, out);
+  return out;
+}
+
+function mathDecorations(state: EditorState): DecorationSet {
+  const { from: selFrom, to: selTo } = state.selection.main;
+  const out: Range<Decoration>[] = [];
+  for (const f of docFormulas(state.doc)) {
+    // the caret (or a selection) touching it: show the source
+    if (selFrom <= f.to && selTo >= f.from) continue;
+    out.push(Decoration.replace({ widget: f.widget }).range(f.from, f.to));
   }
   return Decoration.set(out);
 }
@@ -83,6 +104,9 @@ const theme = EditorView.theme({
   ".wl-display": { display: "inline-block", width: "100%", textAlign: "center", margin: "4px 0" },
 });
 
+/** drawSelection, switched on in Vim's visual modes */
+const selectionLayer = new Compartment();
+
 export interface ComposerEditorOptions {
   parent: HTMLElement;
   doc: string;
@@ -103,8 +127,10 @@ export function createEditor(o: ComposerEditorOptions): EditorView {
     // Vim first: in normal mode its keys (Enter too) come before ours
     o.vim ? vim() : [],
     history(),
-    // the selection drawn as a layer (Vim's visual modes draw theirs here)
-    drawSelection(),
+    // the selection drawn as a layer, in Vim's visual modes only (a block selection needs it).
+    // Elsewhere the browser's own caret and selection (Vim draws its own block cursor in normal
+    // mode): drawing them costs another layout on every key
+    o.vim ? selectionLayer.of([]) : [],
     keymap.of([
       ...(o.modEnter
         ? [{ key: "Mod-Enter", run: send }, { key: "Enter", run: insertNewline }]
@@ -121,7 +147,24 @@ export function createEditor(o: ComposerEditorOptions): EditorView {
       if (u.docChanged) o.onChange(u.state.doc.toString());
     }),
   ];
-  return new EditorView({ parent: o.parent, state: EditorState.create({ doc: o.doc, extensions }) });
+  const view = new EditorView({ parent: o.parent, state: EditorState.create({ doc: o.doc, extensions }) });
+  if (o.vim) {
+    let drawn = false;
+    getCM(view)?.on("vim-mode-change", (e: { mode?: string }) => {
+      const want = e.mode === "visual";
+      if (want === drawn) return;
+      drawn = want;
+      // (not from inside Vim's own update)
+      queueMicrotask(() => {
+        try {
+          view.dispatch({ effects: selectionLayer.reconfigure(want ? drawSelection() : []) });
+        } catch {
+          // destroyed in the meantime (settings changed)
+        }
+      });
+    });
+  }
+  return view;
 }
 
 /** In Vim's normal or visual mode (keys are commands, not text)? */

@@ -9,7 +9,7 @@ const page = (html: string) => {
 
 const settle = async () => {
   await Promise.resolve(); // the observer's callback
-  vi.advanceTimersByTime(200);
+  vi.advanceTimersByTime(1100); // scans are at least a second apart
 };
 
 afterEach(() => {
