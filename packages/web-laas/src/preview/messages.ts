@@ -45,7 +45,10 @@ export class MessageRender {
     if (on === this.on) return;
     this.on = on;
     if (on) {
-      this.observer = new MutationObserver(() => this.schedule());
+      // (typing in the message box changes only it: no need to look at every message again)
+      this.observer = new MutationObserver((records) => {
+        if (records.some((r) => !inEditable(r.target))) this.schedule();
+      });
       this.observer.observe(this.doc.documentElement, { childList: true, subtree: true, characterData: true });
       this.schedule();
     } else {
@@ -119,6 +122,12 @@ export class MessageRender {
     style.textContent = CSS;
     (this.doc.head ?? this.doc.documentElement).append(style);
   }
+}
+
+/** Is `node` inside an editor (a text field, or editable content)? */
+function inEditable(node: Node): boolean {
+  const el = node instanceof Element ? node : node.parentElement;
+  return !!el && (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement || (el as HTMLElement).isContentEditable);
 }
 
 /** A copy of `source` with its formulas typeset, or null when none render. */

@@ -129,7 +129,20 @@ function start() {
       if (renderWanted && !previewRequested && editorsHaveMath()) loadPreview();
     }, 300);
   };
-  for (const type of ["focusin", "input"]) document.addEventListener(type, checkForMath, true);
+  document.addEventListener("focusin", checkForMath, true);
+  // typing changes only the editor typed in: look at its text, not the whole page (a long chat)
+  document.addEventListener(
+    "input",
+    (e) => {
+      if (!renderWanted || siteOff || previewRequested) return;
+      const t = e.composedPath()[0];
+      const el = t instanceof Element ? t : null;
+      const field = el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement ? el : null;
+      const text = field ? field.value : (el?.closest(".cm-content, .CodeMirror-code") ?? (el as HTMLElement | null))?.textContent;
+      if (text && MATH_HINT.test(text)) checkForMath();
+    },
+    true,
+  );
   // CodeMirror only has the lines near the window in the page: math further down shows up on scrolling
   onScroll = () => !previewRequested && checkForMath();
   document.addEventListener("scroll", () => onScroll(), { capture: true, passive: true });

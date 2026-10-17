@@ -45,6 +45,7 @@ const builds = [
       "live-preview": "test/preview/src/live-preview.ts",
       "inline-render": "test/preview/src/inline-render.ts",
       "inline-bench": "test/preview/src/inline-bench.ts",
+      "chat-bench": "test/preview/src/chat-bench.ts",
     },
     outdir: "test/preview/dist",
   },
