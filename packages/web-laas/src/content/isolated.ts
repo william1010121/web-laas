@@ -14,6 +14,8 @@ import {
 } from "../shared/storage";
 import { messageSelector } from "../shared/chat";
 import { showToast } from "./toast";
+import { EditorScopes } from "./editor-scopes";
+import { renderWantedOnSite } from "./render-wanted";
 
 declare global {
   interface Window {
@@ -25,8 +27,9 @@ declare global {
 // The background re-injects this script into tabs that were open before the
 // extension was (re)loaded; skip if a live copy is already here.
 /** Shadow roots whose scrolling also triggers a look for math (see onScroll). */
-const watchedShadows = new WeakSet<ShadowRoot>();
+let editorScopes: EditorScopes | null = null;
 let onScroll = () => {};
+let onShadow = () => {};
 
 const MATH_HINT = /\$|\\[([]|\\begin\s*\{/;
 
@@ -36,15 +39,13 @@ function editorsHaveMath(): boolean {
   if (document.querySelector("span[data-web-laas-math]:not([data-web-laas-filled])")) return true;
   const editors = ".cm-content, .CodeMirror-code, textarea, input[type=text], input[type=search], input:not([type]), [contenteditable]";
   // (editors in open shadow roots too)
-  const scopes: (Document | ShadowRoot)[] = [document];
-  for (let i = 0; i < scopes.length; i++) {
-    for (const el of scopes[i].querySelectorAll("*")) if (el.shadowRoot) scopes.push(el.shadowRoot);
-  }
-  // scrolling inside a shadow root doesn't reach the document's listener
-  for (const sc of scopes) if (sc instanceof ShadowRoot && !watchedShadows.has(sc)) {
-    watchedShadows.add(sc);
-    sc.addEventListener("scroll", () => onScroll(), { capture: true, passive: true });
-  }
+  editorScopes ??= new EditorScopes(document, (root) => {
+    const scroll = () => onScroll();
+    root.addEventListener("scroll", scroll, { capture: true, passive: true });
+    onShadow();
+    return () => root.removeEventListener("scroll", scroll, true);
+  }, alive);
+  const scopes = editorScopes.all();
   for (const el of scopes.flatMap((sc) => [...sc.querySelectorAll<HTMLElement>(editors)])) {
     const field = el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement;
     const text = field ? el.value : el.isContentEditable || el.classList.contains("CodeMirror-code") ? el.textContent : "";
@@ -80,7 +81,8 @@ function start() {
   let composerRequested = false;
   async function send() {
     const state = await loadState();
-    renderWanted = state.enabled && state.prefs.inlineRender;
+    renderWanted = renderWantedOnSite(state, location.hostname);
+    if (!renderWanted) { editorScopes?.destroy(); editorScopes = null; }
     siteOff = false; // the settings changed: ask again
     if (renderWanted) checkForMath();
     // The main-world script gets this through a page event, which the page's own scripts can
@@ -109,6 +111,8 @@ function start() {
   const loadPreview = () => {
     if (previewRequested || siteOff || !alive()) return;
     previewRequested = true;
+    editorScopes?.destroy();
+    editorScopes = null;
     chrome.runtime
       .sendMessage({ type: "load-preview" } satisfies BackgroundMessage)
       .then((loading: unknown) => {
@@ -125,18 +129,21 @@ function start() {
   let renderWanted = false;
   let checkTimer = 0;
   const checkForMath = () => {
+    if (!alive()) { editorScopes?.destroy(); editorScopes = null; return; }
     if (!renderWanted || siteOff || previewRequested) return;
     clearTimeout(checkTimer);
     checkTimer = window.setTimeout(() => {
-      if (renderWanted && !previewRequested && editorsHaveMath()) loadPreview();
+      if (alive() && renderWanted && !previewRequested && editorsHaveMath()) loadPreview();
     }, 300);
   };
-  document.addEventListener("focusin", checkForMath, true);
+  onShadow = checkForMath;
+  document.addEventListener("focusin", (e) => { editorScopes?.see(e); checkForMath(); }, true);
   // typing changes only the editor typed in: look at its text, not the whole page (a long chat)
   document.addEventListener(
     "input",
     (e) => {
-      if (!renderWanted || siteOff || previewRequested) return;
+      if (!alive() || !renderWanted || siteOff || previewRequested) return;
+      editorScopes?.see(e);
       const t = e.composedPath()[0];
       const el = t instanceof Element ? t : null;
       const field = el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement ? el : null;

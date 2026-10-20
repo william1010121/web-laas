@@ -9,11 +9,25 @@ const MIRRORED = [
   "wordBreak", "overflowWrap",
 ] as const;
 
+// One mirror per document, not one whole-field DOM allocation per caret measurement.
+const mirrors = new WeakMap<Document, { element: HTMLDivElement; before: Text; marker: HTMLSpanElement }>();
+
 /** Caret position in a text field, measured on a hidden mirror element. */
 function fieldCaretRect(el: HTMLTextAreaElement | HTMLInputElement, pos: number): CaretRect {
   const doc = el.ownerDocument;
   const cs = doc.defaultView!.getComputedStyle(el);
-  const mirror = doc.createElement("div");
+  let saved = mirrors.get(doc);
+  if (!saved) {
+    const element = doc.createElement("div");
+    element.setAttribute("data-web-laas-mirror", "");
+    element.style.contain = "layout style paint";
+    const before = doc.createTextNode("");
+    const marker = doc.createElement("span");
+    element.append(before, marker);
+    saved = { element, before, marker };
+    mirrors.set(doc, saved);
+  }
+  const { element: mirror, before, marker } = saved;
   const st = mirror.style as unknown as Record<string, string>;
   for (const p of MIRRORED) st[p] = cs[p as keyof CSSStyleDeclaration] as string;
   mirror.style.position = "absolute";
@@ -29,16 +43,15 @@ function fieldCaretRect(el: HTMLTextAreaElement | HTMLInputElement, pos: number)
   // wrap="off" (or white-space: pre) scrolls sideways instead of wrapping
   const wraps = el instanceof HTMLTextAreaElement && el.getAttribute("wrap") !== "off" && !/^pre$|nowrap/.test(cs.whiteSpace);
   mirror.style.whiteSpace = wraps ? "pre-wrap" : "pre";
-  mirror.textContent = el.value.slice(0, pos);
-  const marker = doc.createElement("span");
+  before.data = el.value.slice(0, pos);
   marker.textContent = el.value.slice(pos) || ".";
-  mirror.appendChild(marker);
-  (doc.body ?? doc.documentElement).appendChild(mirror);
+  if (!mirror.isConnected) (doc.body ?? doc.documentElement).appendChild(mirror);
   const box = el.getBoundingClientRect();
   const lineHeight = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.25 || 16;
   const top = box.top + parseFloat(cs.borderTopWidth || "0") + marker.offsetTop - el.scrollTop;
   const left = box.left + parseFloat(cs.borderLeftWidth || "0") + marker.offsetLeft - el.scrollLeft;
-  mirror.remove();
+  before.data = "";
+  marker.textContent = "";
   return { left, top, bottom: top + lineHeight };
 }
 

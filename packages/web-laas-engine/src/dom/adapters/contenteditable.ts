@@ -19,18 +19,18 @@ interface Seg {
 interface Linear {
   text: string;
   segs: Seg[];
-  found: number | null;
+  positions: WeakMap<Node, number | number[]>;
 }
 
-function linearize(root: Element, target?: { node: Node; offset: number }): Linear {
+function linearize(root: Element): Linear {
   let text = "";
   const segs: Seg[] = [];
-  let found: number | null = null;
+  const positions = new WeakMap<Node, number | number[]>();
 
   const visit = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
       const data = (node as Text).data;
-      if (target && target.node === node) found = text.length + Math.min(target.offset, data.length);
+      positions.set(node, text.length);
       segs.push({ start: text.length, len: data.length, node, atom: false });
       text += data;
       return;
@@ -39,7 +39,7 @@ function linearize(root: Element, target?: { node: Node; offset: number }): Line
     const el = node as HTMLElement;
     if (SKIP.test(el.tagName)) return;
     if (el !== root && el.getAttribute("contenteditable") === "false") {
-      if (target && found === null && el.contains(target.node)) found = text.length;
+      positions.set(el, text.length);
       segs.push({ start: text.length, len: 1, node: el, atom: true });
       text += "￼";
       return;
@@ -51,14 +51,16 @@ function linearize(root: Element, target?: { node: Node; offset: number }): Line
     }
     if (el !== root && BLOCK.test(el.tagName) && text.length > 0 && !text.endsWith("\n")) text += "\n";
     const kids = el.childNodes;
+    const offsets: number[] = [];
+    positions.set(el, offsets);
     for (let i = 0; i < kids.length; i++) {
-      if (target && target.node === el && target.offset === i && found === null) found = text.length;
+      offsets.push(text.length);
       visit(kids[i]);
     }
-    if (target && target.node === el && target.offset >= kids.length && found === null) found = text.length;
+    offsets.push(text.length);
   };
   visit(root);
-  return { text, segs, found };
+  return { text, segs, positions };
 }
 
 function domPosition(root: Element, segs: Seg[], offset: number): [Node, number] {
@@ -86,22 +88,37 @@ export class ContentEditableAdapter implements EditorAdapter {
   readonly kind = "contenteditable";
   private cache: Linear | null = null;
 
+  private readonly changes = new MutationObserver(() => { this.cache = null; });
+
   constructor(private root: HTMLElement) {}
   get id() {
     return this.root;
   }
 
   private lin(): Linear {
+    // A framework may synchronously mutate the draft between two reads.
+    if (this.changes.takeRecords().length) this.cache = null;
     if (!this.cache) {
       this.cache = linearize(this.root);
-      queueMicrotask(() => (this.cache = null));
+      this.changes.observe(this.root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["contenteditable"] });
+      queueMicrotask(() => { this.cache = null; this.changes.disconnect(); });
     }
     return this.cache;
   }
 
   private offsetOf(node: Node | null, offset: number): number | null {
     if (!node || !this.root.contains(node)) return null;
-    return linearize(this.root, { node, offset }).found;
+    const { positions } = this.lin();
+    const position = positions.get(node);
+    if (Array.isArray(position)) return position[Math.min(offset, position.length - 1)];
+    if (typeof position === "number") return node.nodeType === Node.TEXT_NODE
+      ? position + Math.min(offset, (node as Text).length) : position;
+    // A selection within a non-editable island maps to its leading edge.
+    for (let parent = node.parentElement; parent && parent !== this.root; parent = parent.parentElement) {
+      const start = positions.get(parent);
+      if (typeof start === "number") return start;
+    }
+    return null;
   }
 
   getSelection() {
@@ -177,7 +194,7 @@ export class ContentEditableAdapter implements EditorAdapter {
     return { left: b.left, top: b.top, bottom: Math.min(b.bottom, b.top + 24) };
   }
   setSelection(from: number, to: number) {
-    const { segs } = linearize(this.root);
+    const { segs } = this.lin();
     const [an, ao] = domPosition(this.root, segs, from);
     const [fn, fo] = from === to ? [an, ao] : domPosition(this.root, segs, to);
     const sel = this.root.ownerDocument.getSelection();

@@ -36,6 +36,8 @@ export class MessageRender {
   private observer: MutationObserver | null = null;
   private timer = 0;
   private lastScan = -Infinity;
+  private batchTimer = 0;
+  private pending: Element[] = [];
 
   constructor(
     private readonly doc: Document,
@@ -62,6 +64,8 @@ export class MessageRender {
     this.observer?.disconnect();
     this.observer = null;
     clearTimeout(this.timer);
+    clearTimeout(this.batchTimer);
+    this.pending = [];
     for (const [source, { copy }] of this.shown) this.restore(source, copy);
     this.shown.clear();
     this.doc.getElementById(STYLE_ID)?.remove();
@@ -88,13 +92,43 @@ export class MessageRender {
           this.shown.delete(source);
         }
       }
+      clearTimeout(this.batchTimer);
+      const visible: Element[] = [];
+      const rest: Element[] = [];
+      const height = this.doc.defaultView?.innerHeight ?? 0;
       for (const source of this.doc.querySelectorAll(this.selector)) {
         // our copies keep the page's attributes and classes: they match too
-        if (!source.closest(`[${COPY}]`)) this.update(source);
+        if (source.closest(`[${COPY}]`)) continue;
+        const text = source.textContent ?? "";
+        if (this.shown.get(source)?.text === text) continue;
+        if (!this.shown.has(source) && !MATH_HINT.test(text)) continue;
+        const box = (this.shown.get(source)?.copy ?? source).getBoundingClientRect();
+        (box.bottom >= 0 && box.top <= height ? visible : rest).push(source);
+      }
+      this.pending = [...visible, ...rest];
+    } finally {
+      this.observer?.observe(this.doc.documentElement, { childList: true, subtree: true, characterData: true });
+    }
+    this.batch();
+  }
+
+  private batch() {
+    if (!this.on) return;
+    const started = performance.now();
+    this.observer?.disconnect();
+    try {
+      let count = 0;
+      // One message is atomic (never hide partially rendered source). Yield
+      // between messages after 8 ms or four messages, whichever comes first.
+      while (this.pending.length && count < 4 && (count === 0 || performance.now() - started < 8)) {
+        const source = this.pending.shift()!;
+        if (source.isConnected) this.update(source);
+        count++;
       }
     } finally {
       this.observer?.observe(this.doc.documentElement, { childList: true, subtree: true, characterData: true });
     }
+    if (this.pending.length) this.batchTimer = window.setTimeout(() => this.batch(), 0);
   }
 
   private update(source: Element) {

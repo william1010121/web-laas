@@ -101,3 +101,31 @@ describe("MessageRender", () => {
     r.destroy();
   });
 });
+
+it("renders visible messages before history and yields between budgeted batches", () => {
+  vi.useFakeTimers();
+  page(Array.from({ length: 12 }, (_, i) => `<div class="sent">message ${i}: $x_${i}$</div>`).join(""));
+  const sources = [...document.querySelectorAll<HTMLElement>(".sent")];
+  sources.forEach((source, i) => { source.getBoundingClientRect = () => ({ top: i === 11 ? 10 : -100, bottom: i === 11 ? 40 : -50 }) as DOMRect; });
+  const r = new MessageRender(document, ".sent");
+  r.set(true);
+  vi.advanceTimersToNextTimer();
+  expect(sources[11].hasAttribute("data-web-laas-msg")).toBe(true);
+  const count = document.querySelectorAll("[data-web-laas-msg-copy]").length;
+  expect(count).toBeGreaterThan(0);
+  expect(count).toBeLessThanOrEqual(4);
+  vi.advanceTimersByTime(100);
+  expect(document.querySelectorAll("[data-web-laas-msg-copy]")).toHaveLength(12);
+  r.destroy();
+});
+
+it("cancels pending history rendering when switched off", () => {
+  vi.useFakeTimers();
+  page(Array.from({ length: 12 }, () => '<div class="sent">$x$</div>').join(""));
+  const r = new MessageRender(document, ".sent");
+  r.set(true);
+  vi.advanceTimersToNextTimer();
+  r.set(false);
+  vi.advanceTimersByTime(1000);
+  expect(document.querySelectorAll("[data-web-laas-msg-copy], [data-web-laas-msg]")).toHaveLength(0);
+});

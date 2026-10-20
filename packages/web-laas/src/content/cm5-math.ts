@@ -162,6 +162,8 @@ export class CM5Math {
   private sessions = new Map<CM5, Session>();
   private on = false;
   private timer = 0;
+  private observer: MutationObserver | null = null;
+  private candidates = new Set<HTMLElement>();
   comments = false;
   /** LaTeX that doesn't parse: left as source (until it's edited into something else) */
   readonly bad = new Set<string>();
@@ -185,15 +187,34 @@ export class CM5Math {
     this.comments = comments;
     this.on = on;
     clearInterval(this.timer);
+    this.timer = 0;
+    this.observer?.disconnect();
+    this.candidates.clear();
     if (!on) return this.clear();
+    this.discover(document);
+    // No document-wide poll on ordinary pages. Observe new/reclassified wrappers;
+    // poll only known candidates for late CM initialization and mode changes.
+    this.observer = new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.type === "attributes") this.discover(record.target);
+        else for (const node of record.addedNodes) this.discover(node);
+      }
+      this.scan();
+    });
+    this.observer.observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
     this.scan();
-    // the editor shows up (and gets replaced) as the app moves between notes
-    this.timer = window.setInterval(() => this.scan(), 1500);
   }
 
   private clear() {
     for (const s of this.sessions.values()) s.destroy();
     this.sessions.clear();
+  }
+
+  private discover(node: Node) {
+    if (node instanceof HTMLElement && node.matches(".CodeMirror")) this.candidates.add(node);
+    if (node instanceof Element || node instanceof Document) {
+      for (const el of node.querySelectorAll<HTMLElement>(".CodeMirror")) this.candidates.add(el);
+    }
   }
 
   private scan() {
@@ -204,7 +225,8 @@ export class CM5Math {
         this.sessions.delete(cm);
       }
     }
-    for (const el of document.querySelectorAll<HTMLElement>(".CodeMirror")) {
+    for (const el of this.candidates) {
+      if (!el.isConnected || !el.matches(".CodeMirror")) { this.candidates.delete(el); continue; }
       const cm = (el as HTMLElement & { CodeMirror?: CM5 }).CodeMirror;
       if (!cm || this.sessions.has(cm)) continue;
       const mode = cm.getOption("mode");
@@ -213,5 +235,7 @@ export class CM5Math {
       this.sessions.set(cm, new Session(cm, el, this));
     }
     if (this.bad.size > 500) this.bad.clear();
+    if (this.candidates.size && !this.timer) this.timer = window.setInterval(() => this.scan(), 1500);
+    if (!this.candidates.size && this.timer) { clearInterval(this.timer); this.timer = 0; }
   }
 }
