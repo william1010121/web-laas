@@ -63,6 +63,7 @@ export class EditorScopes {
     let index = 0;
     let walker = this.doc.createTreeWalker(scopes[index], NodeFilter.SHOW_ELEMENT);
     const step = () => {
+      if (!this.active()) return this.destroy();
       if (this.stopped) return;
       const start = performance.now();
       let visited = 0;
