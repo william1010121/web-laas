@@ -20,6 +20,8 @@ export interface ExtensionPrefs extends LaasPrefs {
   composerModEnter: boolean;
   /** the composer with Vim keys: the live preview in normal mode too (else in insert mode only) */
   composerVimPreview: boolean;
+  /** the composer: how opaque the site's message box is while our editor is in it (0.2–1), to read the chat behind a long message */
+  composerOpacity: number;
 }
 
 export const DEFAULT_EXTENSION_PREFS: ExtensionPrefs = {
@@ -32,6 +34,7 @@ export const DEFAULT_EXTENSION_PREFS: ExtensionPrefs = {
   composerVim: false,
   composerModEnter: false,
   composerVimPreview: false,
+  composerOpacity: 1,
 };
 
 /** A snippet made in the cheat sheet (the same fields as one in the config). */

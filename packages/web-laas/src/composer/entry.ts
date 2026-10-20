@@ -8,7 +8,7 @@ import { LaasController } from "web-laas-engine/dom";
 import type { EditorView } from "@codemirror/view";
 import { alive } from "../shared/alive";
 import { MATH_CSS } from "../shared/math";
-import { loadState, stateForSite, STORAGE_KEYS, type StoredState } from "../shared/storage";
+import { loadState, savePrefs, stateForSite, STORAGE_KEYS, type StoredState } from "../shared/storage";
 import { createEditor, handleTakenKey, setText, vimCommandMode } from "./editor";
 import { inputKind, inputText, siteInput, type SiteInput } from "./sites";
 
@@ -34,13 +34,50 @@ ${MATH_CSS}
 }
 /* typing that doesn't change its size is laid out here only, not across a long conversation */
 [data-web-laas-composer] { position: relative; width: 100%; text-align: start; contain: layout style; }
-[data-web-laas-composer] .wl-back, [data-web-laas-composer-off] .wl-back {
-  position: absolute; top: 0; right: 0; z-index: 1;
+[data-web-laas-composer] .wl-tools, [data-web-laas-composer-float] .wl-tools { position: absolute; top: 0; right: 0; z-index: 1; display: flex; gap: 3px; }
+/* the box faded: the buttons over it, outside it, so they don't fade with it */
+[data-web-laas-composer-float] { position: fixed; z-index: 2147483000; height: 0; pointer-events: none; }
+[data-web-laas-composer-float] .wl-tools { pointer-events: auto; }
+.wl-tools button, [data-web-laas-composer-off] .wl-back {
   border: 0; border-radius: 6px; padding: 1px 6px; cursor: pointer;
   font: 600 10px/1.6 ui-sans-serif, -apple-system, sans-serif; letter-spacing: .02em;
   color: inherit; background: rgba(127,127,127,.12); opacity: .45;
 }
-[data-web-laas-composer] .wl-back:hover { opacity: 1; }
+/* (over a faded box they'd fade twice: a bit stronger there) */
+[data-web-laas-composer-float] .wl-tools button { opacity: .6; }
+.wl-tools button:hover, .wl-tools button[aria-expanded="true"] { opacity: 1 !important; }
+.wl-tools .wl-gear { display: inline-flex; align-items: center; padding: 1px 4px; }
+[data-web-laas-composer-off] .wl-back { position: absolute; top: 0; right: 0; z-index: 1; }
+/* the opacity slider (in the body: the box it fades doesn't fade it, or clip it) */
+[data-web-laas-opacity] {
+  position: fixed; z-index: 2147483647; display: flex; align-items: center; gap: 10px;
+  padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(127,127,127,.22);
+  box-shadow: 0 10px 28px rgba(0,0,0,.16), 0 1px 3px rgba(0,0,0,.1);
+  animation: wl-pop .14s cubic-bezier(.2,.8,.3,1);
+}
+@keyframes wl-pop { from { opacity: 0; transform: translateY(4px) scale(.96); } }
+[data-web-laas-opacity] svg { flex: none; display: block; }
+[data-web-laas-opacity] input {
+  -webkit-appearance: none; appearance: none; width: 128px; height: 18px; margin: 0;
+  background: transparent; cursor: pointer; outline: none;
+}
+/* the track says what it does: from see-through (a checkerboard) to solid */
+[data-web-laas-opacity] input::-webkit-slider-runnable-track {
+  height: 6px; border-radius: 999px;
+  background: linear-gradient(to right, transparent, currentColor),
+    repeating-conic-gradient(rgba(127,127,127,.4) 0 25%, transparent 0 50%) 0 0 / 6px 6px;
+  box-shadow: inset 0 0 0 1px rgba(127,127,127,.25);
+}
+[data-web-laas-opacity] input::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px; margin-top: -5px; border: 0; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35), 0 0 0 .5px rgba(0,0,0,.15);
+  transition: transform .12s, box-shadow .12s;
+}
+[data-web-laas-opacity] input:hover::-webkit-slider-thumb { transform: scale(1.1); }
+[data-web-laas-opacity] input:active::-webkit-slider-thumb { transform: scale(1.2); }
+[data-web-laas-opacity] input:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(66,133,244,.5), 0 1px 4px rgba(0,0,0,.35);
+}
 /* switched off: the same button over the site's own box, to switch back on */
 [data-web-laas-composer-off] { position: relative; height: 0; width: 100%; }
 [data-web-laas-composer-off] .wl-back { opacity: .3; text-decoration: line-through; }
@@ -55,6 +92,14 @@ class Composer {
   private pushTimer = 0;
   private writing = false;
   private observer: MutationObserver;
+  /** the part of the page faded (composerOpacity), and its own opacity before */
+  private faded: HTMLElement | null = null;
+  private fadedBefore = "";
+  private tools: HTMLElement;
+  /** while faded: the buttons' place in the body, kept over the editor's corner */
+  private float: HTMLElement | null = null;
+  private floatWatch: ResizeObserver | null = null;
+  private floatFrame = 0;
 
   constructor(
     readonly input: HTMLElement,
@@ -70,7 +115,18 @@ class Composer {
     back.textContent = "TeX";
     back.title = "web-laas editor on: click to use the site's own box (click again to switch back)";
     back.addEventListener("click", () => setOff(true));
-    this.host.append(back);
+    const gear = document.createElement("button");
+    gear.type = "button";
+    gear.className = "wl-gear";
+    gear.title = "Opacity of the message box, to read the chat behind a long message";
+    gear.setAttribute("aria-label", "Message box opacity");
+    gear.setAttribute("aria-expanded", "false");
+    gear.append(gearIcon());
+    gear.addEventListener("click", () => toggleOpacity(gear));
+    const tools = (this.tools = document.createElement("div"));
+    tools.className = "wl-tools";
+    tools.append(gear, back);
+    this.host.append(tools);
     this.view = createEditor({
       parent: this.host,
       doc: this.seen,
@@ -110,7 +166,66 @@ class Composer {
     return vimCommandMode(this.view);
   }
 
+  /** Fade the site's box (with our editor in it): 1 puts it back as it was. */
+  setOpacity(value: number) {
+    if (value >= 1 || !this.host.isConnected) return this.unfade();
+    if (!this.faded?.isConnected) {
+      this.unfade();
+      this.faded = fadeTarget(this.host);
+      this.fadedBefore = this.faded.style.opacity;
+    }
+    this.faded.style.opacity = String(value);
+    this.floatTools();
+  }
+
+  private unfade() {
+    if (this.faded) this.faded.style.opacity = this.fadedBefore;
+    this.faded = null;
+    this.dockTools();
+  }
+
+  /** TeX and the gear over the faded box, at full strength (a child can't be more opaque than its parent). */
+  private floatTools() {
+    if (this.float) return;
+    const float = (this.float = document.createElement("div"));
+    float.dataset.webLaasComposerFloat = "";
+    float.style.color = getComputedStyle(this.host).color;
+    float.append(this.tools);
+    document.body.append(float);
+    this.placeTools();
+    this.floatWatch = new ResizeObserver(this.queuePlace);
+    this.floatWatch.observe(this.host);
+    this.floatWatch.observe(document.documentElement);
+    window.addEventListener("scroll", this.queuePlace, { capture: true, passive: true });
+    window.addEventListener("resize", this.queuePlace);
+  }
+
+  private dockTools() {
+    if (!this.float) return;
+    cancelAnimationFrame(this.floatFrame);
+    this.floatWatch?.disconnect();
+    this.floatWatch = null;
+    window.removeEventListener("scroll", this.queuePlace, { capture: true });
+    window.removeEventListener("resize", this.queuePlace);
+    this.host.append(this.tools);
+    this.float.remove();
+    this.float = null;
+  }
+
+  private queuePlace = () => {
+    cancelAnimationFrame(this.floatFrame);
+    this.floatFrame = requestAnimationFrame(() => this.placeTools());
+  };
+
+  private placeTools() {
+    if (!this.float) return;
+    const r = this.host.getBoundingClientRect();
+    Object.assign(this.float.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, display: r.width ? "" : "none" });
+  }
+
   destroy() {
+    closeOpacity();
+    this.unfade();
     clearTimeout(this.pushTimer);
     this.push(); // the site's box keeps what was typed
     this.observer.disconnect();
@@ -208,6 +323,114 @@ class Composer {
   };
 }
 
+/**
+ * The site's message box as it stands over the chat: the outermost ancestor of our editor
+ * not much taller than it (its card, and the strip around it that covers the messages).
+ */
+function fadeTarget(host: HTMLElement): HTMLElement {
+  const limit = Math.min(host.getBoundingClientRect().height + 200, window.innerHeight * 0.9);
+  let target = host.parentElement ?? host;
+  for (let el: HTMLElement | null = target; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+    if (el.getBoundingClientRect().height > limit) break;
+    target = el;
+  }
+  return target;
+}
+
+/** A 16×16 icon (built node by node: some sites only take HTML through Trusted Types). */
+function icon(size: number, attrs: Record<string, string>, shapes: [string, Record<string, string>][]): SVGSVGElement {
+  const ns = "http://www.w3.org/2000/svg";
+  const set = (el: Element, a: Record<string, string>) => Object.entries(a).forEach(([k, v]) => el.setAttribute(k, v));
+  const svg = document.createElementNS(ns, "svg");
+  set(svg, { viewBox: "0 0 16 16", width: String(size), height: String(size), "aria-hidden": "true", ...attrs });
+  for (const [tag, a] of shapes) {
+    const el = document.createElementNS(ns, tag);
+    set(el, a);
+    svg.append(el);
+  }
+  return svg;
+}
+
+function gearIcon(): SVGSVGElement {
+  return icon(11, { fill: "none", stroke: "currentColor", "stroke-width": "1.6", "stroke-linecap": "round" }, [
+    ["circle", { cx: "8", cy: "8", r: "2.4" }],
+    ["path", { d: "M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" }],
+  ]);
+}
+
+// ── the opacity slider ──────────────────────────────────────────────────
+
+const MIN_OPACITY = 0.2;
+let opacity = 1;
+let slider: { el: HTMLElement; anchor: HTMLElement; onDown: (e: Event) => void } | null = null;
+
+function clampOpacity(v: unknown): number {
+  return typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(MIN_OPACITY, v)) : 1;
+}
+
+function closeOpacity() {
+  if (!slider) return;
+  const hadFocus = slider.el.contains(document.activeElement);
+  document.removeEventListener("pointerdown", slider.onDown, true);
+  slider.anchor.setAttribute("aria-expanded", "false");
+  slider.el.remove();
+  slider = null;
+  if (hadFocus) composer?.focus();
+}
+
+function toggleOpacity(anchor: HTMLElement) {
+  if (slider) return closeOpacity();
+  const el = document.createElement("div");
+  el.dataset.webLaasOpacity = "";
+  // the site's own colours, light or dark
+  const fg = getComputedStyle(anchor).color;
+  const [r = 0, g = 0, b = 0] = (fg.match(/\d+(\.\d+)?/g) ?? []).map(Number);
+  const darkPage = r * 0.299 + g * 0.587 + b * 0.114 > 128;
+  el.style.color = darkPage ? "#ececec" : "#1f1f1f";
+  el.style.background = darkPage ? "rgba(40,40,40,.96)" : "rgba(255,255,255,.97)";
+  // the two ends: see-through (a dashed ring) and solid (a filled disc)
+  const faint = icon(12, { fill: "none", stroke: "currentColor", "stroke-width": "1.5", "stroke-dasharray": "2.2 2", opacity: ".55" }, [
+    ["circle", { cx: "8", cy: "8", r: "5.5" }],
+  ]);
+  const solid = icon(12, { fill: "currentColor", opacity: ".85" }, [["circle", { cx: "8", cy: "8", r: "6.25" }]]);
+  const input = document.createElement("input");
+  input.type = "range";
+  input.min = String(MIN_OPACITY * 100);
+  input.max = "100";
+  input.step = "5";
+  input.value = String(Math.round(opacity * 100));
+  input.setAttribute("aria-label", "Message box opacity");
+  input.setAttribute("aria-valuetext", `${input.value}%`);
+  input.addEventListener("input", () => {
+    opacity = clampOpacity(Number(input.value) / 100);
+    input.setAttribute("aria-valuetext", `${input.value}%`);
+    composer?.setOpacity(opacity);
+  });
+  // (saved once let go, not on every step of the drag)
+  input.addEventListener("change", () => {
+    if (alive()) void savePrefs({ composerOpacity: opacity }).catch(() => {});
+  });
+  // its keys (arrows, Esc) are its own, not the site's shortcuts
+  el.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Escape") closeOpacity();
+  });
+  el.append(faint, input, solid);
+  document.body.append(el);
+  // above the button, right-aligned with it (below when there's no room)
+  const rect = anchor.getBoundingClientRect();
+  el.style.right = `${Math.max(4, window.innerWidth - rect.right)}px`;
+  if (rect.top > el.offsetHeight + 12) el.style.bottom = `${window.innerHeight - rect.top + 6}px`;
+  else el.style.top = `${rect.bottom + 6}px`;
+  const onDown = (e: Event) => {
+    const t = e.target as Node;
+    if (!el.contains(t) && !anchor.contains(t)) closeOpacity();
+  };
+  document.addEventListener("pointerdown", onDown, true);
+  anchor.setAttribute("aria-expanded", "true");
+  slider = { el, anchor, onDown };
+}
+
 function placeholderOf(el: HTMLElement): string {
   const p =
     el.getAttribute("data-placeholder") ??
@@ -287,7 +510,7 @@ let vimPreview = false;
 
 function setOff(value: boolean) {
   off = value;
-  const hadFocus = !!document.activeElement?.closest("[data-web-laas-composer]");
+  const hadFocus = !!document.activeElement?.closest("[data-web-laas-composer], [data-web-laas-composer-float]");
   check();
   // focus follows the switch, into whichever box is showing now
   if (off) {
@@ -346,7 +569,10 @@ function check() {
     composer = null;
     if (input && hadFocus) queueMicrotask(() => composer?.focus());
   }
-  if (!composer && input) composer = new Composer(input, site, keys);
+  if (!composer && input) {
+    composer = new Composer(input, site, keys);
+    composer.setOpacity(opacity);
+  }
 }
 
 let timer = 0;
@@ -372,6 +598,8 @@ async function apply() {
     !state.disabledHosts.some((p) => hostMatches(host, p));
   // the snippets in our editor: the page's own engine can't reach it (it's in this world)
   vimPreview = !!state.prefs.composerVimPreview;
+  opacity = clampOpacity(state.prefs.composerOpacity);
+  composer?.setOpacity(opacity);
   controller?.setState(stateForSite(state, host));
   // the preview off: no looking for the formula under the caret
   controller?.watchFormula(state.prefs.preview !== "off");
@@ -417,7 +645,7 @@ if (!window.__webLaasComposerAlive?.()) {
   let lastCheck = -Infinity;
   const outside = (n: Node) => {
     const el = n instanceof Element ? n : n.parentElement;
-    return !el?.closest("[data-web-laas-composer], [data-web-laas-hidden], [data-web-laas-composer-off]");
+    return !el?.closest("[data-web-laas-composer], [data-web-laas-hidden], [data-web-laas-composer-off], [data-web-laas-composer-float], [data-web-laas-opacity]");
   };
   mo = new MutationObserver((records) => {
     if (queued) return;
