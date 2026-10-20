@@ -1,0 +1,213 @@
+{
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "linux",
+    "browserLayout": false
+  },
+  "runs": [
+    {
+      "before": {
+        "textarea": {
+          "iterations": 100,
+          "milliseconds": 240.28094199999998,
+          "bodyAppends": 100,
+          "retainedMirrors": 0
+        },
+        "contenteditable": {
+          "paragraphs": 2000,
+          "operations": 25,
+          "milliseconds": 1953.2720620000007,
+          "fullLinearizations": 125
+        },
+        "shadowDiscovery": {
+          "elements": 10004,
+          "checks": 25,
+          "milliseconds": 1286.0577700000003,
+          "wildcardVisits": 250100
+        },
+        "cm5Idle": {
+          "simulatedSeconds": 15,
+          "milliseconds": 0.20708100000047125,
+          "documentQueries": 10,
+          "intervals": 1
+        },
+        "messages": {
+          "count": 80,
+          "totalMilliseconds": 332.150001,
+          "maxTimerTaskMilliseconds": 170.51419199999964,
+          "firstBatchCopies": 80,
+          "visibleInFirstBatch": true
+        }
+      },
+      "after": {
+        "textarea": {
+          "iterations": 100,
+          "milliseconds": 134.2278980000001,
+          "bodyAppends": 1,
+          "retainedMirrors": 1
+        },
+        "contenteditable": {
+          "paragraphs": 2000,
+          "operations": 25,
+          "milliseconds": 412.88568399999986,
+          "fullLinearizations": 25
+        },
+        "shadowDiscovery": {
+          "elements": 10004,
+          "checks": 25,
+          "milliseconds": 807.2530399999996,
+          "wildcardVisits": 10004
+        },
+        "cm5Idle": {
+          "simulatedSeconds": 15,
+          "milliseconds": 0.003365000000485452,
+          "documentQueries": 0,
+          "intervals": 0
+        },
+        "messages": {
+          "count": 80,
+          "totalMilliseconds": 385.14569800000027,
+          "maxTimerTaskMilliseconds": 25.87738999999965,
+          "firstBatchCopies": 1,
+          "visibleInFirstBatch": true
+        }
+      }
+    },
+    {
+      "after": {
+        "textarea": {
+          "iterations": 100,
+          "milliseconds": 122.29157599999962,
+          "bodyAppends": 1,
+          "retainedMirrors": 1
+        },
+        "contenteditable": {
+          "paragraphs": 2000,
+          "operations": 25,
+          "milliseconds": 461.954859999998,
+          "fullLinearizations": 25
+        },
+        "shadowDiscovery": {
+          "elements": 10004,
+          "checks": 25,
+          "milliseconds": 842.8648669999993,
+          "wildcardVisits": 10004
+        },
+        "cm5Idle": {
+          "simulatedSeconds": 15,
+          "milliseconds": 0.0037350000002334127,
+          "documentQueries": 0,
+          "intervals": 0
+        },
+        "messages": {
+          "count": 80,
+          "totalMilliseconds": 339.29280199999994,
+          "maxTimerTaskMilliseconds": 24.2054449999996,
+          "firstBatchCopies": 1,
+          "visibleInFirstBatch": true
+        }
+      },
+      "before": {
+        "textarea": {
+          "iterations": 100,
+          "milliseconds": 158.1933250000002,
+          "bodyAppends": 100,
+          "retainedMirrors": 0
+        },
+        "contenteditable": {
+          "paragraphs": 2000,
+          "operations": 25,
+          "milliseconds": 1968.1516930000053,
+          "fullLinearizations": 125
+        },
+        "shadowDiscovery": {
+          "elements": 10004,
+          "checks": 25,
+          "milliseconds": 1309.8091599999989,
+          "wildcardVisits": 250100
+        },
+        "cm5Idle": {
+          "simulatedSeconds": 15,
+          "milliseconds": 0.24089099999946484,
+          "documentQueries": 10,
+          "intervals": 1
+        },
+        "messages": {
+          "count": 80,
+          "totalMilliseconds": 359.73161900000014,
+          "maxTimerTaskMilliseconds": 190.27505200000087,
+          "firstBatchCopies": 80,
+          "visibleInFirstBatch": true
+        }
+      }
+    },
+    {
+      "before": {
+        "textarea": {
+          "iterations": 100,
+          "milliseconds": 186.41733699999895,
+          "bodyAppends": 100,
+          "retainedMirrors": 0
+        },
+        "contenteditable": {
+          "paragraphs": 2000,
+          "operations": 25,
+          "milliseconds": 1983.6563480000023,
+          "fullLinearizations": 125
+        },
+        "shadowDiscovery": {
+          "elements": 10004,
+          "checks": 25,
+          "milliseconds": 1516.1420800000014,
+          "wildcardVisits": 250100
+        },
+        "cm5Idle": {
+          "simulatedSeconds": 15,
+          "milliseconds": 0.06516699999701814,
+          "documentQueries": 10,
+          "intervals": 1
+        },
+        "messages": {
+          "count": 80,
+          "totalMilliseconds": 270.91633300000103,
+          "maxTimerTaskMilliseconds": 114.04351600000155,
+          "firstBatchCopies": 80,
+          "visibleInFirstBatch": true
+        }
+      },
+      "after": {
+        "textarea": {
+          "iterations": 100,
+          "milliseconds": 121.05228400000124,
+          "bodyAppends": 1,
+          "retainedMirrors": 1
+        },
+        "contenteditable": {
+          "paragraphs": 2000,
+          "operations": 25,
+          "milliseconds": 437.91609200000676,
+          "fullLinearizations": 25
+        },
+        "shadowDiscovery": {
+          "elements": 10004,
+          "checks": 25,
+          "milliseconds": 883.79378,
+          "wildcardVisits": 10004
+        },
+        "cm5Idle": {
+          "simulatedSeconds": 15,
+          "milliseconds": 0.003975999999966007,
+          "documentQueries": 0,
+          "intervals": 0
+        },
+        "messages": {
+          "count": 80,
+          "totalMilliseconds": 358.7056909999992,
+          "maxTimerTaskMilliseconds": 25.794228000002477,
+          "firstBatchCopies": 1,
+          "visibleInFirstBatch": true
+        }
+      }
+    }
+  ]
+}
