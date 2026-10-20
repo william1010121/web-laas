@@ -167,10 +167,13 @@ chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, reply) => 
     const tabId = sender.tab?.id;
     if (tabId === undefined) return;
     void (async () => {
-      if (!(await previewWanted(sender.url))) return;
+      if (!(await previewWanted(sender.url))) return reply(false);
       const frameIds = [sender.frameId ?? 0];
-      await chrome.scripting.executeScript({ target: { tabId, frameIds }, files: ["composer.js"], injectImmediately: true }).catch(() => {});
+      const loaded = await chrome.scripting.executeScript({ target: { tabId, frameIds }, files: ["composer.js"], injectImmediately: true })
+        .then(() => true, () => false);
+      reply(loaded);
     })();
+    return true; // async reply
   } else if (msg?.type === "shortcuts") {
     void assignedShortcuts().then(reply);
     return true; // async reply

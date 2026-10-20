@@ -1,0 +1,442 @@
+{
+  "browser": "154.0.8037.57",
+  "fixture": "Synthetic about:blank DOM, no network or accounts",
+  "runs": [
+    {
+      "before": {
+        "textarea": {
+          "iterations": 101,
+          "milliseconds": 99.1000000005588,
+          "bodyAppends": 101,
+          "caret": {
+            "left": 114,
+            "top": 164,
+            "bottom": 188
+          }
+        },
+        "contenteditable": {
+          "paragraphs": 2000,
+          "operations": 25,
+          "milliseconds": 988.0999999986961,
+          "fullLinearizations": 125
+        },
+        "shadowDiscovery": {
+          "checks": 25,
+          "milliseconds": 66.19999999925494,
+          "wildcardVisits": 250125
+        },
+        "cm5Idle": {
+          "simulatedSeconds": 15,
+          "milliseconds": 0.09999999962747097,
+          "documentQueries": 10,
+          "intervals": 1
+        },
+        "messages": {
+          "count": 80,
+          "totalMilliseconds": 282,
+          "maxTimerTaskMilliseconds": 114.5,
+          "firstBatchCopies": 80,
+          "visibleInFirstBatch": true
+        },
+        "clipping": [
+          {
+            "target": "HTML",
+            "value": "auto",
+            "computed": "auto",
+            "clipsBody": false,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 1
+          },
+          {
+            "target": "HTML",
+            "value": "hidden",
+            "computed": "hidden",
+            "clipsBody": false,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 1
+          },
+          {
+            "target": "BODY",
+            "value": "auto",
+            "computed": "auto",
+            "clipsBody": false,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 1
+          },
+          {
+            "target": "BODY",
+            "value": "hidden",
+            "computed": "hidden",
+            "clipsBody": false,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 1
+          }
+        ]
+      },
+      "after": {
+        "textarea": {
+          "iterations": 101,
+          "milliseconds": 118.09999999962747,
+          "bodyAppends": 1,
+          "caret": {
+            "left": 114,
+            "top": 164,
+            "bottom": 188
+          }
+        },
+        "contenteditable": {
+          "paragraphs": 2000,
+          "operations": 25,
+          "milliseconds": 180.80000000074506,
+          "fullLinearizations": 25
+        },
+        "shadowDiscovery": {
+          "checks": 25,
+          "milliseconds": 24.100000000558794,
+          "wildcardVisits": 10005
+        },
+        "cm5Idle": {
+          "simulatedSeconds": 15,
+          "milliseconds": 0,
+          "documentQueries": 0,
+          "intervals": 0
+        },
+        "messages": {
+          "count": 80,
+          "totalMilliseconds": 332.70000000018626,
+          "maxTimerTaskMilliseconds": 20.5,
+          "firstBatchCopies": 1,
+          "visibleInFirstBatch": true
+        },
+        "clipping": [
+          {
+            "target": "HTML",
+            "value": "auto",
+            "computed": "auto",
+            "clipsBody": true,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 0
+          },
+          {
+            "target": "HTML",
+            "value": "hidden",
+            "computed": "hidden",
+            "clipsBody": true,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 0
+          },
+          {
+            "target": "BODY",
+            "value": "auto",
+            "computed": "auto",
+            "clipsBody": true,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 0
+          },
+          {
+            "target": "BODY",
+            "value": "hidden",
+            "computed": "hidden",
+            "clipsBody": true,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 0
+          }
+        ]
+      }
+    },
+    {
+      "after": {
+        "textarea": {
+          "iterations": 101,
+          "milliseconds": 116.3999999994412,
+          "bodyAppends": 1,
+          "caret": {
+            "left": 114,
+            "top": 164,
+            "bottom": 188
+          }
+        },
+        "contenteditable": {
+          "paragraphs": 2000,
+          "operations": 25,
+          "milliseconds": 188.2999999979511,
+          "fullLinearizations": 25
+        },
+        "shadowDiscovery": {
+          "checks": 25,
+          "milliseconds": 25.200000000186265,
+          "wildcardVisits": 10005
+        },
+        "cm5Idle": {
+          "simulatedSeconds": 15,
+          "milliseconds": 0.10000000055879354,
+          "documentQueries": 0,
+          "intervals": 0
+        },
+        "messages": {
+          "count": 80,
+          "totalMilliseconds": 347.80000000074506,
+          "maxTimerTaskMilliseconds": 21,
+          "firstBatchCopies": 1,
+          "visibleInFirstBatch": true
+        },
+        "clipping": [
+          {
+            "target": "HTML",
+            "value": "auto",
+            "computed": "auto",
+            "clipsBody": true,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 0
+          },
+          {
+            "target": "HTML",
+            "value": "hidden",
+            "computed": "hidden",
+            "clipsBody": true,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 0
+          },
+          {
+            "target": "BODY",
+            "value": "auto",
+            "computed": "auto",
+            "clipsBody": true,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 0
+          },
+          {
+            "target": "BODY",
+            "value": "hidden",
+            "computed": "hidden",
+            "clipsBody": true,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 0
+          }
+        ]
+      },
+      "before": {
+        "textarea": {
+          "iterations": 101,
+          "milliseconds": 114,
+          "bodyAppends": 101,
+          "caret": {
+            "left": 114,
+            "top": 164,
+            "bottom": 188
+          }
+        },
+        "contenteditable": {
+          "paragraphs": 2000,
+          "operations": 25,
+          "milliseconds": 857.7999999998137,
+          "fullLinearizations": 125
+        },
+        "shadowDiscovery": {
+          "checks": 25,
+          "milliseconds": 77.1000000005588,
+          "wildcardVisits": 250125
+        },
+        "cm5Idle": {
+          "simulatedSeconds": 15,
+          "milliseconds": 0.10000000055879354,
+          "documentQueries": 10,
+          "intervals": 1
+        },
+        "messages": {
+          "count": 80,
+          "totalMilliseconds": 270.90000000037253,
+          "maxTimerTaskMilliseconds": 94,
+          "firstBatchCopies": 80,
+          "visibleInFirstBatch": true
+        },
+        "clipping": [
+          {
+            "target": "HTML",
+            "value": "auto",
+            "computed": "auto",
+            "clipsBody": false,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 1
+          },
+          {
+            "target": "HTML",
+            "value": "hidden",
+            "computed": "hidden",
+            "clipsBody": false,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 1
+          },
+          {
+            "target": "BODY",
+            "value": "auto",
+            "computed": "auto",
+            "clipsBody": false,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 1
+          },
+          {
+            "target": "BODY",
+            "value": "hidden",
+            "computed": "hidden",
+            "clipsBody": false,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 1
+          }
+        ]
+      }
+    },
+    {
+      "before": {
+        "textarea": {
+          "iterations": 101,
+          "milliseconds": 114.40000000037253,
+          "bodyAppends": 101,
+          "caret": {
+            "left": 114,
+            "top": 164,
+            "bottom": 188
+          }
+        },
+        "contenteditable": {
+          "paragraphs": 2000,
+          "operations": 25,
+          "milliseconds": 999.3000000007451,
+          "fullLinearizations": 125
+        },
+        "shadowDiscovery": {
+          "checks": 25,
+          "milliseconds": 74.79999999981374,
+          "wildcardVisits": 250125
+        },
+        "cm5Idle": {
+          "simulatedSeconds": 15,
+          "milliseconds": 0.09999999962747097,
+          "documentQueries": 10,
+          "intervals": 1
+        },
+        "messages": {
+          "count": 80,
+          "totalMilliseconds": 365.20000000018626,
+          "maxTimerTaskMilliseconds": 170.30000000074506,
+          "firstBatchCopies": 80,
+          "visibleInFirstBatch": true
+        },
+        "clipping": [
+          {
+            "target": "HTML",
+            "value": "auto",
+            "computed": "auto",
+            "clipsBody": false,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 1
+          },
+          {
+            "target": "HTML",
+            "value": "hidden",
+            "computed": "hidden",
+            "clipsBody": false,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 1
+          },
+          {
+            "target": "BODY",
+            "value": "auto",
+            "computed": "auto",
+            "clipsBody": false,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 1
+          },
+          {
+            "target": "BODY",
+            "value": "hidden",
+            "computed": "hidden",
+            "clipsBody": false,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 1
+          }
+        ]
+      },
+      "after": {
+        "textarea": {
+          "iterations": 101,
+          "milliseconds": 132.29999999981374,
+          "bodyAppends": 1,
+          "caret": {
+            "left": 114,
+            "top": 164,
+            "bottom": 188
+          }
+        },
+        "contenteditable": {
+          "paragraphs": 2000,
+          "operations": 25,
+          "milliseconds": 226.90000000223517,
+          "fullLinearizations": 25
+        },
+        "shadowDiscovery": {
+          "checks": 25,
+          "milliseconds": 25.09999999962747,
+          "wildcardVisits": 10005
+        },
+        "cm5Idle": {
+          "simulatedSeconds": 15,
+          "milliseconds": 0.10000000055879354,
+          "documentQueries": 0,
+          "intervals": 0
+        },
+        "messages": {
+          "count": 80,
+          "totalMilliseconds": 343.90000000037253,
+          "maxTimerTaskMilliseconds": 25.5,
+          "firstBatchCopies": 1,
+          "visibleInFirstBatch": true
+        },
+        "clipping": [
+          {
+            "target": "HTML",
+            "value": "auto",
+            "computed": "auto",
+            "clipsBody": true,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 0
+          },
+          {
+            "target": "HTML",
+            "value": "hidden",
+            "computed": "hidden",
+            "clipsBody": true,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 0
+          },
+          {
+            "target": "BODY",
+            "value": "auto",
+            "computed": "auto",
+            "clipsBody": true,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 0
+          },
+          {
+            "target": "BODY",
+            "value": "hidden",
+            "computed": "hidden",
+            "clipsBody": true,
+            "bodyHeight": 30,
+            "drawnOutsideBody": 0
+          }
+        ]
+      }
+    }
+  ],
+  "composer": {
+    "before": {
+      "beforeReenable": 0,
+      "afterReenable": 0
+    },
+    "after": {
+      "beforeReenable": 0,
+      "afterReenable": 1
+    }
+  }
+}
