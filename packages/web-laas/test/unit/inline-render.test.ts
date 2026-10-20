@@ -195,6 +195,21 @@ describe("text field mirror", () => {
 });
 
 describe("clippersOf and <body>", () => {
+  it.each(["auto", "hidden"])("honors implicit %s containment on html or body", (value) => {
+    const ta = document.createElement("textarea");
+    document.body.append(ta);
+    document.body.style.overflow = "hidden";
+    for (const root of [document.documentElement, document.body]) {
+      root.style.contentVisibility = value;
+      expect(clippersOf(ta)).toContain(document.body);
+      root.style.contentVisibility = "visible";
+      expect(clippersOf(ta)).not.toContain(document.body);
+      root.style.contentVisibility = "";
+    }
+    document.body.style.overflow = "";
+    ta.remove();
+  });
+
   it("skips <body> when its overflow goes to the viewport", () => {
     const ta = document.createElement("textarea");
     document.body.append(ta);
