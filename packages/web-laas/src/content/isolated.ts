@@ -91,7 +91,9 @@ function start() {
     // (in frames too: ChatSprig shows Gemini in a frame on other pages)
     if (!composerRequested && forThisSite.enabled && forThisSite.prefs.composer && forThisSite.prefs.composerSites.length) {
       composerRequested = true;
-      void chrome.runtime.sendMessage({ type: "load-composer" } satisfies BackgroundMessage).catch(() => (composerRequested = false));
+      void chrome.runtime.sendMessage({ type: "load-composer" } satisfies BackgroundMessage)
+        .then((loading: unknown) => { if (loading === false) composerRequested = false; })
+        .catch(() => (composerRequested = false));
     }
   }
   // A main-world script from a build before the versioned hand-over can't be
