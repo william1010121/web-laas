@@ -1,4 +1,4 @@
-<h1 align="center">∑ web-laas</h1>
+<h1 align="center">∑ LaTeX Anywhere</h1>
 
 <p align="center"><b>Emacs-grade LaTeX snippets for every editor on the web.</b><br>
 Type <code>;a</code> → <code>\alpha</code>, <code>x/</code> → <code>\frac{x}{}</code>, <code>`a</code> → <code>\alpha</code>, <code>ab'.</code> → <code>a\dot{b}</code> — on Overleaf, ChatGPT, Claude, Notion, HackMD and Jupyter.</p>
@@ -20,14 +20,14 @@ Type <code>;a</code> → <code>\alpha</code>, <code>x/</code> → <code>\frac{x}
 </p>
 
 <p align="center">
-  <a href="docs/demo.mp4"><img src="docs/demo.gif" width="800" alt="web-laas demo: typing $, ;a, sr, `b, x1/, sq⇥, sum, x'. and _ in an Overleaf-style editor — the keys pressed are shown underneath, the formula renders live"></a>
+  <a href="docs/demo.mp4"><img src="docs/demo.gif" width="800" alt="LaTeX Anywhere demo: typing $, ;a, sr, `b, x1/, sq⇥, sum, x'. and _ in an Overleaf-style editor — the keys pressed are shown underneath, the formula renders live"></a>
   <br><sub>Every editor state in this video comes from the real engine. <a href="docs/demo.mp4">1080p MP4</a> · <a href="demo">video source (HyperFrames)</a></sub>
 </p>
 
 ---
 
 If you write math in Emacs with [laas](https://github.com/tecosaur/LaTeX-auto-activating-snippets) and
-[cdlatex](https://github.com/cdominik/cdlatex), every web editor feels slow. **web-laas** brings the same snippets — ported
+[cdlatex](https://github.com/cdominik/cdlatex), every web editor feels slow. **LaTeX Anywhere** brings the same snippets — ported
 one-to-one from the Emacs packages, not approximated — and the same <kbd>Tab</kbd> behaviour (yasnippet fields +
 `cdlatex-tab`) to the browser.
 

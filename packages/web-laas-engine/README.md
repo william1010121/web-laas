@@ -21,7 +21,7 @@ It works on the editors the web actually uses:
 | `<textarea>` / `<input>` | GitHub, StackExchange, any form |
 | anything else | plug in your own adapter |
 
-This is the engine behind the [web-laas browser extension](https://github.com/william1010121/web-laas).
+This is the LaTeX Anywhere engine, the one behind the [LaTeX Anywhere browser extension](https://github.com/william1010121/web-laas).
 It has no dependencies and no browser-extension APIs.
 
 ## Install

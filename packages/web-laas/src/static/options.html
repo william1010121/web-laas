@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>web-laas settings</title>
+<title>LaTeX Anywhere settings</title>
 <link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="options.css">
 </head>
@@ -13,8 +13,8 @@
     <div class="brand">
       <span class="logo">∑</span>
       <div>
-        <div class="brand-name">web-laas</div>
-        <div class="brand-sub">LaTeX Auto Snippets</div>
+        <div class="brand-name">LaTeX Anywhere</div>
+        <div class="brand-sub">Auto-expanding LaTeX snippets</div>
       </div>
     </div>
     <a class="nav" href="#general"><span class="ico">◐</span>General</a>
@@ -129,7 +129,7 @@
       <h2 class="label">Experimental</h2>
       <div class="card">
         <label class="row">
-          <div class="text"><div class="title">Replace the message box on chat sites</div><div class="desc">Type in web-laas's own editor instead of the site's box: formulas are typeset right in the text, and shrink to their rendered width. The site's box stays underneath, kept in step, so sending, drafts and attachments work as before. Click <b>TeX</b> in its corner to go back to the site's box on that page.</div></div>
+          <div class="text"><div class="title">Replace the message box on chat sites</div><div class="desc">Type in LaTeX Anywhere's own editor instead of the site's box: formulas are typeset right in the text, and shrink to their rendered width. The site's box stays underneath, kept in step, so sending, drafts and attachments work as before. Click <b>TeX</b> in its corner to go back to the site's box on that page.</div></div>
           <span class="switch"><input type="checkbox" data-pref="composer"><span></span></span>
         </label>
         <label class="row">
@@ -217,7 +217,7 @@
       <div class="card">
         <div class="row"><div class="text"><div class="title">Tab</div><div class="desc">In order: ① expand a Tab snippet ② inside a field, before its end → cdlatex movement (up to the field's end) ③ at a field's end → next field / leave the snippet ④ outside a snippet, in math → cdlatex movement</div></div><kbd>Tab</kbd></div>
         <div class="row"><div class="text"><div class="title">Shift+Tab</div><div class="desc">Tab in reverse: back through Tab's stops and the inside end of each group (<code>\frac{x}{y}|</code> → <code>\frac{x}{y|}</code> → <code>\frac{x|}{y}</code>); at a field's start → previous field; never out of the first field. Right after leaving <code>$x$|</code> it goes back in</div></div><kbd>Shift</kbd><kbd>Tab</kbd></div>
-        <div class="row"><div class="text"><div class="title">In math</div><div class="desc">Tab and Shift+Tab are always handled by web-laas, never moving focus to the page's buttons; in text right next to a formula they move into it</div></div><kbd>Tab</kbd></div>
+        <div class="row"><div class="text"><div class="title">In math</div><div class="desc">Tab and Shift+Tab are always handled by LaTeX Anywhere, never moving focus to the page's buttons; in text right next to a formula they move into it</div></div><kbd>Tab</kbd></div>
         <div class="row"><div class="text"><div class="title">Undo an expansion</div><div class="desc">Right after it</div></div><kbd>Backspace</kbd></div>
       </div>
     </section>
@@ -244,8 +244,8 @@
       <div class="card about">
         <span class="logo big">∑</span>
         <div>
-          <div class="title">web-laas <span id="version"></span></div>
-          <p>Emacs <a href="https://github.com/tecosaur/LaTeX-auto-activating-snippets" target="_blank" rel="noopener">laas</a>-style auto-expanding LaTeX snippets on the web. The engine is <code>web-laas-engine</code>.</p>
+          <div class="title">LaTeX Anywhere <span id="version"></span></div>
+          <p>Emacs <a href="https://github.com/tecosaur/LaTeX-auto-activating-snippets" target="_blank" rel="noopener">laas</a>-style auto-expanding LaTeX snippets on the web. The LaTeX Anywhere engine is the <code>web-laas-engine</code> npm package.</p>
           <p class="desc">Works in Overleaf and JupyterLab (CodeMirror 6), HackMD (CodeMirror 5), ChatGPT and Claude (ProseMirror), Notion (contenteditable), and ordinary text fields.</p>
         </div>
       </div>

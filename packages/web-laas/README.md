@@ -1,6 +1,6 @@
-# web-laas — browser extension
+# LaTeX Anywhere — browser extension
 
-The Chromium extension (Chrome, Arc, Edge, Brave) built on [`web-laas-engine`](../web-laas-engine).
+The Chromium extension (Chrome, Arc, Edge, Brave) built on the LaTeX Anywhere engine, [`web-laas-engine`](../web-laas-engine).
 See the [project README](../../README.md) for what it does; this file covers the extension itself.
 
 ## Build & load
