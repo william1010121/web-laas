@@ -1,4 +1,4 @@
-// Small in-page notification ("web-laas paused") shown when a shortcut is used.
+// Small in-page notification ("LaTeX Anywhere paused") shown when a shortcut is used.
 import type { Tone } from "../shared/storage";
 
 const CSS = `

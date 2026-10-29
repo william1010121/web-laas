@@ -1,6 +1,6 @@
 # Showcase site
 
-The page at <https://william1010121.github.io/web-laas/>: what web-laas does, with live demos.
+The page at <https://william1010121.github.io/web-laas/>: what LaTeX Anywhere does, with live demos.
 
 - `index.html`, `site.css`: the page.
 - `src/site.ts`: replays the recorded scenes, and runs the real engine, live preview, in-place rendering and cheat sheet from `packages/`.

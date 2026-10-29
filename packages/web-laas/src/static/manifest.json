@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "web-laas · LaTeX Auto Snippets",
+  "name": "LaTeX Anywhere",
   "version": "0.7.2",
   "description": "Emacs laas and cdlatex LaTeX snippets for any text field on the web, with live previews and formulas rendered in place.",
   "permissions": [
@@ -13,7 +13,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "web-laas",
+    "default_title": "LaTeX Anywhere",
     "default_icon": {
       "16": "icons/on-16.png",
       "32": "icons/on-32.png"

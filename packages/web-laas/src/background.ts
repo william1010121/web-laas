@@ -48,7 +48,7 @@ async function updateIcon() {
   await chrome.action.setIcon({ path: { 16: `icons/${v}-16.png`, 32: `icons/${v}-32.png` } });
   await chrome.action.setBadgeText({ text: enabled ? "" : "OFF" });
   await chrome.action.setBadgeBackgroundColor({ color: "#8e8e93" });
-  await chrome.action.setTitle({ title: enabled ? "web-laas: on" : "web-laas: paused" });
+  await chrome.action.setTitle({ title: enabled ? "LaTeX Anywhere: on" : "LaTeX Anywhere: paused" });
 }
 
 // ── content scripts ─────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ async function notify(tabId: number | undefined, text: string, tone: Tone, hint?
   chrome.notifications.create({
     type: "basic",
     iconUrl: chrome.runtime.getURL(`icons/${tone === "off" ? "off" : "on"}-128.png`),
-    title: "web-laas",
+    title: "LaTeX Anywhere",
     message: hint ? `${text}\n${hint}` : text,
     priority: 0,
   });

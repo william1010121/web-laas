@@ -1,4 +1,4 @@
-# web-laas
+# LaTeX Anywhere
 
 Emacs laas / cdlatex LaTeX snippets for web editors.
 
@@ -13,7 +13,7 @@ Checks: `npm run build && npm test && npm run typecheck`, and `npm run site` for
 
 ## Review guidelines
 
-Only comment on problems that matter to people using web-laas or the engine. A clean review with no comments is a good outcome. Don't go looking for something to say.
+Only comment on problems that matter to people using LaTeX Anywhere or the engine. A clean review with no comments is a good outcome. Don't go looking for something to say.
 
 **Do flag:**
 

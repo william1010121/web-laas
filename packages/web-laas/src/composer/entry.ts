@@ -68,7 +68,7 @@ class Composer {
     back.type = "button";
     back.className = "wl-back";
     back.textContent = "TeX";
-    back.title = "web-laas editor on: click to use the site's own box (click again to switch back)";
+    back.title = "LaTeX Anywhere editor on: click to use the site's own box (click again to switch back)";
     back.addEventListener("click", () => setOff(true));
     this.host.append(back);
     this.view = createEditor({
@@ -310,7 +310,7 @@ function showOffButton(input: HTMLElement | null) {
   b.type = "button";
   b.className = "wl-back";
   b.textContent = "TeX";
-  b.title = "web-laas editor off: click to type with formulas rendered in place";
+  b.title = "LaTeX Anywhere editor off: click to type with formulas rendered in place";
   b.addEventListener("click", () => setOff(false));
   offButton.append(b);
   input.before(offButton);
